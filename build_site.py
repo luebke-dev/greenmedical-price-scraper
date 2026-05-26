@@ -346,7 +346,7 @@ HTML_TEMPLATE = """<!doctype html>
 
       <section class="metrics" aria-label="Kennzahlen">
         <div class="metric">
-          <div class="metric-label">Eintraege</div>
+          <div class="metric-label">Einträge</div>
           <div class="metric-value" id="totalCount">__TOTAL__</div>
         </div>
         <div class="metric">
@@ -358,7 +358,7 @@ HTML_TEMPLATE = """<!doctype html>
           <div class="metric-value" id="strainCount">__STRAINS__</div>
         </div>
         <div class="metric">
-          <div class="metric-label">Guendigster Preis</div>
+          <div class="metric-label">Günstigster Preis</div>
           <div class="metric-value" id="lowestPrice">__LOWEST_PRICE__</div>
         </div>
       </section>
@@ -368,7 +368,7 @@ HTML_TEMPLATE = """<!doctype html>
       <input id="searchInput" class="search" type="search" placeholder="Sorte, Apotheke, Stadt, THC, CBD" autocomplete="off">
       <div class="links">
         <button id="clearSearch" class="clear-button" type="button">Leeren</button>
-        <div class="result-count" id="resultCount">0 Eintraege</div>
+        <div class="result-count" id="resultCount">0 Einträge</div>
       </div>
     </section>
 
@@ -384,7 +384,7 @@ HTML_TEMPLATE = """<!doctype html>
     </section>
 
     <footer>
-      Quelle: greenmedical.health. Preise und Verfuegbarkeit koennen sich kurzfristig aendern.
+      Quelle: greenmedical.health. Preise und Verfügbarkeit können sich kurzfristig ändern.
     </footer>
   </main>
 
@@ -392,7 +392,7 @@ HTML_TEMPLATE = """<!doctype html>
     const columns = [
       { key: "name", label: "Sorte", type: "text", width: "16%" },
       { key: "bezeichnung", label: "Bezeichnung", type: "text", width: "18%" },
-      { key: "price", label: "EUR/g", type: "number", className: "price", width: "9%" },
+      { key: "price", label: "€/g", type: "number", className: "price", width: "9%" },
       { key: "thc", label: "THC", type: "number", width: "8%" },
       { key: "cbd", label: "CBD", type: "number", width: "8%" },
       { key: "genetik", label: "Genetik", type: "text", width: "13%" },
@@ -436,7 +436,7 @@ HTML_TEMPLATE = """<!doctype html>
 
     function formatPrice(value) {
       if (value === null || Number.isNaN(value)) return "";
-      return `${priceFormatter.format(value)} EUR/g`;
+      return `${priceFormatter.format(value)} €/g`;
     }
 
     function updateHeader() {
@@ -520,7 +520,7 @@ HTML_TEMPLATE = """<!doctype html>
         const cell = document.createElement("td");
         cell.className = "empty";
         cell.colSpan = columns.length;
-        cell.textContent = "Keine Eintraege gefunden.";
+        cell.textContent = "Keine Einträge gefunden.";
         row.appendChild(cell);
         elements.body.appendChild(row);
         return;
@@ -559,7 +559,7 @@ HTML_TEMPLATE = """<!doctype html>
 
     function updateResultCount() {
       const count = state.filtered.length;
-      elements.resultCount.textContent = `${count.toLocaleString("de-DE")} Eintraege`;
+      elements.resultCount.textContent = `${count.toLocaleString("de-DE")} Einträge`;
     }
 
     function updateMetrics(metadata) {
@@ -734,7 +734,7 @@ def build_site(input_file: Path, output_dir: Path) -> None:
     generated_at = datetime.fromisoformat(metadata["generated_at"])
     generated_label = generated_at.strftime("%Y-%m-%d %H:%M UTC")
     lowest_price = metadata["lowest_price"]
-    lowest_price_label = "" if lowest_price is None else f"{lowest_price:.2f} EUR/g"
+    lowest_price_label = "" if lowest_price is None else f"{lowest_price:.2f} €/g"
 
     html = (
         HTML_TEMPLATE.replace("__GENERATED_LABEL__", generated_label)

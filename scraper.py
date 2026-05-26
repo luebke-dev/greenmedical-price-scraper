@@ -85,7 +85,7 @@ def get_pharmacy_uuid(session: requests.Session, pharmacy_url: str) -> str | Non
     resp.raise_for_status()
     soup = BeautifulSoup(resp.text, "lxml")
 
-    # Look for "Livebestand Uebersicht" link which contains pharmacyAvailability=<UUID>
+    # Look for "Livebestand Übersicht" link which contains pharmacyAvailability=<UUID>
     for link in soup.find_all("a", href=True):
         href = link["href"]
         match = re.search(r"pharmacyAvailability=([a-f0-9-]+)", href)
