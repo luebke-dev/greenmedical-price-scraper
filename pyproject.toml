@@ -1,0 +1,22 @@
+[project]
+name = "greenmedical-price-scraper"
+version = "0.1.0"
+description = "Scrape GreenMedical cannabis flower prices and publish a searchable GitHub Pages table."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "beautifulsoup4>=4.14.3",
+    "lxml>=6.0.2",
+    "requests>=2.33.1",
+]
+
+[project.scripts]
+greenmedical-scrape = "scraper:main"
+greenmedical-build-site = "build_site:main"
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = ["build_site", "main", "scraper"]

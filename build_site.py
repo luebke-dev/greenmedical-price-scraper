@@ -1,0 +1,771 @@
+"""
+Build a static, searchable GreenMedical price table for GitHub Pages.
+"""
+
+from __future__ import annotations
+
+import argparse
+import csv
+import json
+import re
+import shutil
+from datetime import datetime, timezone
+from decimal import Decimal
+from pathlib import Path
+
+
+DEFAULT_INPUT = "greenmedical_flowers.csv"
+DEFAULT_OUTPUT_DIR = "dist"
+DATA_DIR_NAME = "data"
+CSV_OUTPUT_NAME = "greenmedical_flowers.csv"
+JSON_OUTPUT_NAME = "flowers.json"
+METADATA_OUTPUT_NAME = "metadata.json"
+
+
+HTML_TEMPLATE = """<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GreenMedical Livebestand</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f4ef;
+      --surface: #ffffff;
+      --surface-soft: #fdfaf3;
+      --text: #1f2423;
+      --muted: #68716e;
+      --line: #d9ded8;
+      --accent: #24745a;
+      --accent-strong: #14513d;
+      --amber: #a66f18;
+      --shadow: 0 12px 28px rgba(30, 38, 34, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 16px;
+      line-height: 1.5;
+    }
+
+    a {
+      color: var(--accent-strong);
+      text-decoration-thickness: 1px;
+      text-underline-offset: 3px;
+    }
+
+    .page {
+      width: min(1440px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 28px 0 40px;
+    }
+
+    header {
+      display: grid;
+      gap: 18px;
+      margin-bottom: 20px;
+    }
+
+    .title-row {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 18px;
+      flex-wrap: wrap;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(1.75rem, 2.8vw, 3rem);
+      line-height: 1.05;
+      font-weight: 760;
+      letter-spacing: 0;
+    }
+
+    .updated {
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .links {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .links a,
+    .clear-button {
+      display: inline-flex;
+      min-height: 38px;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--text);
+      padding: 0 12px;
+      font: inherit;
+      font-size: 0.92rem;
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    .links a:hover,
+    .clear-button:hover {
+      border-color: var(--accent);
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .metric {
+      min-height: 86px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      padding: 14px;
+      box-shadow: var(--shadow);
+    }
+
+    .metric-label {
+      color: var(--muted);
+      font-size: 0.76rem;
+      font-weight: 700;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+
+    .metric-value {
+      margin-top: 6px;
+      font-size: 1.45rem;
+      font-weight: 760;
+      line-height: 1.1;
+    }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      margin: 20px 0 12px;
+    }
+
+    .search {
+      width: 100%;
+      min-height: 44px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--text);
+      padding: 0 14px;
+      font: inherit;
+      outline: none;
+    }
+
+    .search:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(36, 116, 90, 0.16);
+    }
+
+    .result-count {
+      color: var(--muted);
+      font-size: 0.94rem;
+      white-space: nowrap;
+    }
+
+    .table-wrap {
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    table {
+      width: 100%;
+      min-width: 1080px;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+
+    thead {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background: var(--surface-soft);
+    }
+
+    th,
+    td {
+      border-bottom: 1px solid var(--line);
+      padding: 10px 12px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 760;
+      text-transform: uppercase;
+      letter-spacing: 0;
+      white-space: nowrap;
+    }
+
+    th button {
+      display: inline-flex;
+      width: 100%;
+      min-height: 28px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      border: 0;
+      background: transparent;
+      color: inherit;
+      padding: 0;
+      font: inherit;
+      text-align: left;
+      text-transform: inherit;
+      cursor: pointer;
+    }
+
+    th button:hover {
+      color: var(--accent-strong);
+    }
+
+    .sort-indicator {
+      color: var(--accent);
+      font-size: 0.72rem;
+    }
+
+    tbody tr:hover {
+      background: #f9fbf7;
+    }
+
+    td {
+      color: #26302d;
+      font-size: 0.94rem;
+      overflow-wrap: anywhere;
+    }
+
+    .price {
+      color: var(--accent-strong);
+      font-weight: 760;
+      white-space: nowrap;
+    }
+
+    .status {
+      display: inline-flex;
+      min-height: 24px;
+      align-items: center;
+      border-radius: 999px;
+      background: #e9f3ee;
+      color: var(--accent-strong);
+      padding: 2px 8px;
+      font-size: 0.82rem;
+      font-weight: 700;
+    }
+
+    .status.new {
+      background: #fff1d6;
+      color: var(--amber);
+    }
+
+    .empty {
+      padding: 36px 14px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    footer {
+      margin-top: 14px;
+      color: var(--muted);
+      font-size: 0.86rem;
+    }
+
+    @media (max-width: 860px) {
+      .page {
+        width: min(100% - 20px, 1440px);
+        padding-top: 18px;
+      }
+
+      .metrics {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .toolbar {
+        grid-template-columns: 1fr;
+      }
+
+      .result-count {
+        white-space: normal;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .metrics {
+        grid-template-columns: 1fr;
+      }
+
+      .links {
+        width: 100%;
+      }
+
+      .links a,
+      .clear-button {
+        flex: 1 1 120px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header>
+      <div class="title-row">
+        <div>
+          <h1>GreenMedical Livebestand</h1>
+          <div class="updated">Stand: <span id="updatedAt">__GENERATED_LABEL__</span></div>
+        </div>
+        <nav class="links" aria-label="Downloads">
+          <a href="data/greenmedical_flowers.csv">CSV</a>
+          <a href="data/flowers.json">JSON</a>
+        </nav>
+      </div>
+
+      <section class="metrics" aria-label="Kennzahlen">
+        <div class="metric">
+          <div class="metric-label">Eintraege</div>
+          <div class="metric-value" id="totalCount">__TOTAL__</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Apotheken</div>
+          <div class="metric-value" id="pharmacyCount">__PHARMACIES__</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Sorten</div>
+          <div class="metric-value" id="strainCount">__STRAINS__</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Guendigster Preis</div>
+          <div class="metric-value" id="lowestPrice">__LOWEST_PRICE__</div>
+        </div>
+      </section>
+    </header>
+
+    <section class="toolbar" aria-label="Filter">
+      <input id="searchInput" class="search" type="search" placeholder="Sorte, Apotheke, Stadt, THC, CBD" autocomplete="off">
+      <div class="links">
+        <button id="clearSearch" class="clear-button" type="button">Leeren</button>
+        <div class="result-count" id="resultCount">0 Eintraege</div>
+      </div>
+    </section>
+
+    <section class="table-wrap" aria-label="Preistabelle">
+      <table>
+        <thead>
+          <tr id="tableHead"></tr>
+        </thead>
+        <tbody id="tableBody">
+          <tr><td class="empty">Daten werden geladen.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <footer>
+      Quelle: greenmedical.health. Preise und Verfuegbarkeit koennen sich kurzfristig aendern.
+    </footer>
+  </main>
+
+  <script>
+    const columns = [
+      { key: "name", label: "Sorte", type: "text", width: "16%" },
+      { key: "bezeichnung", label: "Bezeichnung", type: "text", width: "18%" },
+      { key: "price", label: "EUR/g", type: "number", className: "price", width: "9%" },
+      { key: "thc", label: "THC", type: "number", width: "8%" },
+      { key: "cbd", label: "CBD", type: "number", width: "8%" },
+      { key: "genetik", label: "Genetik", type: "text", width: "13%" },
+      { key: "apotheke", label: "Apotheke", type: "text", width: "15%" },
+      { key: "apotheke_stadt", label: "Stadt", type: "text", width: "8%" },
+      { key: "verfuegbarkeit", label: "Status", type: "text", width: "9%" }
+    ];
+
+    const state = {
+      rows: [],
+      filtered: [],
+      sortKey: "price",
+      sortDirection: "asc"
+    };
+
+    const elements = {
+      head: document.getElementById("tableHead"),
+      body: document.getElementById("tableBody"),
+      search: document.getElementById("searchInput"),
+      clear: document.getElementById("clearSearch"),
+      resultCount: document.getElementById("resultCount"),
+      updatedAt: document.getElementById("updatedAt"),
+      totalCount: document.getElementById("totalCount"),
+      pharmacyCount: document.getElementById("pharmacyCount"),
+      strainCount: document.getElementById("strainCount"),
+      lowestPrice: document.getElementById("lowestPrice")
+    };
+
+    const collator = new Intl.Collator("de", { numeric: true, sensitivity: "base" });
+    const priceFormatter = new Intl.NumberFormat("de-DE", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+
+    function getSortValue(row, key) {
+      if (key === "price") return row.sort.price;
+      if (key === "thc") return row.sort.thc;
+      if (key === "cbd") return row.sort.cbd;
+      return row[key] || "";
+    }
+
+    function formatPrice(value) {
+      if (value === null || Number.isNaN(value)) return "";
+      return `${priceFormatter.format(value)} EUR/g`;
+    }
+
+    function updateHeader() {
+      elements.head.replaceChildren();
+
+      for (const column of columns) {
+        const th = document.createElement("th");
+        th.style.width = column.width;
+        th.setAttribute(
+          "aria-sort",
+          state.sortKey === column.key
+            ? (state.sortDirection === "asc" ? "ascending" : "descending")
+            : "none"
+        );
+
+        const button = document.createElement("button");
+        button.type = "button";
+        button.dataset.key = column.key;
+
+        const label = document.createElement("span");
+        label.textContent = column.label;
+        button.appendChild(label);
+
+        const indicator = document.createElement("span");
+        indicator.className = "sort-indicator";
+        indicator.textContent = state.sortKey === column.key
+          ? (state.sortDirection === "asc" ? "^" : "v")
+          : "";
+        button.appendChild(indicator);
+
+        button.addEventListener("click", () => {
+          if (state.sortKey === column.key) {
+            state.sortDirection = state.sortDirection === "asc" ? "desc" : "asc";
+          } else {
+            state.sortKey = column.key;
+            state.sortDirection = column.type === "number" ? "asc" : "asc";
+          }
+          applyFilters();
+        });
+
+        th.appendChild(button);
+        elements.head.appendChild(th);
+      }
+    }
+
+    function sortRows(rows) {
+      const column = columns.find((item) => item.key === state.sortKey);
+      const direction = state.sortDirection === "asc" ? 1 : -1;
+
+      rows.sort((left, right) => {
+        const leftValue = getSortValue(left, state.sortKey);
+        const rightValue = getSortValue(right, state.sortKey);
+
+        if (column && column.type === "number") {
+          const leftNumber = leftValue === null ? Number.POSITIVE_INFINITY : leftValue;
+          const rightNumber = rightValue === null ? Number.POSITIVE_INFINITY : rightValue;
+          return (leftNumber - rightNumber) * direction;
+        }
+
+        return collator.compare(String(leftValue), String(rightValue)) * direction;
+      });
+    }
+
+    function applyFilters() {
+      const query = elements.search.value.trim().toLowerCase();
+      state.filtered = query
+        ? state.rows.filter((row) => row.search.includes(query))
+        : [...state.rows];
+
+      sortRows(state.filtered);
+      updateHeader();
+      renderRows();
+      updateResultCount();
+    }
+
+    function renderRows() {
+      elements.body.replaceChildren();
+
+      if (state.filtered.length === 0) {
+        const row = document.createElement("tr");
+        const cell = document.createElement("td");
+        cell.className = "empty";
+        cell.colSpan = columns.length;
+        cell.textContent = "Keine Eintraege gefunden.";
+        row.appendChild(cell);
+        elements.body.appendChild(row);
+        return;
+      }
+
+      const fragment = document.createDocumentFragment();
+
+      for (const item of state.filtered) {
+        const row = document.createElement("tr");
+
+        for (const column of columns) {
+          const cell = document.createElement("td");
+          if (column.className) cell.className = column.className;
+
+          if (column.key === "price") {
+            cell.textContent = item.preis_pro_gramm || formatPrice(item.preis_eur_pro_gramm);
+          } else if (column.key === "verfuegbarkeit") {
+            const status = document.createElement("span");
+            status.className = item.verfuegbarkeit.toLowerCase().includes("neu")
+              ? "status new"
+              : "status";
+            status.textContent = item.verfuegbarkeit;
+            cell.appendChild(status);
+          } else {
+            cell.textContent = item[column.key] || "";
+          }
+
+          row.appendChild(cell);
+        }
+
+        fragment.appendChild(row);
+      }
+
+      elements.body.appendChild(fragment);
+    }
+
+    function updateResultCount() {
+      const count = state.filtered.length;
+      elements.resultCount.textContent = `${count.toLocaleString("de-DE")} Eintraege`;
+    }
+
+    function updateMetrics(metadata) {
+      elements.totalCount.textContent = metadata.total.toLocaleString("de-DE");
+      elements.pharmacyCount.textContent = metadata.pharmacy_count.toLocaleString("de-DE");
+      elements.strainCount.textContent = metadata.strain_count.toLocaleString("de-DE");
+      elements.lowestPrice.textContent = formatPrice(metadata.lowest_price);
+
+      const generatedAt = new Date(metadata.generated_at);
+      if (!Number.isNaN(generatedAt.valueOf())) {
+        elements.updatedAt.textContent = generatedAt.toLocaleString("de-DE", {
+          dateStyle: "medium",
+          timeStyle: "short"
+        });
+      }
+    }
+
+    async function loadData() {
+      const [rowsResponse, metadataResponse] = await Promise.all([
+        fetch("data/flowers.json"),
+        fetch("data/metadata.json")
+      ]);
+
+      if (!rowsResponse.ok || !metadataResponse.ok) {
+        throw new Error("Daten konnten nicht geladen werden.");
+      }
+
+      state.rows = await rowsResponse.json();
+      const metadata = await metadataResponse.json();
+      updateMetrics(metadata);
+      applyFilters();
+    }
+
+    elements.search.addEventListener("input", applyFilters);
+    elements.clear.addEventListener("click", () => {
+      elements.search.value = "";
+      elements.search.focus();
+      applyFilters();
+    });
+
+    updateHeader();
+    loadData().catch((error) => {
+      elements.body.replaceChildren();
+      const row = document.createElement("tr");
+      const cell = document.createElement("td");
+      cell.className = "empty";
+      cell.colSpan = columns.length;
+      cell.textContent = error.message;
+      row.appendChild(cell);
+      elements.body.appendChild(row);
+    });
+  </script>
+</body>
+</html>
+"""
+
+
+def parse_decimal(value: str) -> float | None:
+    match = re.search(r"(\d+(?:[.,]\d+)?)", value.replace("\xa0", " "))
+    if not match:
+        return None
+    return float(Decimal(match.group(1).replace(",", ".")))
+
+
+def parse_percent(value: str) -> float | None:
+    stripped = value.strip()
+    if not stripped:
+        return None
+
+    match = re.search(r"(\d+(?:[.,]\d+)?)", stripped)
+    if not match:
+        return None
+
+    parsed = float(Decimal(match.group(1).replace(",", ".")))
+    if stripped.startswith("<"):
+        return max(0, parsed - 0.01)
+    return parsed
+
+
+def clean_text(value: str | None) -> str:
+    return " ".join((value or "").replace("\xa0", " ").split())
+
+
+def read_flowers(input_file: Path) -> list[dict]:
+    flowers = []
+
+    with input_file.open(newline="", encoding="utf-8") as csv_file:
+        for index, row in enumerate(csv.DictReader(csv_file), start=1):
+            item = {
+                "id": index,
+                "apotheke": clean_text(row.get("apotheke")),
+                "apotheke_plz": clean_text(row.get("apotheke_plz")),
+                "apotheke_stadt": clean_text(row.get("apotheke_stadt")),
+                "name": clean_text(row.get("name")),
+                "bezeichnung": clean_text(row.get("bezeichnung")),
+                "genetik": clean_text(row.get("genetik")),
+                "thc": clean_text(row.get("thc")),
+                "cbd": clean_text(row.get("cbd")),
+                "preis_pro_gramm": clean_text(row.get("preis_pro_gramm")),
+                "verfuegbarkeit": clean_text(row.get("verfuegbarkeit")),
+            }
+            item["preis_eur_pro_gramm"] = parse_decimal(item["preis_pro_gramm"])
+            item["sort"] = {
+                "price": item["preis_eur_pro_gramm"],
+                "thc": parse_percent(item["thc"]),
+                "cbd": parse_percent(item["cbd"]),
+            }
+            item["search"] = " ".join(
+                [
+                    item["apotheke"],
+                    item["apotheke_plz"],
+                    item["apotheke_stadt"],
+                    item["name"],
+                    item["bezeichnung"],
+                    item["genetik"],
+                    item["thc"],
+                    item["cbd"],
+                    item["preis_pro_gramm"],
+                    item["verfuegbarkeit"],
+                ]
+            ).lower()
+            flowers.append(item)
+
+    return flowers
+
+
+def build_metadata(flowers: list[dict]) -> dict:
+    prices = [
+        item["preis_eur_pro_gramm"]
+        for item in flowers
+        if item["preis_eur_pro_gramm"] is not None
+    ]
+    pharmacies = {item["apotheke"] for item in flowers if item["apotheke"]}
+    strains = {
+        (item["name"], item["bezeichnung"])
+        for item in flowers
+        if item["name"] or item["bezeichnung"]
+    }
+
+    return {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "source": "https://greenmedical.health/de/cannabis/flowers",
+        "total": len(flowers),
+        "pharmacy_count": len(pharmacies),
+        "strain_count": len(strains),
+        "lowest_price": min(prices) if prices else None,
+    }
+
+
+def write_json(path: Path, payload) -> None:
+    path.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+
+
+def build_site(input_file: Path, output_dir: Path) -> None:
+    if not input_file.exists():
+        raise FileNotFoundError(f"Input CSV not found: {input_file}")
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    data_dir = output_dir / DATA_DIR_NAME
+    data_dir.mkdir(parents=True, exist_ok=True)
+
+    flowers = read_flowers(input_file)
+    metadata = build_metadata(flowers)
+
+    shutil.copyfile(input_file, data_dir / CSV_OUTPUT_NAME)
+    write_json(data_dir / JSON_OUTPUT_NAME, flowers)
+    write_json(data_dir / METADATA_OUTPUT_NAME, metadata)
+
+    generated_at = datetime.fromisoformat(metadata["generated_at"])
+    generated_label = generated_at.strftime("%Y-%m-%d %H:%M UTC")
+    lowest_price = metadata["lowest_price"]
+    lowest_price_label = "" if lowest_price is None else f"{lowest_price:.2f} EUR/g"
+
+    html = (
+        HTML_TEMPLATE.replace("__GENERATED_LABEL__", generated_label)
+        .replace("__TOTAL__", str(metadata["total"]))
+        .replace("__PHARMACIES__", str(metadata["pharmacy_count"]))
+        .replace("__STRAINS__", str(metadata["strain_count"]))
+        .replace("__LOWEST_PRICE__", lowest_price_label)
+    )
+    (output_dir / "index.html").write_text(html, encoding="utf-8")
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Build the static GreenMedical table.")
+    parser.add_argument(
+        "--input",
+        default=DEFAULT_INPUT,
+        help=f"Input CSV path. Defaults to {DEFAULT_INPUT}.",
+    )
+    parser.add_argument(
+        "--output",
+        default=DEFAULT_OUTPUT_DIR,
+        help=f"Output directory. Defaults to {DEFAULT_OUTPUT_DIR}.",
+    )
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> None:
+    args = parse_args(argv)
+    build_site(Path(args.input), Path(args.output))
+    print(f"Static site written to {args.output}")
+
+
+if __name__ == "__main__":
+    main()
