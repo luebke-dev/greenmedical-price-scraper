@@ -3,7 +3,9 @@ name: Scrape and publish
 on:
   workflow_dispatch:
   schedule:
-    - cron: "17 4 * * *"
+    # GitHub schedules use UTC. These cover 10:00/22:00 in Europe/Berlin
+    # across CET and CEST; the gate job below keeps only the matching local hours.
+    - cron: "0 8,9,20,21 * * *"
   push:
     branches:
       - main
@@ -18,7 +20,31 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  gate:
+    runs-on: ubuntu-latest
+    outputs:
+      should_run: ${{ steps.schedule.outputs.should_run }}
+
+    steps:
+      - name: Check schedule
+        id: schedule
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" != "schedule" ]]; then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          local_hour="$(TZ=Europe/Berlin date +%H)"
+          if [[ "$local_hour" == "10" || "$local_hour" == "22" ]]; then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+          fi
+
   build:
+    needs: gate
+    if: needs.gate.outputs.should_run == 'true'
     runs-on: ubuntu-latest
 
     steps:
