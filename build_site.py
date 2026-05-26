@@ -390,15 +390,16 @@ HTML_TEMPLATE = """<!doctype html>
 
   <script>
     const columns = [
-      { key: "name", label: "Sorte", type: "text", width: "16%" },
-      { key: "bezeichnung", label: "Bezeichnung", type: "text", width: "18%" },
+      { key: "name", label: "Sorte", type: "text", width: "15%" },
+      { key: "bezeichnung", label: "Bezeichnung", type: "text", width: "17%" },
       { key: "price", label: "€/g", type: "number", className: "price", width: "9%" },
+      { key: "price_per_thc_gram", label: "€/g THC", type: "number", className: "price", width: "10%" },
       { key: "thc", label: "THC", type: "number", width: "8%" },
       { key: "cbd", label: "CBD", type: "number", width: "8%" },
-      { key: "genetik", label: "Genetik", type: "text", width: "13%" },
-      { key: "apotheke", label: "Apotheke", type: "text", width: "15%" },
+      { key: "genetik", label: "Genetik", type: "text", width: "12%" },
+      { key: "apotheke", label: "Apotheke", type: "text", width: "14%" },
       { key: "apotheke_stadt", label: "Stadt", type: "text", width: "8%" },
-      { key: "verfuegbarkeit", label: "Status", type: "text", width: "9%" }
+      { key: "verfuegbarkeit", label: "Status", type: "text", width: "8%" }
     ];
 
     const state = {
@@ -429,6 +430,7 @@ HTML_TEMPLATE = """<!doctype html>
 
     function getSortValue(row, key) {
       if (key === "price") return row.sort.price;
+      if (key === "price_per_thc_gram") return row.sort.price_per_thc_gram;
       if (key === "thc") return row.sort.thc;
       if (key === "cbd") return row.sort.cbd;
       return row[key] || "";
@@ -437,6 +439,11 @@ HTML_TEMPLATE = """<!doctype html>
     function formatPrice(value) {
       if (value === null || Number.isNaN(value)) return "";
       return `${priceFormatter.format(value)} €/g`;
+    }
+
+    function formatThcPrice(value) {
+      if (value === null || Number.isNaN(value)) return "";
+      return `${priceFormatter.format(value)} €/g THC`;
     }
 
     function updateHeader() {
@@ -537,6 +544,8 @@ HTML_TEMPLATE = """<!doctype html>
 
           if (column.key === "price") {
             cell.textContent = item.preis_pro_gramm || formatPrice(item.preis_eur_pro_gramm);
+          } else if (column.key === "price_per_thc_gram") {
+            cell.textContent = formatThcPrice(item.preis_eur_pro_gramm_thc);
           } else if (column.key === "verfuegbarkeit") {
             const status = document.createElement("span");
             status.className = item.verfuegbarkeit.toLowerCase().includes("neu")
@@ -639,6 +648,12 @@ def parse_percent(value: str) -> float | None:
     return parsed
 
 
+def calculate_thc_price(price: float | None, thc_percent: float | None) -> float | None:
+    if price is None or thc_percent is None or thc_percent <= 0:
+        return None
+    return round(price / (thc_percent / 100), 2)
+
+
 def clean_text(value: str | None) -> str:
     return " ".join((value or "").replace("\xa0", " ").split())
 
@@ -662,11 +677,16 @@ def read_flowers(input_file: Path) -> list[dict]:
                 "verfuegbarkeit": clean_text(row.get("verfuegbarkeit")),
             }
             item["preis_eur_pro_gramm"] = parse_decimal(item["preis_pro_gramm"])
+            thc_percent = parse_percent(item["thc"])
+            thc_price = calculate_thc_price(item["preis_eur_pro_gramm"], thc_percent)
+            item["preis_eur_pro_gramm_thc"] = thc_price
             item["sort"] = {
                 "price": item["preis_eur_pro_gramm"],
-                "thc": parse_percent(item["thc"]),
+                "price_per_thc_gram": thc_price,
+                "thc": thc_percent,
                 "cbd": parse_percent(item["cbd"]),
             }
+            thc_price_search = "" if thc_price is None else f"{thc_price:.2f} €/g thc"
             item["search"] = " ".join(
                 [
                     item["apotheke"],
@@ -678,6 +698,7 @@ def read_flowers(input_file: Path) -> list[dict]:
                     item["thc"],
                     item["cbd"],
                     item["preis_pro_gramm"],
+                    thc_price_search,
                     item["verfuegbarkeit"],
                 ]
             ).lower()
