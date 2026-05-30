@@ -159,3 +159,44 @@ class TestGroupByStrain:
         assert metadata["strain_count"] == 1
         assert metadata["pharmacy_count"] == 2
         assert metadata["lowest_price"] == 8.0
+
+
+class TestHighlights:
+    def _metadata(self, tmp_path):
+        path = _write_csv(
+            tmp_path,
+            """
+            Apo A,10115,Berlin,Sorte X,EMK,Indica,20%,2%,"10,00 €",verfügbar
+            Apo B,20095,Hamburg,Sorte Y,XYZ,Sativa,30%,1%,"9,00 €",neu
+            Apo C,50667,Köln,Sorte Z,ABC,Hybrid,15%,8%,"6,00 €",verfügbar
+            """,
+        )
+        offers = build_site.read_offers(path)
+        return build_site.build_metadata(offers, build_site.group_by_strain(offers))
+
+    def test_cheapest_per_gram_carries_name_and_pharmacy(self, tmp_path):
+        entry = self._metadata(tmp_path)["cheapest_gram"]
+        assert (entry["price"], entry["name"], entry["apotheke"]) == (6.0, "Sorte Z", "Apo C")
+
+    def test_cheapest_per_gram_thc(self, tmp_path):
+        # 9.00 / 0.30 = 30.00 €/g THC is cheapest
+        entry = self._metadata(tmp_path)["cheapest_thc_gram"]
+        assert (entry["price"], entry["name"], entry["apotheke"]) == (30.0, "Sorte Y", "Apo B")
+
+    def test_cheapest_per_gram_cbd(self, tmp_path):
+        # 6.00 / 0.08 = 75.00 €/g CBD is cheapest
+        entry = self._metadata(tmp_path)["cheapest_cbd_gram"]
+        assert (entry["price"], entry["name"], entry["apotheke"]) == (75.0, "Sorte Z", "Apo C")
+
+    def test_highest_thc(self, tmp_path):
+        entry = self._metadata(tmp_path)["highest_thc"]
+        assert (entry["name"], entry["apotheke"], entry["thc"]) == ("Sorte Y", "Apo B", "30%")
+
+    def test_highest_cbd(self, tmp_path):
+        entry = self._metadata(tmp_path)["highest_cbd"]
+        assert (entry["name"], entry["apotheke"], entry["cbd"]) == ("Sorte Z", "Apo C", "8%")
+
+    def test_highest_thc_and_cbd_combined(self, tmp_path):
+        # thc+cbd: X=22, Y=31, Z=23 -> Sorte Y wins
+        entry = self._metadata(tmp_path)["highest_thc_cbd"]
+        assert (entry["name"], entry["thc"], entry["cbd"]) == ("Sorte Y", "30%", "1%")

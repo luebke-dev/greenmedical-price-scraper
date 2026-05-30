@@ -80,10 +80,12 @@ def read_offers(input_file: Path) -> list[dict]:
             }
             price = parse_decimal(offer["preis_pro_gramm"])
             thc_percent = parse_percent(offer["thc"])
+            cbd_percent = parse_percent(offer["cbd"])
             offer["preis_eur_pro_gramm"] = price
             offer["preis_eur_pro_gramm_thc"] = calculate_thc_price(price, thc_percent)
+            offer["preis_eur_pro_gramm_cbd"] = calculate_thc_price(price, cbd_percent)
             offer["thc_value"] = thc_percent
-            offer["cbd_value"] = parse_percent(offer["cbd"])
+            offer["cbd_value"] = cbd_percent
             offers.append(offer)
 
     return offers
@@ -193,13 +195,48 @@ def group_by_strain(offers: list[dict]) -> list[dict]:
     return strains
 
 
+def _highlight(offer: dict, price: float | None) -> dict:
+    return {
+        "price": price,
+        "name": offer["name"],
+        "apotheke": offer["apotheke"],
+        "thc": offer["thc"],
+        "cbd": offer["cbd"],
+    }
+
+
+def _cheapest(offers: list[dict], key: str) -> dict | None:
+    """Pick the offer with the lowest value for `key`, with its strain and pharmacy."""
+    candidates = [offer for offer in offers if offer.get(key) is not None]
+    if not candidates:
+        return None
+    best = min(candidates, key=lambda offer: offer[key])
+    return _highlight(best, best[key])
+
+
+def _highest(offers: list[dict], value_fn) -> dict | None:
+    """Pick the offer with the highest value_fn, breaking ties by cheapest price."""
+    candidates = [(value_fn(offer), offer) for offer in offers]
+    candidates = [(value, offer) for value, offer in candidates if value is not None]
+    if not candidates:
+        return None
+    value, best = max(
+        candidates,
+        key=lambda pair: (pair[0], -(pair[1]["preis_eur_pro_gramm"] or float("inf"))),
+    )
+    return _highlight(best, best["preis_eur_pro_gramm"])
+
+
+def _combined_cannabinoids(offer: dict) -> float | None:
+    thc, cbd = offer["thc_value"], offer["cbd_value"]
+    if thc is None or cbd is None:
+        return None
+    return thc + cbd
+
+
 def build_metadata(offers: list[dict], strains: list[dict]) -> dict:
-    prices = [
-        offer["preis_eur_pro_gramm"]
-        for offer in offers
-        if offer["preis_eur_pro_gramm"] is not None
-    ]
     pharmacies = {offer["apotheke"] for offer in offers if offer["apotheke"]}
+    cheapest_gram = _cheapest(offers, "preis_eur_pro_gramm")
 
     return {
         "generated_at": datetime.now(UTC).isoformat(),
@@ -207,7 +244,13 @@ def build_metadata(offers: list[dict], strains: list[dict]) -> dict:
         "total": len(offers),
         "pharmacy_count": len(pharmacies),
         "strain_count": len(strains),
-        "lowest_price": min(prices) if prices else None,
+        "lowest_price": cheapest_gram["price"] if cheapest_gram else None,
+        "cheapest_gram": cheapest_gram,
+        "cheapest_thc_gram": _cheapest(offers, "preis_eur_pro_gramm_thc"),
+        "cheapest_cbd_gram": _cheapest(offers, "preis_eur_pro_gramm_cbd"),
+        "highest_thc": _highest(offers, lambda offer: offer["thc_value"]),
+        "highest_cbd": _highest(offers, lambda offer: offer["cbd_value"]),
+        "highest_thc_cbd": _highest(offers, _combined_cannabinoids),
     }
 
 
@@ -236,15 +279,27 @@ def build_site(input_file: Path, output_dir: Path) -> None:
 
     generated_at = datetime.fromisoformat(metadata["generated_at"])
     generated_label = generated_at.strftime("%Y-%m-%d %H:%M UTC")
-    lowest_price = metadata["lowest_price"]
-    lowest_price_label = "" if lowest_price is None else f"{lowest_price:.2f} €/g"
+
+    def price_label(entry: dict | None, suffix: str) -> str:
+        return "" if not entry else f"{entry['price']:.2f} {suffix}"
+
+    def content_label(entry: dict | None, *fields: str) -> str:
+        if not entry:
+            return ""
+        return " · ".join(entry[field] for field in fields if entry[field])
 
     html = (
-        load_template().replace("__GENERATED_LABEL__", generated_label)
+        load_template()
+        .replace("__GENERATED_LABEL__", generated_label)
         .replace("__TOTAL__", str(metadata["total"]))
         .replace("__PHARMACIES__", str(metadata["pharmacy_count"]))
         .replace("__STRAINS__", str(metadata["strain_count"]))
-        .replace("__LOWEST_PRICE__", lowest_price_label)
+        .replace("__LOWEST_PRICE__", price_label(metadata["cheapest_gram"], "€/g"))
+        .replace("__LOWEST_THC_PRICE__", price_label(metadata["cheapest_thc_gram"], "€/g THC"))
+        .replace("__LOWEST_CBD_PRICE__", price_label(metadata["cheapest_cbd_gram"], "€/g CBD"))
+        .replace("__HIGHEST_THC__", content_label(metadata["highest_thc"], "thc"))
+        .replace("__HIGHEST_CBD__", content_label(metadata["highest_cbd"], "cbd"))
+        .replace("__HIGHEST_THC_CBD__", content_label(metadata["highest_thc_cbd"], "thc", "cbd"))
     )
     (output_dir / "index.html").write_text(html, encoding="utf-8")
 

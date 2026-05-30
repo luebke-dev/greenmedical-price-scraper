@@ -169,7 +169,7 @@
 
     .metrics {
       display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 14px;
     }
 
@@ -213,6 +213,15 @@
       line-height: 1.1;
       letter-spacing: -0.01em;
       font-variant-numeric: tabular-nums;
+    }
+
+    .metric-meta {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 0.84rem;
+      font-weight: 600;
+      line-height: 1.3;
+      overflow-wrap: anywhere;
     }
 
     .toolbar {
@@ -394,6 +403,10 @@
       border-color: var(--accent-strong);
       background: var(--accent-soft);
       color: var(--accent-strong);
+    }
+
+    #toggleFilters.open .chevron {
+      transform: rotate(90deg);
     }
 
     .table-wrap {
@@ -676,21 +689,51 @@
           <div class="metric-value" id="strainCount">__STRAINS__</div>
         </div>
         <div class="metric">
-          <div class="metric-label">Günstigster Preis</div>
+          <div class="metric-label">Günstigster €/g</div>
           <div class="metric-value" id="lowestPrice">__LOWEST_PRICE__</div>
+          <div class="metric-meta" id="lowestPriceMeta"></div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Günstigster €/g THC</div>
+          <div class="metric-value" id="lowestThcPrice">__LOWEST_THC_PRICE__</div>
+          <div class="metric-meta" id="lowestThcPriceMeta"></div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Günstigster €/g CBD</div>
+          <div class="metric-value" id="lowestCbdPrice">__LOWEST_CBD_PRICE__</div>
+          <div class="metric-meta" id="lowestCbdPriceMeta"></div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Höchster THC</div>
+          <div class="metric-value" id="highestThc">__HIGHEST_THC__</div>
+          <div class="metric-meta" id="highestThcMeta"></div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Höchster CBD</div>
+          <div class="metric-value" id="highestCbd">__HIGHEST_CBD__</div>
+          <div class="metric-meta" id="highestCbdMeta"></div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Höchster THC + CBD</div>
+          <div class="metric-value" id="highestThcCbd">__HIGHEST_THC_CBD__</div>
+          <div class="metric-meta" id="highestThcCbdMeta"></div>
         </div>
       </section>
     </header>
 
     <section class="toolbar" aria-label="Filter">
-      <input id="searchInput" class="search" type="search" placeholder="Sorte, Apotheke, Stadt, THC, CBD" autocomplete="off">
+      <input id="searchInput" class="search" type="search" placeholder="Sorte, Apotheke, Stadt" autocomplete="off">
       <div class="links">
+        <button id="toggleFilters" class="clear-button" type="button" aria-expanded="false" aria-controls="filters">
+          <span>Filter</span>
+          <span class="chevron" aria-hidden="true">▸</span>
+        </button>
         <button id="clearSearch" class="clear-button" type="button">Zurücksetzen</button>
         <div class="result-count" id="resultCount">0 Sorten</div>
       </div>
     </section>
 
-    <section class="filters" id="filters" aria-label="Bereichsfilter"></section>
+    <section class="filters" id="filters" aria-label="Bereichsfilter" hidden></section>
 
     <section class="table-wrap" aria-label="Preistabelle">
       <table>
@@ -743,10 +786,22 @@
       clear: document.getElementById("clearSearch"),
       resultCount: document.getElementById("resultCount"),
       updatedAt: document.getElementById("updatedAt"),
+      toggleFilters: document.getElementById("toggleFilters"),
       totalCount: document.getElementById("totalCount"),
       pharmacyCount: document.getElementById("pharmacyCount"),
       strainCount: document.getElementById("strainCount"),
-      lowestPrice: document.getElementById("lowestPrice")
+      lowestPrice: document.getElementById("lowestPrice"),
+      lowestPriceMeta: document.getElementById("lowestPriceMeta"),
+      lowestThcPrice: document.getElementById("lowestThcPrice"),
+      lowestThcPriceMeta: document.getElementById("lowestThcPriceMeta"),
+      lowestCbdPrice: document.getElementById("lowestCbdPrice"),
+      lowestCbdPriceMeta: document.getElementById("lowestCbdPriceMeta"),
+      highestThc: document.getElementById("highestThc"),
+      highestThcMeta: document.getElementById("highestThcMeta"),
+      highestCbd: document.getElementById("highestCbd"),
+      highestCbdMeta: document.getElementById("highestCbdMeta"),
+      highestThcCbd: document.getElementById("highestThcCbd"),
+      highestThcCbdMeta: document.getElementById("highestThcCbdMeta")
     };
 
     const collator = new Intl.Collator("de", { numeric: true, sensitivity: "base" });
@@ -779,6 +834,11 @@
     function formatThcPrice(value) {
       if (value === null || Number.isNaN(value)) return "";
       return `${priceFormatter.format(value)} €/g THC`;
+    }
+
+    function formatCbdPrice(value) {
+      if (value === null || Number.isNaN(value)) return "";
+      return `${priceFormatter.format(value)} €/g CBD`;
     }
 
     function updateHeader() {
@@ -1158,11 +1218,51 @@
       elements.resultCount.textContent = `${count.toLocaleString("de-DE")} Sorten`;
     }
 
+    function metaLine(entry) {
+      return !entry ? "" : [entry.name, entry.apotheke].filter(Boolean).join(" · ");
+    }
+
+    function setHighlight(valueEl, metaEl, entry, valueText) {
+      valueEl.textContent = entry ? valueText : "";
+      metaEl.textContent = metaLine(entry);
+    }
+
     function updateMetrics(metadata) {
       elements.totalCount.textContent = metadata.total.toLocaleString("de-DE");
       elements.pharmacyCount.textContent = metadata.pharmacy_count.toLocaleString("de-DE");
       elements.strainCount.textContent = metadata.strain_count.toLocaleString("de-DE");
-      elements.lowestPrice.textContent = formatPrice(metadata.lowest_price);
+
+      const cheapestGram = metadata.cheapest_gram;
+      const cheapestThc = metadata.cheapest_thc_gram;
+      const cheapestCbd = metadata.cheapest_cbd_gram;
+      const highestThc = metadata.highest_thc;
+      const highestCbd = metadata.highest_cbd;
+      const highestThcCbd = metadata.highest_thc_cbd;
+
+      setHighlight(
+        elements.lowestPrice, elements.lowestPriceMeta, cheapestGram,
+        cheapestGram && formatPrice(cheapestGram.price)
+      );
+      setHighlight(
+        elements.lowestThcPrice, elements.lowestThcPriceMeta, cheapestThc,
+        cheapestThc && formatThcPrice(cheapestThc.price)
+      );
+      setHighlight(
+        elements.lowestCbdPrice, elements.lowestCbdPriceMeta, cheapestCbd,
+        cheapestCbd && formatCbdPrice(cheapestCbd.price)
+      );
+      setHighlight(
+        elements.highestThc, elements.highestThcMeta, highestThc,
+        highestThc && highestThc.thc
+      );
+      setHighlight(
+        elements.highestCbd, elements.highestCbdMeta, highestCbd,
+        highestCbd && highestCbd.cbd
+      );
+      setHighlight(
+        elements.highestThcCbd, elements.highestThcCbdMeta, highestThcCbd,
+        highestThcCbd && [highestThcCbd.thc, highestThcCbd.cbd].filter(Boolean).join(" · ")
+      );
 
       const generatedAt = new Date(metadata.generated_at);
       if (!Number.isNaN(generatedAt.valueOf())) {
@@ -1191,6 +1291,12 @@
     }
 
     elements.search.addEventListener("input", applyFilters);
+    elements.toggleFilters.addEventListener("click", () => {
+      const open = elements.filters.hidden;
+      elements.filters.hidden = !open;
+      elements.toggleFilters.setAttribute("aria-expanded", String(open));
+      elements.toggleFilters.classList.toggle("open", open);
+    });
     elements.clear.addEventListener("click", () => {
       elements.search.value = "";
       resetFilters();
