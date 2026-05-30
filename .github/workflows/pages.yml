@@ -11,7 +11,7 @@ on:
       - main
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -24,23 +24,40 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       should_run: ${{ steps.schedule.outputs.should_run }}
+      should_scrape: ${{ steps.schedule.outputs.should_scrape }}
 
     steps:
-      - name: Check schedule
+      # Decide two things:
+      #   should_run    - run the build/deploy at all
+      #   should_scrape - re-scrape prices (only on schedule/manual; never on a
+      #                   plain push, so website changes redeploy without scraping)
+      - name: Plan run
         id: schedule
         shell: bash
         run: |
-          if [[ "${{ github.event_name }}" != "schedule" ]]; then
-            echo "should_run=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
+          should_run=true
+          should_scrape=false
 
-          local_hour="$(TZ=Europe/Berlin date +%H)"
-          if [[ "$local_hour" == "10" || "$local_hour" == "22" ]]; then
-            echo "should_run=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "should_run=false" >> "$GITHUB_OUTPUT"
-          fi
+          case "${{ github.event_name }}" in
+            schedule)
+              local_hour="$(TZ=Europe/Berlin date +%H)"
+              if [[ "$local_hour" == "10" || "$local_hour" == "22" ]]; then
+                should_scrape=true
+              else
+                should_run=false
+              fi
+              ;;
+            workflow_dispatch)
+              should_scrape=true
+              ;;
+            *)
+              # push and everything else: rebuild + deploy from committed data
+              should_scrape=false
+              ;;
+          esac
+
+          echo "should_run=$should_run" >> "$GITHUB_OUTPUT"
+          echo "should_scrape=$should_scrape" >> "$GITHUB_OUTPUT"
 
   build:
     needs: gate
@@ -68,11 +85,37 @@ jobs:
       - name: Run tests
         run: python -m pytest -q
 
+      - name: Decide whether to scrape
+        id: plan
+        shell: bash
+        run: |
+          # Scrape on schedule/manual, or to bootstrap when no data exists yet.
+          if [[ "${{ needs.gate.outputs.should_scrape }}" == "true" || ! -f data/greenmedical_flowers.csv ]]; then
+            echo "scrape=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "scrape=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Scrape current prices
-        run: python -u scraper.py --output greenmedical_flowers.csv
+        if: steps.plan.outputs.scrape == 'true'
+        run: python -u scraper.py --output data/greenmedical_flowers.csv
+
+      - name: Commit updated data
+        if: steps.plan.outputs.scrape == 'true'
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/greenmedical_flowers.csv
+          if git diff --staged --quiet; then
+            echo "No data changes to commit."
+          else
+            git commit -m "Update scraped prices [skip ci]"
+            git push origin HEAD:main
+          fi
 
       - name: Build static site
-        run: python build_site.py --input greenmedical_flowers.csv --output dist
+        run: python build_site.py --input data/greenmedical_flowers.csv --output dist
 
       - name: Configure Pages
         uses: actions/configure-pages@v6
