@@ -197,6 +197,6 @@ class TestHighlights:
         assert (entry["name"], entry["apotheke"], entry["cbd"]) == ("Sorte Z", "Apo C", "8%")
 
     def test_highest_thc_and_cbd_combined(self, tmp_path):
-        # thc+cbd: X=22, Y=31, Z=23 -> Sorte Y wins
+        # product thc*cbd: X=40, Y=30, Z=120 -> Sorte Z (balanced high) wins
         entry = self._metadata(tmp_path)["highest_thc_cbd"]
-        assert (entry["name"], entry["thc"], entry["cbd"]) == ("Sorte Y", "30%", "1%")
+        assert (entry["name"], entry["thc"], entry["cbd"]) == ("Sorte Z", "15%", "8%")

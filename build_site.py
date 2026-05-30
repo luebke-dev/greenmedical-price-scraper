@@ -228,10 +228,15 @@ def _highest(offers: list[dict], value_fn) -> dict | None:
 
 
 def _combined_cannabinoids(offer: dict) -> float | None:
+    """Reward strains high in THC *and* CBD at once via the product of the two.
+
+    A sum would be dominated by THC, so a high-THC/near-zero-CBD strain would
+    win; the product collapses toward zero unless both values are substantial.
+    """
     thc, cbd = offer["thc_value"], offer["cbd_value"]
     if thc is None or cbd is None:
         return None
-    return thc + cbd
+    return thc * cbd
 
 
 def build_metadata(offers: list[dict], strains: list[dict]) -> dict:
