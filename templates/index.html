@@ -360,6 +360,42 @@
       outline-offset: 2px;
     }
 
+    .filter-genetik {
+      grid-column: 1 / -1;
+    }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      min-height: 34px;
+      border: 1px solid var(--line-strong);
+      border-radius: 999px;
+      background: var(--surface);
+      color: var(--text);
+      padding: 0 14px;
+      font: inherit;
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: border-color 0.12s ease, background 0.12s ease, color 0.12s ease;
+    }
+
+    .chip:hover {
+      border-color: var(--accent);
+    }
+
+    .chip.active {
+      border-color: var(--accent-strong);
+      background: var(--accent-soft);
+      color: var(--accent-strong);
+    }
+
     .table-wrap {
       overflow: auto;
       border: 1px solid var(--line);
@@ -695,7 +731,8 @@
       filtered: [],
       sortKey: "price",
       sortDirection: "asc",
-      filters: {}
+      filters: {},
+      genetics: new Set()
     };
 
     const elements = {
@@ -821,10 +858,18 @@
       return true;
     }
 
+    function matchesGenetik(row) {
+      if (state.genetics.size === 0) return true;
+      return state.genetics.has((row.genetik || "").toLowerCase());
+    }
+
     function applyFilters() {
       const query = elements.search.value.trim().toLowerCase();
       state.filtered = state.rows.filter(
-        (row) => (!query || row.search.includes(query)) && matchesRangeFilters(row)
+        (row) =>
+          (!query || row.search.includes(query)) &&
+          matchesRangeFilters(row) &&
+          matchesGenetik(row)
       );
 
       sortRows(state.filtered);
@@ -919,13 +964,63 @@
       updateRangeUI(config);
     }
 
+    function buildGenetikFilter() {
+      const byKey = new Map();
+      for (const row of state.rows) {
+        const label = row.genetik || "";
+        if (label) byKey.set(label.toLowerCase(), label);
+      }
+      if (byKey.size < 2) return;
+
+      const card = document.createElement("div");
+      card.className = "filter filter-genetik";
+
+      const head = document.createElement("div");
+      head.className = "filter-head";
+      const label = document.createElement("span");
+      label.className = "filter-label";
+      label.textContent = "Genetik";
+      head.appendChild(label);
+
+      const chips = document.createElement("div");
+      chips.className = "chips";
+
+      const entries = [...byKey.entries()].sort((a, b) => collator.compare(a[1], b[1]));
+      for (const [key, display] of entries) {
+        const chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = "chip";
+        chip.textContent = display;
+        chip.setAttribute("aria-pressed", "false");
+        chip.addEventListener("click", () => {
+          const active = state.genetics.has(key);
+          if (active) state.genetics.delete(key);
+          else state.genetics.add(key);
+          chip.classList.toggle("active", !active);
+          chip.setAttribute("aria-pressed", String(!active));
+          applyFilters();
+        });
+        chips.appendChild(chip);
+      }
+
+      card.append(head, chips);
+      elements.filters.appendChild(card);
+    }
+
     function initFilters() {
       elements.filters.replaceChildren();
       state.filters = {};
+      state.genetics = new Set();
+      buildGenetikFilter();
       for (const config of rangeFilters) buildRangeFilter(config);
     }
 
     function resetFilters() {
+      state.genetics.clear();
+      for (const chip of elements.filters.querySelectorAll(".chip.active")) {
+        chip.classList.remove("active");
+        chip.setAttribute("aria-pressed", "false");
+      }
       for (const config of rangeFilters) {
         const filter = state.filters[config.key];
         if (filter) filter.reset();
