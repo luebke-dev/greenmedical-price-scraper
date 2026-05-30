@@ -6,31 +6,67 @@
   <title>GreenMedical Livebestand</title>
   <style>
     :root {
-      color-scheme: light;
-      --bg: #f6f4ef;
+      color-scheme: light dark;
+      --bg: #eef1ec;
+      --bg-glow: radial-gradient(1200px 600px at 80% -10%, rgba(47, 143, 107, 0.10), transparent 60%);
       --surface: #ffffff;
-      --surface-soft: #fdfaf3;
-      --text: #1f2423;
-      --muted: #68716e;
-      --line: #d9ded8;
-      --accent: #24745a;
-      --accent-strong: #14513d;
-      --amber: #a66f18;
-      --shadow: 0 12px 28px rgba(30, 38, 34, 0.08);
+      --surface-soft: #f7faf6;
+      --surface-2: #eef3ed;
+      --text: #14201b;
+      --muted: #5a6a61;
+      --line: #e3e8df;
+      --line-strong: #d2dacb;
+      --accent: #2f8f6b;
+      --accent-strong: #1f6e51;
+      --accent-soft: #e6f3ec;
+      --amber: #a06a16;
+      --amber-soft: #fbeecd;
+      --shadow: 0 8px 24px rgba(20, 40, 30, 0.07);
+      --shadow-lg: 0 18px 44px rgba(20, 40, 30, 0.12);
+      --radius: 14px;
+      --radius-sm: 10px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0d1310;
+        --bg-glow: radial-gradient(1200px 600px at 80% -10%, rgba(76, 201, 153, 0.12), transparent 60%);
+        --surface: #141c18;
+        --surface-soft: #19221d;
+        --surface-2: #1e2823;
+        --text: #e9efe9;
+        --muted: #9aa9a0;
+        --line: #25302a;
+        --line-strong: #344038;
+        --accent: #4cc999;
+        --accent-strong: #74dcb2;
+        --accent-soft: #16271f;
+        --amber: #e7b15a;
+        --amber-soft: #2a2113;
+        --shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+        --shadow-lg: 0 18px 44px rgba(0, 0, 0, 0.55);
+      }
     }
 
     * {
       box-sizing: border-box;
     }
 
+    html {
+      scroll-behavior: smooth;
+    }
+
     body {
       margin: 0;
       min-height: 100vh;
-      background: var(--bg);
+      background: var(--bg-glow), var(--bg);
+      background-attachment: fixed;
       color: var(--text);
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       font-size: 16px;
       line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
     }
 
     a {
@@ -39,16 +75,22 @@
       text-underline-offset: 3px;
     }
 
+    :focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+      border-radius: 6px;
+    }
+
     .page {
       width: min(1440px, calc(100% - 32px));
       margin: 0 auto;
-      padding: 28px 0 40px;
+      padding: 36px 0 48px;
     }
 
     header {
       display: grid;
-      gap: 18px;
-      margin-bottom: 20px;
+      gap: 22px;
+      margin-bottom: 24px;
     }
 
     .title-row {
@@ -59,15 +101,31 @@
       flex-wrap: wrap;
     }
 
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: linear-gradient(150deg, var(--accent), var(--accent-strong));
+      box-shadow: 0 0 0 4px var(--accent-soft);
+      flex: none;
+    }
+
     h1 {
       margin: 0;
-      font-size: clamp(1.75rem, 2.8vw, 3rem);
-      line-height: 1.05;
-      font-weight: 760;
-      letter-spacing: 0;
+      font-size: clamp(1.8rem, 2.8vw, 3rem);
+      line-height: 1.04;
+      font-weight: 780;
+      letter-spacing: -0.02em;
     }
 
     .updated {
+      margin-top: 6px;
       color: var(--muted);
       font-size: 0.95rem;
     }
@@ -81,97 +139,130 @@
     .links a,
     .clear-button {
       display: inline-flex;
-      min-height: 38px;
+      min-height: 40px;
       align-items: center;
       justify-content: center;
-      border: 1px solid var(--line);
-      border-radius: 8px;
+      gap: 6px;
+      border: 1px solid var(--line-strong);
+      border-radius: var(--radius-sm);
       background: var(--surface);
       color: var(--text);
-      padding: 0 12px;
+      padding: 0 14px;
       font: inherit;
       font-size: 0.92rem;
+      font-weight: 600;
       text-decoration: none;
       cursor: pointer;
+      transition: border-color 0.15s ease, background 0.15s ease, transform 0.05s ease;
     }
 
     .links a:hover,
     .clear-button:hover {
       border-color: var(--accent);
+      background: var(--accent-soft);
+    }
+
+    .links a:active,
+    .clear-button:active {
+      transform: translateY(1px);
     }
 
     .metrics {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 10px;
+      gap: 14px;
     }
 
     .metric {
-      min-height: 86px;
+      position: relative;
+      min-height: 92px;
       border: 1px solid var(--line);
-      border-radius: 8px;
+      border-radius: var(--radius);
       background: var(--surface);
-      padding: 14px;
+      padding: 16px 18px;
       box-shadow: var(--shadow);
+      overflow: hidden;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .metric::before {
+      content: "";
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 3px;
+      background: linear-gradient(var(--accent), var(--accent-strong));
+    }
+
+    .metric:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-lg);
     }
 
     .metric-label {
       color: var(--muted);
-      font-size: 0.76rem;
+      font-size: 0.74rem;
       font-weight: 700;
-      letter-spacing: 0;
+      letter-spacing: 0.04em;
       text-transform: uppercase;
     }
 
     .metric-value {
-      margin-top: 6px;
-      font-size: 1.45rem;
-      font-weight: 760;
+      margin-top: 8px;
+      font-size: 1.55rem;
+      font-weight: 780;
       line-height: 1.1;
+      letter-spacing: -0.01em;
+      font-variant-numeric: tabular-nums;
     }
 
     .toolbar {
       display: grid;
       grid-template-columns: minmax(220px, 1fr) auto;
-      gap: 10px;
+      gap: 12px;
       align-items: center;
-      margin: 20px 0 12px;
+      margin: 24px 0 14px;
     }
 
     .search {
       width: 100%;
-      min-height: 44px;
-      border: 1px solid var(--line);
-      border-radius: 8px;
+      min-height: 48px;
+      border: 1px solid var(--line-strong);
+      border-radius: var(--radius-sm);
       background: var(--surface);
       color: var(--text);
-      padding: 0 14px;
+      padding: 0 16px;
       font: inherit;
       outline: none;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .search::placeholder {
+      color: var(--muted);
     }
 
     .search:focus {
       border-color: var(--accent);
-      box-shadow: 0 0 0 3px rgba(36, 116, 90, 0.16);
+      box-shadow: 0 0 0 4px var(--accent-soft);
     }
 
     .result-count {
       color: var(--muted);
       font-size: 0.94rem;
+      font-weight: 600;
       white-space: nowrap;
     }
 
     .table-wrap {
       overflow: auto;
       border: 1px solid var(--line);
-      border-radius: 8px;
+      border-radius: var(--radius);
       background: var(--surface);
       box-shadow: var(--shadow);
     }
 
     table {
       width: 100%;
-      min-width: 1080px;
+      min-width: 1040px;
       border-collapse: collapse;
       table-layout: fixed;
     }
@@ -180,23 +271,24 @@
       position: sticky;
       top: 0;
       z-index: 2;
-      background: var(--surface-soft);
+      background: color-mix(in srgb, var(--surface) 88%, transparent);
+      backdrop-filter: blur(8px);
     }
 
     th,
     td {
       border-bottom: 1px solid var(--line);
-      padding: 10px 12px;
+      padding: 13px 16px;
       text-align: left;
-      vertical-align: top;
+      vertical-align: middle;
     }
 
     th {
       color: var(--muted);
-      font-size: 0.78rem;
+      font-size: 0.74rem;
       font-weight: 760;
       text-transform: uppercase;
-      letter-spacing: 0;
+      letter-spacing: 0.04em;
       white-space: nowrap;
     }
 
@@ -214,7 +306,9 @@
       font: inherit;
       text-align: left;
       text-transform: inherit;
+      letter-spacing: inherit;
       cursor: pointer;
+      transition: color 0.12s ease;
     }
 
     th button:hover {
@@ -223,22 +317,19 @@
 
     .sort-indicator {
       color: var(--accent);
-      font-size: 0.72rem;
-    }
-
-    tbody tr:hover {
-      background: #f9fbf7;
+      font-size: 0.7rem;
     }
 
     td {
-      color: #26302d;
+      color: var(--text);
       font-size: 0.94rem;
       overflow-wrap: anywhere;
+      font-variant-numeric: tabular-nums;
     }
 
     .price {
       color: var(--accent-strong);
-      font-weight: 760;
+      font-weight: 740;
       white-space: nowrap;
     }
 
@@ -246,44 +337,64 @@
       display: inline-flex;
       min-height: 24px;
       align-items: center;
+      gap: 5px;
       border-radius: 999px;
-      background: #e9f3ee;
+      background: var(--accent-soft);
       color: var(--accent-strong);
-      padding: 2px 8px;
-      font-size: 0.82rem;
+      padding: 3px 10px;
+      font-size: 0.8rem;
       font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .status::before {
+      content: "";
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
     }
 
     .status.new {
-      background: #fff1d6;
+      background: var(--amber-soft);
       color: var(--amber);
     }
 
     .empty {
-      padding: 36px 14px;
+      padding: 48px 14px;
       color: var(--muted);
       text-align: center;
     }
 
     .group-row {
       cursor: pointer;
+      transition: background 0.12s ease;
+    }
+
+    .group-row:hover {
+      background: var(--surface-soft);
     }
 
     .group-row.expanded {
-      background: #eef5f0;
+      background: var(--accent-soft);
+    }
+
+    .group-row.expanded td {
+      border-bottom-color: transparent;
     }
 
     .strain-name {
       display: inline-flex;
-      align-items: baseline;
-      gap: 8px;
-      font-weight: 640;
+      align-items: center;
+      gap: 10px;
+      font-weight: 680;
     }
 
     .chevron {
       color: var(--accent);
       font-size: 0.7rem;
-      transition: transform 0.15s ease;
+      transition: transform 0.18s ease;
+      flex: none;
     }
 
     .group-row.expanded .chevron {
@@ -292,7 +403,7 @@
 
     .detail-row > td {
       padding: 0;
-      background: var(--surface-soft);
+      background: var(--surface-2);
     }
 
     table.offers {
@@ -300,36 +411,64 @@
       min-width: 0;
       border-collapse: collapse;
       table-layout: auto;
+      animation: fade-in 0.18s ease both;
+    }
+
+    @keyframes fade-in {
+      from { opacity: 0; transform: translateY(-3px); }
+      to { opacity: 1; transform: translateY(0); }
     }
 
     table.offers th,
     table.offers td {
       border-bottom: 1px solid var(--line);
-      padding: 8px 12px;
+      padding: 11px 16px;
       font-size: 0.9rem;
     }
 
     table.offers thead th {
       color: var(--muted);
-      font-size: 0.72rem;
+      font-size: 0.7rem;
       font-weight: 700;
+      letter-spacing: 0.04em;
       text-transform: uppercase;
+      background: transparent;
+    }
+
+    table.offers tbody tr {
+      transition: background 0.1s ease;
+    }
+
+    table.offers tbody tr:hover {
+      background: color-mix(in srgb, var(--accent-soft) 60%, transparent);
     }
 
     table.offers tbody tr:last-child td {
       border-bottom: 0;
     }
 
+    table.offers tbody tr:first-child td {
+      border-top: 1px solid var(--line);
+    }
+
     footer {
-      margin-top: 14px;
+      margin-top: 18px;
       color: var(--muted);
       font-size: 0.86rem;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      * {
+        animation-duration: 0.001ms !important;
+        transition-duration: 0.001ms !important;
+        scroll-behavior: auto !important;
+      }
     }
 
     @media (max-width: 860px) {
       .page {
         width: min(100% - 20px, 1440px);
-        padding-top: 18px;
+        padding-top: 22px;
       }
 
       .metrics {
@@ -359,6 +498,7 @@
         flex: 1 1 120px;
       }
     }
+
   </style>
 </head>
 <body>
@@ -366,7 +506,10 @@
     <header>
       <div class="title-row">
         <div>
-          <h1>GreenMedical Livebestand</h1>
+          <div class="brand">
+            <span class="brand-dot" aria-hidden="true"></span>
+            <h1>GreenMedical Livebestand</h1>
+          </div>
           <div class="updated">Stand: <span id="updatedAt">__GENERATED_LABEL__</span></div>
         </div>
         <nav class="links" aria-label="Downloads">
