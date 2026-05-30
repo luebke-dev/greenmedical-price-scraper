@@ -220,8 +220,57 @@
       color: var(--muted);
       font-size: 0.84rem;
       font-weight: 600;
-      line-height: 1.3;
+      line-height: 1.35;
       overflow-wrap: anywhere;
+    }
+
+    .metric-meta .meta-name {
+      color: var(--text);
+      font-weight: 700;
+    }
+
+    .card-link {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      border-radius: var(--radius);
+    }
+
+    .card-link:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .metric.linked {
+      cursor: pointer;
+    }
+
+    .metric.linked:hover {
+      border-color: var(--accent);
+    }
+
+    .buy-cell {
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    .buy {
+      display: inline-flex;
+      align-items: center;
+      min-height: 30px;
+      padding: 0 13px;
+      border-radius: 999px;
+      background: var(--accent);
+      color: var(--surface);
+      font-size: 0.82rem;
+      font-weight: 700;
+      text-decoration: none;
+      white-space: nowrap;
+      transition: background 0.12s ease;
+    }
+
+    .buy:hover {
+      background: var(--accent-strong);
     }
 
     .toolbar {
@@ -261,7 +310,7 @@
       white-space: nowrap;
     }
 
-    .filters {
+    .filters:not([hidden]) {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 14px;
@@ -1100,7 +1149,7 @@
 
       const thead = document.createElement("thead");
       const headRow = document.createElement("tr");
-      for (const label of ["Apotheke", "Stadt", "€/g", "€/g THC", "Status"]) {
+      for (const label of ["Apotheke", "Stadt", "€/g", "€/g THC", "Status", ""]) {
         const th = document.createElement("th");
         th.textContent = label;
         headRow.appendChild(th);
@@ -1134,10 +1183,25 @@
         if (offer.verfuegbarkeit) status.appendChild(statusBadge(offer.verfuegbarkeit));
         row.appendChild(status);
 
+        const buy = document.createElement("td");
+        buy.className = "buy-cell";
+        if (offer.produkt_url) buy.appendChild(buyLink(offer.produkt_url));
+        row.appendChild(buy);
+
         tbody.appendChild(row);
       }
       table.appendChild(tbody);
       return table;
+    }
+
+    function buyLink(url) {
+      const link = document.createElement("a");
+      link.className = "buy";
+      link.href = url;
+      link.target = "_blank";
+      link.rel = "noopener";
+      link.textContent = "Kaufen";
+      return link;
     }
 
     function renderRows() {
@@ -1218,13 +1282,45 @@
       elements.resultCount.textContent = `${count.toLocaleString("de-DE")} Sorten`;
     }
 
-    function metaLine(entry) {
-      return !entry ? "" : [entry.name, entry.apotheke].filter(Boolean).join(" · ");
+    function metaLineEl(text, className) {
+      const el = document.createElement("div");
+      if (className) el.className = className;
+      el.textContent = text;
+      return el;
+    }
+
+    function fillMeta(metaEl, entry) {
+      metaEl.replaceChildren();
+      if (!entry) return;
+      if (entry.name) metaEl.appendChild(metaLineEl(entry.name, "meta-name"));
+      const facts = [
+        entry.genetik,
+        entry.thc && `THC ${entry.thc}`,
+        entry.cbd && `CBD ${entry.cbd}`
+      ].filter(Boolean).join(" · ");
+      if (facts) metaEl.appendChild(metaLineEl(facts));
+      if (entry.apotheke) metaEl.appendChild(metaLineEl(entry.apotheke));
     }
 
     function setHighlight(valueEl, metaEl, entry, valueText) {
       valueEl.textContent = entry ? valueText : "";
-      metaEl.textContent = metaLine(entry);
+      fillMeta(metaEl, entry);
+
+      const card = valueEl.closest(".metric");
+      if (!card) return;
+      const existing = card.querySelector(".card-link");
+      if (existing) existing.remove();
+      const linked = Boolean(entry && entry.produkt_url);
+      card.classList.toggle("linked", linked);
+      if (linked) {
+        const link = document.createElement("a");
+        link.className = "card-link";
+        link.href = entry.produkt_url;
+        link.target = "_blank";
+        link.rel = "noopener";
+        link.setAttribute("aria-label", `${entry.name || "Sorte"} bei greenmedical öffnen`);
+        card.appendChild(link);
+      }
     }
 
     function updateMetrics(metadata) {

@@ -200,3 +200,23 @@ class TestHighlights:
         # product thc*cbd: X=40, Y=30, Z=120 -> Sorte Z (balanced high) wins
         entry = self._metadata(tmp_path)["highest_thc_cbd"]
         assert (entry["name"], entry["thc"], entry["cbd"]) == ("Sorte Z", "15%", "8%")
+
+
+class TestProduktUrl:
+    def test_url_flows_into_offers_and_highlights(self, tmp_path):
+        path = tmp_path / "with_url.csv"
+        path.write_text(
+            "apotheke,apotheke_plz,apotheke_stadt,name,bezeichnung,genetik,"
+            "thc,cbd,preis_pro_gramm,verfuegbarkeit,produkt_url\n"
+            'Apo A,10115,Berlin,Sorte X,EMK,Indica,20%,1%,"9,50 €",verfügbar,'
+            "https://greenmedical.health/p?deliveryTarget=T\n",
+            encoding="utf-8",
+        )
+        offers = build_site.read_offers(path)
+        strains = build_site.group_by_strain(offers)
+        metadata = build_site.build_metadata(offers, strains)
+
+        assert strains[0]["offers"][0]["produkt_url"] == (
+            "https://greenmedical.health/p?deliveryTarget=T"
+        )
+        assert metadata["cheapest_gram"]["produkt_url"].endswith("deliveryTarget=T")

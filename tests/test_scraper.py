@@ -33,7 +33,7 @@ class TestExtractProduct:
         tile = _tile(
             """
             <article class="productGridTile">
-              <h2>Test Blüte 20/1</h2>
+              <a href="/de/cannabis/flowers/test-bluete"><h2>Test Blüte 20/1</h2></a>
               <div class="flowerTileBadgeThc">THC <span class="bold">20%</span></div>
               <div class="flowerTileBadgeCbd">CBD <span class="bold">1%</span></div>
               <div class="flowerTileBadgeStrain">Indica</div>
@@ -53,6 +53,7 @@ class TestExtractProduct:
             "cbd": "1%",
             "preis_pro_gramm": "9,50 €",
             "verfuegbarkeit": "verfügbar",
+            "produkt_url": "https://greenmedical.health/de/cannabis/flowers/test-bluete",
         }
 
     def test_missing_fields_default_to_empty(self):
@@ -65,7 +66,42 @@ class TestExtractProduct:
             "cbd": "",
             "preis_pro_gramm": "",
             "verfuegbarkeit": "",
+            "produkt_url": "",
         }
+
+
+class TestExtractProductUrl:
+    def test_prefers_anchor_around_title(self):
+        tile = _tile(
+            '<article><a href="/de/cannabis/flowers/x"><h2>Name</h2></a>'
+            '<a href="/other">more</a></article>'
+        )
+        h2 = tile.find("h2")
+        assert scraper.extract_product_url(tile, h2) == "https://greenmedical.health/de/cannabis/flowers/x"
+
+    def test_falls_back_to_first_anchor(self):
+        tile = _tile('<article><h2>Name</h2><a href="/de/cannabis/flowers/y">link</a></article>')
+        h2 = tile.find("h2")
+        assert scraper.extract_product_url(tile, h2) == "https://greenmedical.health/de/cannabis/flowers/y"
+
+    def test_no_anchor_returns_empty(self):
+        tile = _tile("<article><h2>Name</h2></article>")
+        assert scraper.extract_product_url(tile, tile.find("h2")) == ""
+
+
+class TestWithDeliveryTarget:
+    def test_appends_delivery_target(self):
+        base = "https://greenmedical.health/de/cannabis/flowers/x"
+        url = scraper.with_delivery_target(base, "TOKEN")
+        assert url == f"{base}?deliveryTarget=TOKEN"
+
+    def test_replaces_existing_delivery_target(self):
+        url = scraper.with_delivery_target(
+            "https://greenmedical.health/p?deliveryTarget=old&foo=bar", "NEW"
+        )
+        assert "deliveryTarget=NEW" in url
+        assert "deliveryTarget=old" not in url
+        assert "foo=bar" in url
 
 
 class TestMakeDeliveryTarget:

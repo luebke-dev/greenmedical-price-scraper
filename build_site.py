@@ -77,6 +77,7 @@ def read_offers(input_file: Path) -> list[dict]:
                 "cbd": clean_text(row.get("cbd")),
                 "preis_pro_gramm": clean_text(row.get("preis_pro_gramm")),
                 "verfuegbarkeit": clean_text(row.get("verfuegbarkeit")),
+                "produkt_url": (row.get("produkt_url") or "").strip(),
             }
             price = parse_decimal(offer["preis_pro_gramm"])
             thc_percent = parse_percent(offer["thc"])
@@ -151,6 +152,7 @@ def group_by_strain(offers: list[dict]) -> list[dict]:
                 "preis_eur_pro_gramm": o["preis_eur_pro_gramm"],
                 "preis_eur_pro_gramm_thc": o["preis_eur_pro_gramm_thc"],
                 "verfuegbarkeit": o["verfuegbarkeit"],
+                "produkt_url": o["produkt_url"],
             }
             for o in members_sorted
         ]
@@ -200,8 +202,10 @@ def _highlight(offer: dict, price: float | None) -> dict:
         "price": price,
         "name": offer["name"],
         "apotheke": offer["apotheke"],
+        "genetik": offer["genetik"],
         "thc": offer["thc"],
         "cbd": offer["cbd"],
+        "produkt_url": offer.get("produkt_url", ""),
     }
 
 

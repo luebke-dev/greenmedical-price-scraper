@@ -12,7 +12,7 @@ import re
 import time
 from base64 import b64encode
 from pathlib import Path
-from urllib.parse import urljoin
+from urllib.parse import parse_qsl, urlencode, urljoin, urlparse, urlunparse
 
 import requests
 from bs4 import BeautifulSoup
@@ -51,6 +51,7 @@ FIELDNAMES = [
     "cbd",
     "preis_pro_gramm",
     "verfuegbarkeit",
+    "produkt_url",
 ]
 
 
@@ -127,6 +128,14 @@ def make_delivery_target(uuid: str) -> str:
     return b64encode(raw.encode()).decode()
 
 
+def with_delivery_target(url: str, delivery_target: str) -> str:
+    """Add/replace the deliveryTarget query param so the link opens at this pharmacy."""
+    parts = urlparse(url)
+    query = dict(parse_qsl(parts.query))
+    query["deliveryTarget"] = delivery_target
+    return urlunparse(parts._replace(query=urlencode(query)))
+
+
 def scrape_flowers_for_pharmacy(
     session: requests.Session, pharmacy: dict, delivery_target: str
 ) -> list[dict]:
@@ -153,6 +162,10 @@ def scrape_flowers_for_pharmacy(
             product["apotheke"] = pharmacy["name"]
             product["apotheke_plz"] = pharmacy["plz"]
             product["apotheke_stadt"] = pharmacy["stadt"]
+            if product["produkt_url"]:
+                product["produkt_url"] = with_delivery_target(
+                    product["produkt_url"], delivery_target
+                )
             products.append(product)
 
         # Check pagination
@@ -182,6 +195,20 @@ def extract_badge_value(tile, badge_class: str) -> str:
         return ""
     bold = badge.find("span", class_="bold")
     return bold.get_text(strip=True) if bold else badge.get_text(strip=True)
+
+
+def extract_product_url(tile, h2) -> str:
+    """Find the product detail link in a tile (prefers the anchor around the title)."""
+    href = ""
+    if h2:
+        anchor = h2.find_parent("a") or h2.find("a", href=True)
+        if anchor and anchor.get("href"):
+            href = anchor["href"]
+    if not href:
+        anchor = tile.find("a", href=True)
+        if anchor:
+            href = anchor["href"]
+    return urljoin(BASE_URL, href) if href else ""
 
 
 def extract_product(tile) -> dict:
@@ -223,6 +250,7 @@ def extract_product(tile) -> dict:
         "cbd": cbd,
         "preis_pro_gramm": price,
         "verfuegbarkeit": availability,
+        "produkt_url": extract_product_url(tile, h2),
     }
 
 
