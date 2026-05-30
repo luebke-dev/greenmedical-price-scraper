@@ -7,6 +7,7 @@ on greenmedical.health and writes results to CSV.
 
 import argparse
 import csv
+import logging
 import re
 import time
 from base64 import b64encode
@@ -15,6 +16,10 @@ from urllib.parse import urljoin
 
 import requests
 from bs4 import BeautifulSoup
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
+logger = logging.getLogger("greenmedical.scraper")
 
 BASE_URL = "https://greenmedical.health"
 PHARMACY_URL = f"{BASE_URL}/de/cannabis/pharmacy/"
@@ -26,6 +31,15 @@ HEADERS = {
     "Accept-Language": "de,en-US;q=0.7,en;q=0.3",
 }
 REQUEST_TIMEOUT = 30
+
+# Retry/backoff for transient errors and rate limiting.
+RETRY_TOTAL = 4
+RETRY_BACKOFF_FACTOR = 1.0  # sleeps: 0s, 2s, 4s, 8s ...
+RETRY_STATUS_FORCELIST = (429, 500, 502, 503, 504)
+
+# Politeness delays between requests (seconds).
+PHARMACY_DELAY = 0.3
+PAGE_DELAY = 0.5
 FIELDNAMES = [
     "apotheke",
     "apotheke_plz",
@@ -43,6 +57,18 @@ FIELDNAMES = [
 def create_session() -> requests.Session:
     session = requests.Session()
     session.headers.update(HEADERS)
+
+    retry = Retry(
+        total=RETRY_TOTAL,
+        backoff_factor=RETRY_BACKOFF_FACTOR,
+        status_forcelist=RETRY_STATUS_FORCELIST,
+        allowed_methods=frozenset(["GET"]),
+        respect_retry_after_header=True,
+        raise_on_status=False,
+    )
+    adapter = HTTPAdapter(max_retries=retry)
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
     return session
 
 
@@ -75,7 +101,7 @@ def get_pharmacies_with_livebestand(session: requests.Session) -> list[dict]:
                 "adresse": cells[3].get_text(strip=True),
             })
 
-    print(f"Found {len(pharmacies)} pharmacies with live stock.")
+    logger.info("Found %d pharmacies with live stock.", len(pharmacies))
     return pharmacies
 
 
@@ -144,9 +170,18 @@ def scrape_flowers_for_pharmacy(
             break
 
         page += 1
-        time.sleep(0.5)  # be polite
+        time.sleep(PAGE_DELAY)  # be polite
 
     return products
+
+
+def extract_badge_value(tile, badge_class: str) -> str:
+    """Extract the value from a flower tile badge (THC/CBD), preferring the bold span."""
+    badge = tile.find("div", class_=lambda c: c and badge_class in c)
+    if not badge:
+        return ""
+    bold = badge.find("span", class_="bold")
+    return bold.get_text(strip=True) if bold else badge.get_text(strip=True)
 
 
 def extract_product(tile) -> dict:
@@ -156,19 +191,8 @@ def extract_product(tile) -> dict:
     if h2:
         name = h2.get_text(strip=True)
 
-    # THC
-    thc_el = tile.find("div", class_=lambda c: c and "flowerTileBadgeThc" in c)
-    thc = ""
-    if thc_el:
-        bold = thc_el.find("span", class_="bold")
-        thc = bold.get_text(strip=True) if bold else thc_el.get_text(strip=True)
-
-    # CBD
-    cbd_el = tile.find("div", class_=lambda c: c and "flowerTileBadgeCbd" in c)
-    cbd = ""
-    if cbd_el:
-        bold = cbd_el.find("span", class_="bold")
-        cbd = bold.get_text(strip=True) if bold else cbd_el.get_text(strip=True)
+    thc = extract_badge_value(tile, "flowerTileBadgeThc")
+    cbd = extract_badge_value(tile, "flowerTileBadgeCbd")
 
     # Genetik (Strain)
     strain_el = tile.find("div", class_=lambda c: c and "flowerTileBadgeStrain" in c)
@@ -203,33 +227,66 @@ def extract_product(tile) -> dict:
 
 
 def scrape_all_flowers() -> list[dict]:
-    """Scrape all available flowers for all pharmacies with live stock."""
-    session = create_session()
+    """Scrape all available flowers for all pharmacies with live stock.
 
-    print("Fetching pharmacies with live stock...")
-    pharmacies = get_pharmacies_with_livebestand(session)
+    Failures for an individual pharmacy are logged and skipped so that a single
+    network error or layout change does not abort the entire run.
+    """
+    with create_session() as session:
+        logger.info("Fetching pharmacies with live stock...")
+        pharmacies = get_pharmacies_with_livebestand(session)
 
-    print("Fetching pharmacy UUIDs...")
-    pharmacy_targets = []
-    for i, pharmacy in enumerate(pharmacies):
-        uuid = get_pharmacy_uuid(session, pharmacy["url"])
-        if uuid:
-            delivery_target = make_delivery_target(uuid)
-            pharmacy_targets.append((pharmacy, delivery_target))
-            print(f"  [{i+1}/{len(pharmacies)}] {pharmacy['name']}: UUID found")
-        else:
-            print(f"  [{i+1}/{len(pharmacies)}] {pharmacy['name']}: no UUID, skipping")
-        time.sleep(0.3)
+        logger.info("Fetching pharmacy UUIDs...")
+        pharmacy_targets = []
+        for i, pharmacy in enumerate(pharmacies):
+            try:
+                uuid = get_pharmacy_uuid(session, pharmacy["url"])
+            except requests.RequestException as exc:
+                logger.warning(
+                    "  [%d/%d] %s: failed to fetch UUID (%s), skipping",
+                    i + 1, len(pharmacies), pharmacy["name"], exc,
+                )
+                continue
 
-    print(f"\n{len(pharmacy_targets)} pharmacies with valid UUIDs. Starting scrape...")
+            if uuid:
+                delivery_target = make_delivery_target(uuid)
+                pharmacy_targets.append((pharmacy, delivery_target))
+                logger.info(
+                    "  [%d/%d] %s: UUID found", i + 1, len(pharmacies), pharmacy["name"]
+                )
+            else:
+                logger.info(
+                    "  [%d/%d] %s: no UUID, skipping",
+                    i + 1, len(pharmacies), pharmacy["name"],
+                )
+            time.sleep(PHARMACY_DELAY)
 
-    all_products = []
-    for i, (pharmacy, delivery_target) in enumerate(pharmacy_targets):
-        print(f"  [{i+1}/{len(pharmacy_targets)}] Scraping {pharmacy['name']}...")
-        products = scrape_flowers_for_pharmacy(session, pharmacy, delivery_target)
-        all_products.extend(products)
-        print(f"    -> {len(products)} flowers found")
-        time.sleep(0.5)
+        logger.info(
+            "%d pharmacies with valid UUIDs. Starting scrape...", len(pharmacy_targets)
+        )
+
+        all_products = []
+        failed = 0
+        for i, (pharmacy, delivery_target) in enumerate(pharmacy_targets):
+            logger.info(
+                "  [%d/%d] Scraping %s...",
+                i + 1, len(pharmacy_targets), pharmacy["name"],
+            )
+            try:
+                products = scrape_flowers_for_pharmacy(session, pharmacy, delivery_target)
+            except requests.RequestException as exc:
+                failed += 1
+                logger.warning(
+                    "    -> failed to scrape %s (%s), skipping",
+                    pharmacy["name"], exc,
+                )
+                continue
+            all_products.extend(products)
+            logger.info("    -> %d flowers found", len(products))
+            time.sleep(PAGE_DELAY)
+
+        if failed:
+            logger.warning("%d pharmacies could not be scraped and were skipped.", failed)
 
     return all_products
 
@@ -254,10 +311,15 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None):
     args = parse_args(argv)
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(message)s",
+        datefmt="%H:%M:%S",
+    )
     output_file = Path(args.output)
     all_products = scrape_all_flowers()
     write_products_csv(all_products, output_file)
-    print(f"\nDone! {len(all_products)} products written to {output_file}")
+    logger.info("Done! %d products written to %s", len(all_products), output_file)
 
 
 if __name__ == "__main__":
