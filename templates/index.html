@@ -265,6 +265,61 @@
       text-align: center;
     }
 
+    .group-row {
+      cursor: pointer;
+    }
+
+    .group-row.expanded {
+      background: #eef5f0;
+    }
+
+    .strain-name {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 8px;
+      font-weight: 640;
+    }
+
+    .chevron {
+      color: var(--accent);
+      font-size: 0.7rem;
+      transition: transform 0.15s ease;
+    }
+
+    .group-row.expanded .chevron {
+      transform: rotate(90deg);
+    }
+
+    .detail-row > td {
+      padding: 0;
+      background: var(--surface-soft);
+    }
+
+    table.offers {
+      width: 100%;
+      min-width: 0;
+      border-collapse: collapse;
+      table-layout: auto;
+    }
+
+    table.offers th,
+    table.offers td {
+      border-bottom: 1px solid var(--line);
+      padding: 8px 12px;
+      font-size: 0.9rem;
+    }
+
+    table.offers thead th {
+      color: var(--muted);
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    table.offers tbody tr:last-child td {
+      border-bottom: 0;
+    }
+
     footer {
       margin-top: 14px;
       color: var(--muted);
@@ -322,7 +377,7 @@
 
       <section class="metrics" aria-label="Kennzahlen">
         <div class="metric">
-          <div class="metric-label">Einträge</div>
+          <div class="metric-label">Angebote</div>
           <div class="metric-value" id="totalCount">__TOTAL__</div>
         </div>
         <div class="metric">
@@ -344,7 +399,7 @@
       <input id="searchInput" class="search" type="search" placeholder="Sorte, Apotheke, Stadt, THC, CBD" autocomplete="off">
       <div class="links">
         <button id="clearSearch" class="clear-button" type="button">Leeren</button>
-        <div class="result-count" id="resultCount">0 Einträge</div>
+        <div class="result-count" id="resultCount">0 Sorten</div>
       </div>
     </section>
 
@@ -366,16 +421,14 @@
 
   <script>
     const columns = [
-      { key: "name", label: "Sorte", type: "text", width: "15%" },
-      { key: "bezeichnung", label: "Bezeichnung", type: "text", width: "17%" },
-      { key: "price", label: "€/g", type: "number", className: "price", width: "9%" },
-      { key: "price_per_thc_gram", label: "€/g THC", type: "number", className: "price", width: "10%" },
+      { key: "name", label: "Sorte", type: "text", width: "20%" },
+      { key: "bezeichnung", label: "Bezeichnung", type: "text", width: "19%" },
+      { key: "price", label: "ab €/g", type: "number", className: "price", width: "11%" },
+      { key: "price_per_thc_gram", label: "ab €/g THC", type: "number", className: "price", width: "12%" },
       { key: "thc", label: "THC", type: "number", width: "8%" },
       { key: "cbd", label: "CBD", type: "number", width: "8%" },
       { key: "genetik", label: "Genetik", type: "text", width: "12%" },
-      { key: "apotheke", label: "Apotheke", type: "text", width: "14%" },
-      { key: "apotheke_stadt", label: "Stadt", type: "text", width: "8%" },
-      { key: "verfuegbarkeit", label: "Status", type: "text", width: "8%" }
+      { key: "pharmacy_count", label: "Apotheken", type: "number", width: "10%" }
     ];
 
     const state = {
@@ -409,6 +462,7 @@
       if (key === "price_per_thc_gram") return row.sort.price_per_thc_gram;
       if (key === "thc") return row.sort.thc;
       if (key === "cbd") return row.sort.cbd;
+      if (key === "pharmacy_count") return row.pharmacy_count;
       return row[key] || "";
     }
 
@@ -495,6 +549,59 @@
       updateResultCount();
     }
 
+    function statusBadge(value) {
+      const status = document.createElement("span");
+      status.className = value.toLowerCase().includes("neu") ? "status new" : "status";
+      status.textContent = value;
+      return status;
+    }
+
+    function buildOffersTable(strain) {
+      const table = document.createElement("table");
+      table.className = "offers";
+
+      const thead = document.createElement("thead");
+      const headRow = document.createElement("tr");
+      for (const label of ["Apotheke", "Stadt", "€/g", "€/g THC", "Status"]) {
+        const th = document.createElement("th");
+        th.textContent = label;
+        headRow.appendChild(th);
+      }
+      thead.appendChild(headRow);
+      table.appendChild(thead);
+
+      const tbody = document.createElement("tbody");
+      for (const offer of strain.offers) {
+        const row = document.createElement("tr");
+
+        const apotheke = document.createElement("td");
+        apotheke.textContent = offer.apotheke || "";
+        row.appendChild(apotheke);
+
+        const stadt = document.createElement("td");
+        stadt.textContent = offer.apotheke_stadt || "";
+        row.appendChild(stadt);
+
+        const price = document.createElement("td");
+        price.className = "price";
+        price.textContent = offer.preis_pro_gramm || formatPrice(offer.preis_eur_pro_gramm);
+        row.appendChild(price);
+
+        const thcPrice = document.createElement("td");
+        thcPrice.className = "price";
+        thcPrice.textContent = formatThcPrice(offer.preis_eur_pro_gramm_thc);
+        row.appendChild(thcPrice);
+
+        const status = document.createElement("td");
+        if (offer.verfuegbarkeit) status.appendChild(statusBadge(offer.verfuegbarkeit));
+        row.appendChild(status);
+
+        tbody.appendChild(row);
+      }
+      table.appendChild(tbody);
+      return table;
+    }
+
     function renderRows() {
       elements.body.replaceChildren();
 
@@ -503,7 +610,7 @@
         const cell = document.createElement("td");
         cell.className = "empty";
         cell.colSpan = columns.length;
-        cell.textContent = "Keine Einträge gefunden.";
+        cell.textContent = "Keine Sorten gefunden.";
         row.appendChild(cell);
         elements.body.appendChild(row);
         return;
@@ -511,32 +618,58 @@
 
       const fragment = document.createDocumentFragment();
 
-      for (const item of state.filtered) {
-        const row = document.createElement("tr");
+      for (const strain of state.filtered) {
+        const groupRow = document.createElement("tr");
+        groupRow.className = "group-row";
 
         for (const column of columns) {
           const cell = document.createElement("td");
           if (column.className) cell.className = column.className;
 
-          if (column.key === "price") {
-            cell.textContent = item.preis_pro_gramm || formatPrice(item.preis_eur_pro_gramm);
+          if (column.key === "name") {
+            const wrap = document.createElement("span");
+            wrap.className = "strain-name";
+            const chevron = document.createElement("span");
+            chevron.className = "chevron";
+            chevron.textContent = "▸";
+            wrap.appendChild(chevron);
+            const text = document.createElement("span");
+            text.textContent = strain.name || "—";
+            wrap.appendChild(text);
+            cell.appendChild(wrap);
+          } else if (column.key === "price") {
+            cell.textContent =
+              strain.min_price === null ? "" : `ab ${formatPrice(strain.min_price)}`;
           } else if (column.key === "price_per_thc_gram") {
-            cell.textContent = formatThcPrice(item.preis_eur_pro_gramm_thc);
-          } else if (column.key === "verfuegbarkeit") {
-            const status = document.createElement("span");
-            status.className = item.verfuegbarkeit.toLowerCase().includes("neu")
-              ? "status new"
-              : "status";
-            status.textContent = item.verfuegbarkeit;
-            cell.appendChild(status);
+            cell.textContent =
+              strain.min_price_per_thc_gram === null
+                ? ""
+                : `ab ${formatThcPrice(strain.min_price_per_thc_gram)}`;
+          } else if (column.key === "pharmacy_count") {
+            cell.textContent = strain.pharmacy_count.toLocaleString("de-DE");
           } else {
-            cell.textContent = item[column.key] || "";
+            cell.textContent = strain[column.key] || "";
           }
 
-          row.appendChild(cell);
+          groupRow.appendChild(cell);
         }
 
-        fragment.appendChild(row);
+        const detailRow = document.createElement("tr");
+        detailRow.className = "detail-row";
+        detailRow.hidden = true;
+        const detailCell = document.createElement("td");
+        detailCell.colSpan = columns.length;
+        detailCell.appendChild(buildOffersTable(strain));
+        detailRow.appendChild(detailCell);
+
+        groupRow.addEventListener("click", () => {
+          const show = detailRow.hidden;
+          detailRow.hidden = !show;
+          groupRow.classList.toggle("expanded", show);
+        });
+
+        fragment.appendChild(groupRow);
+        fragment.appendChild(detailRow);
       }
 
       elements.body.appendChild(fragment);
@@ -544,7 +677,7 @@
 
     function updateResultCount() {
       const count = state.filtered.length;
-      elements.resultCount.textContent = `${count.toLocaleString("de-DE")} Einträge`;
+      elements.resultCount.textContent = `${count.toLocaleString("de-DE")} Sorten`;
     }
 
     function updateMetrics(metadata) {

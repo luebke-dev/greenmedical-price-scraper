@@ -60,13 +60,13 @@ def clean_text(value: str | None) -> str:
     return " ".join((value or "").replace("\xa0", " ").split())
 
 
-def read_flowers(input_file: Path) -> list[dict]:
-    flowers = []
+def read_offers(input_file: Path) -> list[dict]:
+    """Read the raw CSV into one record per pharmacy offer, with parsed values."""
+    offers = []
 
     with input_file.open(newline="", encoding="utf-8") as csv_file:
-        for index, row in enumerate(csv.DictReader(csv_file), start=1):
-            item = {
-                "id": index,
+        for row in csv.DictReader(csv_file):
+            offer = {
                 "apotheke": clean_text(row.get("apotheke")),
                 "apotheke_plz": clean_text(row.get("apotheke_plz")),
                 "apotheke_stadt": clean_text(row.get("apotheke_stadt")),
@@ -78,54 +78,133 @@ def read_flowers(input_file: Path) -> list[dict]:
                 "preis_pro_gramm": clean_text(row.get("preis_pro_gramm")),
                 "verfuegbarkeit": clean_text(row.get("verfuegbarkeit")),
             }
-            item["preis_eur_pro_gramm"] = parse_decimal(item["preis_pro_gramm"])
-            thc_percent = parse_percent(item["thc"])
-            thc_price = calculate_thc_price(item["preis_eur_pro_gramm"], thc_percent)
-            item["preis_eur_pro_gramm_thc"] = thc_price
-            item["sort"] = {
-                "price": item["preis_eur_pro_gramm"],
-                "price_per_thc_gram": thc_price,
-                "thc": thc_percent,
-                "cbd": parse_percent(item["cbd"]),
+            price = parse_decimal(offer["preis_pro_gramm"])
+            thc_percent = parse_percent(offer["thc"])
+            offer["preis_eur_pro_gramm"] = price
+            offer["preis_eur_pro_gramm_thc"] = calculate_thc_price(price, thc_percent)
+            offer["thc_value"] = thc_percent
+            offer["cbd_value"] = parse_percent(offer["cbd"])
+            offers.append(offer)
+
+    return offers
+
+
+def _first_nonempty(values) -> str:
+    for value in values:
+        if value:
+            return value
+    return ""
+
+
+def _first_not_none(values):
+    for value in values:
+        if value is not None:
+            return value
+    return None
+
+
+def group_by_strain(offers: list[dict]) -> list[dict]:
+    """Deduplicate offers into one record per strain (name + Bezeichnung).
+
+    Each strain lists the pharmacies offering it (sorted cheapest first), so the
+    same strain sold by several pharmacies collapses into a single grouped entry.
+    """
+    groups: dict[tuple[str, str], list[dict]] = {}
+    for offer in offers:
+        key = (offer["name"].casefold(), offer["bezeichnung"].casefold())
+        groups.setdefault(key, []).append(offer)
+
+    strains = []
+    for index, key in enumerate(sorted(groups), start=1):
+        members = groups[key]
+        members_sorted = sorted(
+            members,
+            key=lambda o: (
+                o["preis_eur_pro_gramm"] is None,
+                o["preis_eur_pro_gramm"] or 0.0,
+            ),
+        )
+
+        prices = [o["preis_eur_pro_gramm"] for o in members if o["preis_eur_pro_gramm"] is not None]
+        thc_prices = [
+            o["preis_eur_pro_gramm_thc"]
+            for o in members
+            if o["preis_eur_pro_gramm_thc"] is not None
+        ]
+        min_price = min(prices) if prices else None
+        min_thc_price = min(thc_prices) if thc_prices else None
+
+        name = _first_nonempty(o["name"] for o in members)
+        bezeichnung = _first_nonempty(o["bezeichnung"] for o in members)
+        genetik = _first_nonempty(o["genetik"] for o in members)
+        thc = _first_nonempty(o["thc"] for o in members)
+        cbd = _first_nonempty(o["cbd"] for o in members)
+
+        offer_records = [
+            {
+                "apotheke": o["apotheke"],
+                "apotheke_plz": o["apotheke_plz"],
+                "apotheke_stadt": o["apotheke_stadt"],
+                "preis_pro_gramm": o["preis_pro_gramm"],
+                "preis_eur_pro_gramm": o["preis_eur_pro_gramm"],
+                "preis_eur_pro_gramm_thc": o["preis_eur_pro_gramm_thc"],
+                "verfuegbarkeit": o["verfuegbarkeit"],
             }
-            thc_price_search = "" if thc_price is None else f"{thc_price:.2f} €/g thc"
-            item["search"] = " ".join(
-                [
-                    item["apotheke"],
-                    item["apotheke_plz"],
-                    item["apotheke_stadt"],
-                    item["name"],
-                    item["bezeichnung"],
-                    item["genetik"],
-                    item["thc"],
-                    item["cbd"],
-                    item["preis_pro_gramm"],
-                    thc_price_search,
-                    item["verfuegbarkeit"],
-                ]
-            ).lower()
-            flowers.append(item)
+            for o in members_sorted
+        ]
 
-    return flowers
+        offer_search = " ".join(
+            part
+            for o in members
+            for part in (
+                o["apotheke"],
+                o["apotheke_plz"],
+                o["apotheke_stadt"],
+                o["preis_pro_gramm"],
+                o["verfuegbarkeit"],
+            )
+        )
+        thc_price_search = "" if min_thc_price is None else f"{min_thc_price:.2f} €/g thc"
+
+        strains.append(
+            {
+                "id": index,
+                "name": name,
+                "bezeichnung": bezeichnung,
+                "genetik": genetik,
+                "thc": thc,
+                "cbd": cbd,
+                "min_price": min_price,
+                "min_price_per_thc_gram": min_thc_price,
+                "pharmacy_count": len({o["apotheke"] for o in members if o["apotheke"]}),
+                "offers": offer_records,
+                "sort": {
+                    "price": min_price,
+                    "price_per_thc_gram": min_thc_price,
+                    "thc": _first_not_none(o["thc_value"] for o in members),
+                    "cbd": _first_not_none(o["cbd_value"] for o in members),
+                },
+                "search": " ".join(
+                    [name, bezeichnung, genetik, thc, cbd, offer_search, thc_price_search]
+                ).lower(),
+            }
+        )
+
+    return strains
 
 
-def build_metadata(flowers: list[dict]) -> dict:
+def build_metadata(offers: list[dict], strains: list[dict]) -> dict:
     prices = [
-        item["preis_eur_pro_gramm"]
-        for item in flowers
-        if item["preis_eur_pro_gramm"] is not None
+        offer["preis_eur_pro_gramm"]
+        for offer in offers
+        if offer["preis_eur_pro_gramm"] is not None
     ]
-    pharmacies = {item["apotheke"] for item in flowers if item["apotheke"]}
-    strains = {
-        (item["name"], item["bezeichnung"])
-        for item in flowers
-        if item["name"] or item["bezeichnung"]
-    }
+    pharmacies = {offer["apotheke"] for offer in offers if offer["apotheke"]}
 
     return {
         "generated_at": datetime.now(UTC).isoformat(),
         "source": "https://greenmedical.health/de/cannabis/flowers",
-        "total": len(flowers),
+        "total": len(offers),
         "pharmacy_count": len(pharmacies),
         "strain_count": len(strains),
         "lowest_price": min(prices) if prices else None,
@@ -147,11 +226,12 @@ def build_site(input_file: Path, output_dir: Path) -> None:
     data_dir = output_dir / DATA_DIR_NAME
     data_dir.mkdir(parents=True, exist_ok=True)
 
-    flowers = read_flowers(input_file)
-    metadata = build_metadata(flowers)
+    offers = read_offers(input_file)
+    strains = group_by_strain(offers)
+    metadata = build_metadata(offers, strains)
 
     shutil.copyfile(input_file, data_dir / CSV_OUTPUT_NAME)
-    write_json(data_dir / JSON_OUTPUT_NAME, flowers)
+    write_json(data_dir / JSON_OUTPUT_NAME, strains)
     write_json(data_dir / METADATA_OUTPUT_NAME, metadata)
 
     generated_at = datetime.fromisoformat(metadata["generated_at"])
