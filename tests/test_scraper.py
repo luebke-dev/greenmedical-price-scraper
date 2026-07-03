@@ -176,12 +176,11 @@ class _StubSession:
 
     def __init__(self, pages: list[str]):
         self.pages = pages
-        self.requested_pages = []
+        self.requests = []
 
     def get(self, url, params=None, timeout=None):
-        page = int(params["page"])
-        self.requested_pages.append(page)
-        return _StubResponse(self.pages[page - 1])
+        self.requests.append({"url": url, "params": dict(params), "timeout": timeout})
+        return _StubResponse(self.pages[int(params["page"]) - 1])
 
 
 class TestScrapeFlowersForPharmacy:
@@ -195,7 +194,14 @@ class TestScrapeFlowersForPharmacy:
 
         products = scraper.scrape_flowers_for_pharmacy(session, pharmacy, "TOKEN")
 
-        assert session.requested_pages == [1, 2]
+        assert [r["params"]["page"] for r in session.requests] == ["1", "2"]
+        # Every page request must target the flowers URL at this pharmacy.
+        for request in session.requests:
+            assert request["url"] == scraper.FLOWERS_URL
+            assert request["params"]["deliveryTarget"] == "TOKEN"
+            assert request["params"]["onlyShowIfAvailable"] == "1"
+            assert request["timeout"] == scraper.REQUEST_TIMEOUT
+
         assert [p["name"] for p in products] == ["Sorte A", "Sorte B"]
         for product in products:
             assert product["apotheke"] == "Adler Apotheke"
@@ -207,4 +213,4 @@ class TestScrapeFlowersForPharmacy:
         session = _StubSession(["<html><body>leer</body></html>"])
         pharmacy = {"name": "Apo", "plz": "1", "stadt": "X"}
         assert scraper.scrape_flowers_for_pharmacy(session, pharmacy, "T") == []
-        assert session.requested_pages == [1]
+        assert len(session.requests) == 1

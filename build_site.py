@@ -267,6 +267,13 @@ def build_site(input_file: Path, output_dir: Path) -> None:
     if not input_file.exists():
         raise FileNotFoundError(f"Input CSV not found: {input_file}")
 
+    resolved_output = output_dir.resolve()
+    if resolved_output == SITE_DIR or SITE_DIR in resolved_output.parents:
+        raise ValueError(
+            f"Output directory {output_dir} must not be the site/ source directory "
+            "or nested inside it."
+        )
+
     offers = read_offers(input_file)
     strains = group_by_strain(offers)
     metadata = build_metadata(offers, strains)
