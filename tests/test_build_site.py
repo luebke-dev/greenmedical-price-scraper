@@ -202,6 +202,84 @@ class TestHighlights:
         assert (entry["name"], entry["thc"], entry["cbd"]) == ("Sorte Z", "15%", "8%")
 
 
+class TestJsonSchema:
+    """Key-set snapshots pinning the user-facing dist/data/*.json shapes."""
+
+    STRAIN_KEYS = {
+        "id", "name", "bezeichnung", "genetik", "thc", "cbd",
+        "min_price", "min_price_per_thc_gram", "pharmacy_count",
+        "offers", "sort", "search",
+    }
+    OFFER_KEYS = {
+        "apotheke", "apotheke_plz", "apotheke_stadt", "preis_pro_gramm",
+        "preis_eur_pro_gramm", "preis_eur_pro_gramm_thc", "verfuegbarkeit",
+        "produkt_url",
+    }
+    SORT_KEYS = {"price", "price_per_thc_gram", "thc", "cbd"}
+    METADATA_KEYS = {
+        "generated_at", "source", "total", "pharmacy_count", "strain_count",
+        "lowest_price", "cheapest_gram", "cheapest_thc_gram",
+        "cheapest_cbd_gram", "highest_thc", "highest_cbd", "highest_thc_cbd",
+    }
+    HIGHLIGHT_KEYS = {"price", "name", "apotheke", "genetik", "thc", "cbd", "produkt_url"}
+
+    def test_strain_record_shape(self, tmp_path):
+        path = _write_csv(
+            tmp_path,
+            """
+            Apo A,10115,Berlin,Sorte X,EMK,Indica,20%,1%,"9,50 €",verfügbar
+            """,
+        )
+        strain = build_site.group_by_strain(build_site.read_offers(path))[0]
+        assert set(strain) == self.STRAIN_KEYS
+        assert set(strain["offers"][0]) == self.OFFER_KEYS
+        assert set(strain["sort"]) == self.SORT_KEYS
+
+    def test_metadata_shape(self, tmp_path):
+        path = _write_csv(
+            tmp_path,
+            """
+            Apo A,10115,Berlin,Sorte X,EMK,Indica,20%,1%,"9,50 €",verfügbar
+            """,
+        )
+        offers = build_site.read_offers(path)
+        metadata = build_site.build_metadata(offers, build_site.group_by_strain(offers))
+        assert set(metadata) == self.METADATA_KEYS
+        assert set(metadata["cheapest_gram"]) == self.HIGHLIGHT_KEYS
+
+
+class TestBuildSite:
+    def test_writes_complete_output_tree(self, tmp_path):
+        path = _write_csv(
+            tmp_path,
+            """
+            Apo A,10115,Berlin,Sorte X,EMK,Indica,20%,1%,"9,50 €",verfügbar
+            """,
+        )
+        output_dir = tmp_path / "dist"
+        build_site.build_site(path, output_dir)
+
+        for artifact in [
+            "index.html",
+            "styles.css",
+            "app.js",
+            "data/flowers.json",
+            "data/metadata.json",
+            "data/greenmedical_flowers.csv",
+        ]:
+            assert (output_dir / artifact).is_file(), artifact
+
+        html = (output_dir / "index.html").read_text(encoding="utf-8")
+        assert 'href="styles.css"' in html
+        assert 'src="app.js"' in html
+        # No templating: nothing placeholder-shaped may survive in the page.
+        assert "__" not in html
+
+    def test_missing_input_raises(self, tmp_path):
+        with pytest.raises(FileNotFoundError):
+            build_site.build_site(tmp_path / "missing.csv", tmp_path / "dist")
+
+
 class TestProduktUrl:
     def test_url_flows_into_offers_and_highlights(self, tmp_path):
         path = tmp_path / "with_url.csv"
