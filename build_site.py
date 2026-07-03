@@ -23,11 +23,12 @@ JSON_OUTPUT_NAME = "flowers.json"
 METADATA_OUTPUT_NAME = "metadata.json"
 
 
-TEMPLATE_PATH = Path(__file__).resolve().parent / "templates" / "index.html"
-
-
-def load_template() -> str:
-    return TEMPLATE_PATH.read_text(encoding="utf-8")
+# Static site assets, copied verbatim into the output directory. The page is
+# fully data-driven: all dynamic values flow through data/*.json and are
+# rendered client-side. If a server-rendered value is ever needed again
+# (e.g. OpenGraph tags), use stdlib string.Template.substitute — it raises on
+# missing keys instead of silently shipping literal placeholder text.
+SITE_DIR = Path(__file__).resolve().parent / "site"
 
 
 def parse_decimal(value: str) -> float | None:
@@ -266,43 +267,17 @@ def build_site(input_file: Path, output_dir: Path) -> None:
     if not input_file.exists():
         raise FileNotFoundError(f"Input CSV not found: {input_file}")
 
-    output_dir.mkdir(parents=True, exist_ok=True)
-    data_dir = output_dir / DATA_DIR_NAME
-    data_dir.mkdir(parents=True, exist_ok=True)
-
     offers = read_offers(input_file)
     strains = group_by_strain(offers)
     metadata = build_metadata(offers, strains)
 
+    shutil.copytree(SITE_DIR, output_dir, dirs_exist_ok=True)
+
+    data_dir = output_dir / DATA_DIR_NAME
+    data_dir.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(input_file, data_dir / CSV_OUTPUT_NAME)
     write_json(data_dir / JSON_OUTPUT_NAME, strains)
     write_json(data_dir / METADATA_OUTPUT_NAME, metadata)
-
-    generated_at = datetime.fromisoformat(metadata["generated_at"])
-    generated_label = generated_at.strftime("%Y-%m-%d %H:%M UTC")
-
-    def price_label(entry: dict | None, suffix: str) -> str:
-        return "" if not entry else f"{entry['price']:.2f} {suffix}"
-
-    def content_label(entry: dict | None, *fields: str) -> str:
-        if not entry:
-            return ""
-        return " · ".join(entry[field] for field in fields if entry[field])
-
-    html = (
-        load_template()
-        .replace("__GENERATED_LABEL__", generated_label)
-        .replace("__TOTAL__", str(metadata["total"]))
-        .replace("__PHARMACIES__", str(metadata["pharmacy_count"]))
-        .replace("__STRAINS__", str(metadata["strain_count"]))
-        .replace("__LOWEST_PRICE__", price_label(metadata["cheapest_gram"], "€/g"))
-        .replace("__LOWEST_THC_PRICE__", price_label(metadata["cheapest_thc_gram"], "€/g THC"))
-        .replace("__LOWEST_CBD_PRICE__", price_label(metadata["cheapest_cbd_gram"], "€/g CBD"))
-        .replace("__HIGHEST_THC__", content_label(metadata["highest_thc"], "thc"))
-        .replace("__HIGHEST_CBD__", content_label(metadata["highest_cbd"], "cbd"))
-        .replace("__HIGHEST_THC_CBD__", content_label(metadata["highest_thc_cbd"], "thc", "cbd"))
-    )
-    (output_dir / "index.html").write_text(html, encoding="utf-8")
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:

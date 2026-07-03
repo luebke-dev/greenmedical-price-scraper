@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GreenMedical Livebestand</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="page">
+    <header>
+      <div class="title-row">
+        <div>
+          <div class="brand">
+            <span class="brand-dot" aria-hidden="true"></span>
+            <h1>GreenMedical Livebestand</h1>
+          </div>
+          <div class="updated">Stand: <span id="updatedAt">__GENERATED_LABEL__</span></div>
+        </div>
+        <nav class="links" aria-label="Downloads">
+          <a href="data/greenmedical_flowers.csv">CSV</a>
+          <a href="data/flowers.json">JSON</a>
+        </nav>
+      </div>
+
+      <section class="metrics" aria-label="Kennzahlen">
+        <div class="metric">
+          <div class="metric-label">Angebote</div>
+          <div class="metric-value" id="totalCount">__TOTAL__</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Apotheken</div>
+          <div class="metric-value" id="pharmacyCount">__PHARMACIES__</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Sorten</div>
+          <div class="metric-value" id="strainCount">__STRAINS__</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Günstigster €/g</div>
+          <div class="metric-value" id="lowestPrice">__LOWEST_PRICE__</div>
+          <div class="metric-meta" id="lowestPriceMeta"></div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Günstigster €/g THC</div>
+          <div class="metric-value" id="lowestThcPrice">__LOWEST_THC_PRICE__</div>
+          <div class="metric-meta" id="lowestThcPriceMeta"></div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Günstigster €/g CBD</div>
+          <div class="metric-value" id="lowestCbdPrice">__LOWEST_CBD_PRICE__</div>
+          <div class="metric-meta" id="lowestCbdPriceMeta"></div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Höchster THC</div>
+          <div class="metric-value" id="highestThc">__HIGHEST_THC__</div>
+          <div class="metric-meta" id="highestThcMeta"></div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Höchster CBD</div>
+          <div class="metric-value" id="highestCbd">__HIGHEST_CBD__</div>
+          <div class="metric-meta" id="highestCbdMeta"></div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Höchster THC &amp; CBD</div>
+          <div class="metric-value" id="highestThcCbd">__HIGHEST_THC_CBD__</div>
+          <div class="metric-meta" id="highestThcCbdMeta"></div>
+        </div>
+      </section>
+    </header>
+
+    <section class="toolbar" aria-label="Filter">
+      <input id="searchInput" class="search" type="search" placeholder="Sorte, Apotheke, Stadt" autocomplete="off">
+      <div class="links">
+        <button id="toggleFilters" class="clear-button" type="button" aria-expanded="false" aria-controls="filters">
+          <span>Filter</span>
+          <span class="chevron" aria-hidden="true">▸</span>
+        </button>
+        <button id="clearSearch" class="clear-button" type="button">Zurücksetzen</button>
+        <div class="result-count" id="resultCount">0 Sorten</div>
+      </div>
+    </section>
+
+    <section class="filters" id="filters" aria-label="Bereichsfilter" hidden></section>
+
+    <section class="table-wrap" aria-label="Preistabelle">
+      <table>
+        <thead>
+          <tr id="tableHead"></tr>
+        </thead>
+        <tbody id="tableBody">
+          <tr><td class="empty">Daten werden geladen.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <footer>
+      Quelle: greenmedical.health. Preise und Verfügbarkeit können sich kurzfristig ändern.
+    </footer>
+  </main>
+
+  <script src="app.js" defer></script>
+</body>
+</html>
