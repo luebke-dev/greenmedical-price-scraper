@@ -33,21 +33,7 @@ const elements = {
   resultCount: document.getElementById("resultCount"),
   updatedAt: document.getElementById("updatedAt"),
   toggleFilters: document.getElementById("toggleFilters"),
-  totalCount: document.getElementById("totalCount"),
-  pharmacyCount: document.getElementById("pharmacyCount"),
-  strainCount: document.getElementById("strainCount"),
-  lowestPrice: document.getElementById("lowestPrice"),
-  lowestPriceMeta: document.getElementById("lowestPriceMeta"),
-  lowestThcPrice: document.getElementById("lowestThcPrice"),
-  lowestThcPriceMeta: document.getElementById("lowestThcPriceMeta"),
-  lowestCbdPrice: document.getElementById("lowestCbdPrice"),
-  lowestCbdPriceMeta: document.getElementById("lowestCbdPriceMeta"),
-  highestThc: document.getElementById("highestThc"),
-  highestThcMeta: document.getElementById("highestThcMeta"),
-  highestCbd: document.getElementById("highestCbd"),
-  highestCbdMeta: document.getElementById("highestCbdMeta"),
-  highestThcCbd: document.getElementById("highestThcCbd"),
-  highestThcCbdMeta: document.getElementById("highestThcCbdMeta")
+  metrics: document.getElementById("metrics")
 };
 
 const collator = new Intl.Collator("de", { numeric: true, sensitivity: "base" });
@@ -72,19 +58,9 @@ function getSortValue(row, key) {
   return row[key] || "";
 }
 
-function formatPrice(value) {
-  if (value === null || Number.isNaN(value)) return "";
-  return `${priceFormatter.format(value)} €/g`;
-}
-
-function formatThcPrice(value) {
-  if (value === null || Number.isNaN(value)) return "";
-  return `${priceFormatter.format(value)} €/g THC`;
-}
-
-function formatCbdPrice(value) {
-  if (value === null || Number.isNaN(value)) return "";
-  return `${priceFormatter.format(value)} €/g CBD`;
+function formatEuro(value, suffix) {
+  if (value === null || value === undefined || Number.isNaN(value)) return "";
+  return `${priceFormatter.format(value)} ${suffix}`;
 }
 
 function updateHeader() {
@@ -120,7 +96,7 @@ function updateHeader() {
         state.sortDirection = state.sortDirection === "asc" ? "desc" : "asc";
       } else {
         state.sortKey = column.key;
-        state.sortDirection = column.type === "number" ? "asc" : "asc";
+        state.sortDirection = "asc";
       }
       applyFilters();
     });
@@ -368,12 +344,12 @@ function buildOffersTable(strain) {
 
     const price = document.createElement("td");
     price.className = "price";
-    price.textContent = offer.preis_pro_gramm || formatPrice(offer.preis_eur_pro_gramm);
+    price.textContent = offer.preis_pro_gramm || formatEuro(offer.preis_eur_pro_gramm, "€/g");
     row.appendChild(price);
 
     const thcPrice = document.createElement("td");
     thcPrice.className = "price";
-    thcPrice.textContent = formatThcPrice(offer.preis_eur_pro_gramm_thc);
+    thcPrice.textContent = formatEuro(offer.preis_eur_pro_gramm_thc, "€/g THC");
     row.appendChild(thcPrice);
 
     const status = document.createElement("td");
@@ -438,12 +414,12 @@ function renderRows() {
         cell.appendChild(wrap);
       } else if (column.key === "price") {
         cell.textContent =
-          strain.min_price === null ? "" : `ab ${formatPrice(strain.min_price)}`;
+          strain.min_price === null ? "" : `ab ${formatEuro(strain.min_price, "€/g")}`;
       } else if (column.key === "price_per_thc_gram") {
         cell.textContent =
           strain.min_price_per_thc_gram === null
             ? ""
-            : `ab ${formatThcPrice(strain.min_price_per_thc_gram)}`;
+            : `ab ${formatEuro(strain.min_price_per_thc_gram, "€/g THC")}`;
       } else if (column.key === "pharmacy_count") {
         cell.textContent = strain.pharmacy_count.toLocaleString("de-DE");
       } else {
@@ -499,64 +475,95 @@ function fillMeta(metaEl, entry) {
   if (entry.apotheke) metaEl.appendChild(metaLineEl(entry.apotheke));
 }
 
-function setHighlight(valueEl, metaEl, entry, valueText) {
-  valueEl.textContent = entry ? valueText : "";
-  fillMeta(metaEl, entry);
+// One entry per metric card, rendered in order into #metrics. Plain count
+// metrics define `value(metadata)`; highlight metrics define `entry(metadata)`
+// plus `value(entry)` and get meta lines and a card link from the entry.
+const metricConfigs = [
+  { label: "Angebote", value: (m) => m.total.toLocaleString("de-DE") },
+  { label: "Apotheken", value: (m) => m.pharmacy_count.toLocaleString("de-DE") },
+  { label: "Sorten", value: (m) => m.strain_count.toLocaleString("de-DE") },
+  {
+    label: "Günstigster €/g",
+    entry: (m) => m.cheapest_gram,
+    value: (entry) => formatEuro(entry.price, "€/g")
+  },
+  {
+    label: "Günstigster €/g THC",
+    entry: (m) => m.cheapest_thc_gram,
+    value: (entry) => formatEuro(entry.price, "€/g THC")
+  },
+  {
+    label: "Günstigster €/g CBD",
+    entry: (m) => m.cheapest_cbd_gram,
+    value: (entry) => formatEuro(entry.price, "€/g CBD")
+  },
+  {
+    label: "Höchster THC",
+    entry: (m) => m.highest_thc,
+    value: (entry) => entry.thc || ""
+  },
+  {
+    label: "Höchster CBD",
+    entry: (m) => m.highest_cbd,
+    value: (entry) => entry.cbd || ""
+  },
+  {
+    label: "Höchster THC & CBD",
+    entry: (m) => m.highest_thc_cbd,
+    value: (entry) => [entry.thc, entry.cbd].filter(Boolean).join(" · ")
+  }
+];
 
-  const card = valueEl.closest(".metric");
-  if (!card) return;
-  const existing = card.querySelector(".card-link");
-  if (existing) existing.remove();
-  const linked = Boolean(entry && entry.produkt_url);
-  card.classList.toggle("linked", linked);
-  if (linked) {
-    const link = document.createElement("a");
-    link.className = "card-link";
-    link.href = entry.produkt_url;
-    link.target = "_blank";
-    link.rel = "noopener";
-    link.setAttribute("aria-label", `${entry.name || "Sorte"} bei greenmedical öffnen`);
-    card.appendChild(link);
+function cardLink(entry) {
+  const link = document.createElement("a");
+  link.className = "card-link";
+  link.href = entry.produkt_url;
+  link.target = "_blank";
+  link.rel = "noopener";
+  link.setAttribute("aria-label", `${entry.name || "Sorte"} bei greenmedical öffnen`);
+  return link;
+}
+
+// With metadata=null this renders empty skeleton cards (labels only), so the
+// header keeps its layout before the data fetch resolves.
+function renderMetrics(metadata) {
+  elements.metrics.replaceChildren();
+
+  for (const config of metricConfigs) {
+    const card = document.createElement("div");
+    card.className = "metric";
+
+    const label = document.createElement("div");
+    label.className = "metric-label";
+    label.textContent = config.label;
+    card.appendChild(label);
+
+    const value = document.createElement("div");
+    value.className = "metric-value";
+    card.appendChild(value);
+
+    if (metadata && config.entry) {
+      const entry = config.entry(metadata);
+      value.textContent = entry ? config.value(entry) : "";
+
+      const meta = document.createElement("div");
+      meta.className = "metric-meta";
+      fillMeta(meta, entry);
+      card.appendChild(meta);
+
+      if (entry && entry.produkt_url) {
+        card.classList.add("linked");
+        card.appendChild(cardLink(entry));
+      }
+    } else if (metadata) {
+      value.textContent = config.value(metadata);
+    }
+
+    elements.metrics.appendChild(card);
   }
 }
 
-function updateMetrics(metadata) {
-  elements.totalCount.textContent = metadata.total.toLocaleString("de-DE");
-  elements.pharmacyCount.textContent = metadata.pharmacy_count.toLocaleString("de-DE");
-  elements.strainCount.textContent = metadata.strain_count.toLocaleString("de-DE");
-
-  const cheapestGram = metadata.cheapest_gram;
-  const cheapestThc = metadata.cheapest_thc_gram;
-  const cheapestCbd = metadata.cheapest_cbd_gram;
-  const highestThc = metadata.highest_thc;
-  const highestCbd = metadata.highest_cbd;
-  const highestThcCbd = metadata.highest_thc_cbd;
-
-  setHighlight(
-    elements.lowestPrice, elements.lowestPriceMeta, cheapestGram,
-    cheapestGram && formatPrice(cheapestGram.price)
-  );
-  setHighlight(
-    elements.lowestThcPrice, elements.lowestThcPriceMeta, cheapestThc,
-    cheapestThc && formatThcPrice(cheapestThc.price)
-  );
-  setHighlight(
-    elements.lowestCbdPrice, elements.lowestCbdPriceMeta, cheapestCbd,
-    cheapestCbd && formatCbdPrice(cheapestCbd.price)
-  );
-  setHighlight(
-    elements.highestThc, elements.highestThcMeta, highestThc,
-    highestThc && highestThc.thc
-  );
-  setHighlight(
-    elements.highestCbd, elements.highestCbdMeta, highestCbd,
-    highestCbd && highestCbd.cbd
-  );
-  setHighlight(
-    elements.highestThcCbd, elements.highestThcCbdMeta, highestThcCbd,
-    highestThcCbd && [highestThcCbd.thc, highestThcCbd.cbd].filter(Boolean).join(" · ")
-  );
-
+function updateGeneratedAt(metadata) {
   const generatedAt = new Date(metadata.generated_at);
   if (!Number.isNaN(generatedAt.valueOf())) {
     elements.updatedAt.textContent = generatedAt.toLocaleString("de-DE", {
@@ -578,7 +585,8 @@ async function loadData() {
 
   state.rows = await rowsResponse.json();
   const metadata = await metadataResponse.json();
-  updateMetrics(metadata);
+  renderMetrics(metadata);
+  updateGeneratedAt(metadata);
   initFilters();
   applyFilters();
 }
@@ -598,6 +606,7 @@ elements.clear.addEventListener("click", () => {
 });
 
 updateHeader();
+renderMetrics(null);
 loadData().catch((error) => {
   elements.body.replaceChildren();
   const row = document.createElement("tr");

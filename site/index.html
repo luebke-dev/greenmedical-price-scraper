@@ -15,7 +15,7 @@
             <span class="brand-dot" aria-hidden="true"></span>
             <h1>GreenMedical Livebestand</h1>
           </div>
-          <div class="updated">Stand: <span id="updatedAt">__GENERATED_LABEL__</span></div>
+          <div class="updated">Stand: <span id="updatedAt">–</span></div>
         </div>
         <nav class="links" aria-label="Downloads">
           <a href="data/greenmedical_flowers.csv">CSV</a>
@@ -23,50 +23,7 @@
         </nav>
       </div>
 
-      <section class="metrics" aria-label="Kennzahlen">
-        <div class="metric">
-          <div class="metric-label">Angebote</div>
-          <div class="metric-value" id="totalCount">__TOTAL__</div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">Apotheken</div>
-          <div class="metric-value" id="pharmacyCount">__PHARMACIES__</div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">Sorten</div>
-          <div class="metric-value" id="strainCount">__STRAINS__</div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">Günstigster €/g</div>
-          <div class="metric-value" id="lowestPrice">__LOWEST_PRICE__</div>
-          <div class="metric-meta" id="lowestPriceMeta"></div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">Günstigster €/g THC</div>
-          <div class="metric-value" id="lowestThcPrice">__LOWEST_THC_PRICE__</div>
-          <div class="metric-meta" id="lowestThcPriceMeta"></div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">Günstigster €/g CBD</div>
-          <div class="metric-value" id="lowestCbdPrice">__LOWEST_CBD_PRICE__</div>
-          <div class="metric-meta" id="lowestCbdPriceMeta"></div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">Höchster THC</div>
-          <div class="metric-value" id="highestThc">__HIGHEST_THC__</div>
-          <div class="metric-meta" id="highestThcMeta"></div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">Höchster CBD</div>
-          <div class="metric-value" id="highestCbd">__HIGHEST_CBD__</div>
-          <div class="metric-meta" id="highestCbdMeta"></div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">Höchster THC &amp; CBD</div>
-          <div class="metric-value" id="highestThcCbd">__HIGHEST_THC_CBD__</div>
-          <div class="metric-meta" id="highestThcCbdMeta"></div>
-        </div>
-      </section>
+      <section class="metrics" id="metrics" aria-label="Kennzahlen"></section>
     </header>
 
     <section class="toolbar" aria-label="Filter">
@@ -93,6 +50,10 @@
         </tbody>
       </table>
     </section>
+
+    <noscript>
+      <p class="empty">Diese Seite benötigt JavaScript, um Kennzahlen und Preistabelle anzuzeigen.</p>
+    </noscript>
 
     <footer>
       Quelle: greenmedical.health. Preise und Verfügbarkeit können sich kurzfristig ändern.
