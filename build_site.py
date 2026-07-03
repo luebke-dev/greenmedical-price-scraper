@@ -13,6 +13,8 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
 
+from csv_fields import FIELDNAMES
+
 DEFAULT_INPUT = "greenmedical_flowers.csv"
 DEFAULT_OUTPUT_DIR = "dist"
 DATA_DIR_NAME = "data"
@@ -66,19 +68,9 @@ def read_offers(input_file: Path) -> list[dict]:
 
     with input_file.open(newline="", encoding="utf-8") as csv_file:
         for row in csv.DictReader(csv_file):
-            offer = {
-                "apotheke": clean_text(row.get("apotheke")),
-                "apotheke_plz": clean_text(row.get("apotheke_plz")),
-                "apotheke_stadt": clean_text(row.get("apotheke_stadt")),
-                "name": clean_text(row.get("name")),
-                "bezeichnung": clean_text(row.get("bezeichnung")),
-                "genetik": clean_text(row.get("genetik")),
-                "thc": clean_text(row.get("thc")),
-                "cbd": clean_text(row.get("cbd")),
-                "preis_pro_gramm": clean_text(row.get("preis_pro_gramm")),
-                "verfuegbarkeit": clean_text(row.get("verfuegbarkeit")),
-                "produkt_url": (row.get("produkt_url") or "").strip(),
-            }
+            offer = {field: clean_text(row.get(field)) for field in FIELDNAMES}
+            # URLs must not have inner whitespace collapsed.
+            offer["produkt_url"] = (row.get("produkt_url") or "").strip()
             price = parse_decimal(offer["preis_pro_gramm"])
             thc_percent = parse_percent(offer["thc"])
             cbd_percent = parse_percent(offer["cbd"])

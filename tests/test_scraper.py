@@ -4,11 +4,22 @@ from base64 import b64decode
 
 from bs4 import BeautifulSoup
 
+import csv_fields
 import scraper
 
 
 def _tile(html: str):
     return BeautifulSoup(html, "lxml").find("article")
+
+
+class TestFieldnamesContract:
+    def test_scraper_shares_the_csv_fields_list(self):
+        assert scraper.FIELDNAMES is csv_fields.FIELDNAMES
+
+    def test_extract_product_keys_cover_fieldnames(self):
+        product = scraper.extract_product(_tile("<article></article>"))
+        pharmacy_fields = {"apotheke", "apotheke_plz", "apotheke_stadt"}
+        assert set(product) | pharmacy_fields == set(csv_fields.FIELDNAMES)
 
 
 class TestExtractBadgeValue:

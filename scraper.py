@@ -19,6 +19,8 @@ from bs4 import BeautifulSoup
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
+from csv_fields import FIELDNAMES
+
 logger = logging.getLogger("greenmedical.scraper")
 
 BASE_URL = "https://greenmedical.health"
@@ -40,19 +42,6 @@ RETRY_STATUS_FORCELIST = (429, 500, 502, 503, 504)
 # Politeness delays between requests (seconds).
 PHARMACY_DELAY = 0.3
 PAGE_DELAY = 0.5
-FIELDNAMES = [
-    "apotheke",
-    "apotheke_plz",
-    "apotheke_stadt",
-    "name",
-    "bezeichnung",
-    "genetik",
-    "thc",
-    "cbd",
-    "preis_pro_gramm",
-    "verfuegbarkeit",
-    "produkt_url",
-]
 
 
 def create_session() -> requests.Session:
