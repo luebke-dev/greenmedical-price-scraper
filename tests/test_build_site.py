@@ -1,15 +1,17 @@
 """Unit tests for the parsing/derivation helpers in build_site."""
 
+import json
 import textwrap
 
 import pytest
 
 import build_site
+import csv_fields
 
-CSV_HEADER = (
-    "apotheke,apotheke_plz,apotheke_stadt,name,bezeichnung,genetik,"
-    "thc,cbd,preis_pro_gramm,verfuegbarkeit"
-)
+# Derived from the shared contract so the fixtures cannot drift from the
+# columns the scraper actually writes. Rows may omit trailing columns
+# (csv.DictReader fills them with None).
+CSV_HEADER = ",".join(csv_fields.FIELDNAMES)
 
 
 def _write_csv(tmp_path, rows: str):
@@ -202,15 +204,131 @@ class TestHighlights:
         assert (entry["name"], entry["thc"], entry["cbd"]) == ("Sorte Z", "15%", "8%")
 
 
+class TestJsonSchema:
+    """Key-set snapshots pinning the user-facing dist/data/*.json shapes."""
+
+    STRAIN_KEYS = {
+        "id", "name", "bezeichnung", "genetik", "thc", "cbd",
+        "min_price", "min_price_per_thc_gram", "pharmacy_count",
+        "offers", "sort", "search",
+    }
+    OFFER_KEYS = {
+        "apotheke", "apotheke_plz", "apotheke_stadt", "preis_pro_gramm",
+        "preis_eur_pro_gramm", "preis_eur_pro_gramm_thc", "verfuegbarkeit",
+        "produkt_url",
+    }
+    SORT_KEYS = {"price", "price_per_thc_gram", "thc", "cbd"}
+    METADATA_KEYS = {
+        "generated_at", "source", "total", "pharmacy_count", "strain_count",
+        "lowest_price", "cheapest_gram", "cheapest_thc_gram",
+        "cheapest_cbd_gram", "highest_thc", "highest_cbd", "highest_thc_cbd",
+    }
+    HIGHLIGHT_KEYS = {"price", "name", "apotheke", "genetik", "thc", "cbd", "produkt_url"}
+
+    def test_strain_record_shape(self, tmp_path):
+        path = _write_csv(
+            tmp_path,
+            """
+            Apo A,10115,Berlin,Sorte X,EMK,Indica,20%,1%,"9,50 €",verfügbar
+            """,
+        )
+        strain = build_site.group_by_strain(build_site.read_offers(path))[0]
+        assert set(strain) == self.STRAIN_KEYS
+        assert set(strain["offers"][0]) == self.OFFER_KEYS
+        assert set(strain["sort"]) == self.SORT_KEYS
+
+    def test_metadata_shape(self, tmp_path):
+        path = _write_csv(
+            tmp_path,
+            """
+            Apo A,10115,Berlin,Sorte X,EMK,Indica,20%,1%,"9,50 €",verfügbar
+            """,
+        )
+        offers = build_site.read_offers(path)
+        metadata = build_site.build_metadata(offers, build_site.group_by_strain(offers))
+        assert set(metadata) == self.METADATA_KEYS
+        assert set(metadata["cheapest_gram"]) == self.HIGHLIGHT_KEYS
+
+
+class TestBuildSite:
+    ARTIFACTS = [
+        "index.html",
+        "styles.css",
+        "app.js",
+        "data/flowers.json",
+        "data/metadata.json",
+        "data/greenmedical_flowers.csv",
+    ]
+
+    def _assert_output_tree(self, output_dir):
+        for artifact in self.ARTIFACTS:
+            assert (output_dir / artifact).is_file(), artifact
+
+        html = (output_dir / "index.html").read_text(encoding="utf-8")
+        assert 'href="styles.css"' in html
+        assert 'src="app.js"' in html
+        # No templating: nothing placeholder-shaped may survive in the page.
+        assert "__" not in html
+
+        # Pin which payload lands in which file: app.js expects the strain
+        # array in flowers.json and the metadata dict in metadata.json.
+        flowers = json.loads((output_dir / "data/flowers.json").read_text(encoding="utf-8"))
+        assert isinstance(flowers, list) and flowers
+        assert set(flowers[0]) == TestJsonSchema.STRAIN_KEYS
+
+        metadata = json.loads((output_dir / "data/metadata.json").read_text(encoding="utf-8"))
+        assert set(metadata) == TestJsonSchema.METADATA_KEYS
+
+    def test_writes_complete_output_tree(self, tmp_path):
+        path = _write_csv(
+            tmp_path,
+            """
+            Apo A,10115,Berlin,Sorte X,EMK,Indica,20%,1%,"9,50 €",verfügbar
+            """,
+        )
+        output_dir = tmp_path / "dist"
+        build_site.build_site(path, output_dir)
+        self._assert_output_tree(output_dir)
+
+    def test_rebuild_into_existing_output_dir(self, tmp_path):
+        """The normal dev loop rebuilds into a leftover dist/ without clobbering."""
+        path = _write_csv(
+            tmp_path,
+            """
+            Apo A,10115,Berlin,Sorte X,EMK,Indica,20%,1%,"9,50 €",verfügbar
+            """,
+        )
+        output_dir = tmp_path / "dist"
+        build_site.build_site(path, output_dir)
+        build_site.build_site(path, output_dir)
+        self._assert_output_tree(output_dir)
+        # The second copytree must not have nested a copy of the output.
+        assert not (output_dir / "dist").exists()
+
+    def test_missing_input_raises(self, tmp_path):
+        with pytest.raises(FileNotFoundError):
+            build_site.build_site(tmp_path / "missing.csv", tmp_path / "dist")
+
+    def test_output_into_site_source_dir_raises(self, tmp_path):
+        path = _write_csv(
+            tmp_path,
+            """
+            Apo A,10115,Berlin,Sorte X,EMK,Indica,20%,1%,"9,50 €",verfügbar
+            """,
+        )
+        with pytest.raises(ValueError, match="site/"):
+            build_site.build_site(path, build_site.SITE_DIR)
+        with pytest.raises(ValueError, match="site/"):
+            build_site.build_site(path, build_site.SITE_DIR / "dist")
+
+
 class TestProduktUrl:
     def test_url_flows_into_offers_and_highlights(self, tmp_path):
-        path = tmp_path / "with_url.csv"
-        path.write_text(
-            "apotheke,apotheke_plz,apotheke_stadt,name,bezeichnung,genetik,"
-            "thc,cbd,preis_pro_gramm,verfuegbarkeit,produkt_url\n"
-            'Apo A,10115,Berlin,Sorte X,EMK,Indica,20%,1%,"9,50 €",verfügbar,'
-            "https://greenmedical.health/p?deliveryTarget=T\n",
-            encoding="utf-8",
+        path = _write_csv(
+            tmp_path,
+            """
+            Apo A,10115,Berlin,Sorte X,EMK,Indica,20%,1%,"9,50 €",verfügbar,https://greenmedical.health/p?deliveryTarget=T
+            """,
         )
         offers = build_site.read_offers(path)
         strains = build_site.group_by_strain(offers)
@@ -220,3 +338,15 @@ class TestProduktUrl:
             "https://greenmedical.health/p?deliveryTarget=T"
         )
         assert metadata["cheapest_gram"]["produkt_url"].endswith("deliveryTarget=T")
+
+    def test_url_is_stripped_but_inner_whitespace_preserved(self, tmp_path):
+        # Unlike every other field, produkt_url must not go through clean_text:
+        # inner whitespace is part of the URL and must survive verbatim.
+        path = _write_csv(
+            tmp_path,
+            """
+            Apo A,10115,Berlin,Sorte X,EMK,Indica,20%,1%,"9,50 €",neu,"  https://gm.test/p?a=x  y  "
+            """,
+        )
+        offer = build_site.read_offers(path)[0]
+        assert offer["produkt_url"] == "https://gm.test/p?a=x  y"

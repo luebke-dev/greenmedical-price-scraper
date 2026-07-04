@@ -10,6 +10,20 @@ The generated page includes:
 - CSV and JSON downloads
 - automatic GitHub Pages publishing from GitHub Actions
 
+## Repository Layout
+
+- `scraper.py` — scrapes greenmedical.health and writes the raw CSV
+- `build_site.py` — reads the CSV, derives strain groups and metadata, writes `dist/`
+- `csv_fields.py` — the shared CSV column contract between the two
+- `site/` — the static page (`index.html`, `styles.css`, `app.js`), copied verbatim
+  into `dist/`; all dynamic values (metrics, table) are rendered client-side from
+  `dist/data/*.json`, there is no HTML templating step
+- `data/greenmedical_flowers.csv` — the committed latest scrape, updated by CI
+- `tests/` — unit tests for the parsing/derivation helpers (no network access)
+
+If the `data/*.json` schema ever changes, bump a manual `?v=` query string on the
+`app.js` script tag in `site/index.html` so cached browsers pick up the new script.
+
 ## Local Usage
 
 Install dependencies:

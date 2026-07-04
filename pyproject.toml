@@ -16,16 +16,12 @@ dev = [
     "ruff>=0.9",
 ]
 
-[project.scripts]
-greenmedical-scrape = "scraper:main"
-greenmedical-build-site = "build_site:main"
-
 [build-system]
 requires = ["setuptools>=69"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-py-modules = ["build_site", "main", "scraper"]
+py-modules = ["build_site", "csv_fields", "scraper"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -19,6 +19,8 @@ from bs4 import BeautifulSoup
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
+from csv_fields import FIELDNAMES
+
 logger = logging.getLogger("greenmedical.scraper")
 
 BASE_URL = "https://greenmedical.health"
@@ -40,19 +42,6 @@ RETRY_STATUS_FORCELIST = (429, 500, 502, 503, 504)
 # Politeness delays between requests (seconds).
 PHARMACY_DELAY = 0.3
 PAGE_DELAY = 0.5
-FIELDNAMES = [
-    "apotheke",
-    "apotheke_plz",
-    "apotheke_stadt",
-    "name",
-    "bezeichnung",
-    "genetik",
-    "thc",
-    "cbd",
-    "preis_pro_gramm",
-    "verfuegbarkeit",
-    "produkt_url",
-]
 
 
 def create_session() -> requests.Session:
@@ -136,6 +125,17 @@ def with_delivery_target(url: str, delivery_target: str) -> str:
     return urlunparse(parts._replace(query=urlencode(query)))
 
 
+def parse_pagination(soup) -> tuple[int, int] | None:
+    """Read (current, total) from the "n / m" pagination container, if present."""
+    pag = soup.find("div", class_="paginationContainer")
+    if not pag:
+        return None
+    match = re.search(r"(\d+)\s*/\s*(\d+)", pag.get_text(strip=True))
+    if not match:
+        return None
+    return int(match.group(1)), int(match.group(2))
+
+
 def scrape_flowers_for_pharmacy(
     session: requests.Session, pharmacy: dict, delivery_target: str
 ) -> list[dict]:
@@ -168,18 +168,11 @@ def scrape_flowers_for_pharmacy(
                 )
             products.append(product)
 
-        # Check pagination
-        pag = soup.find("div", class_="paginationContainer")
-        if pag:
-            pag_text = pag.get_text(strip=True)
-            match = re.search(r"(\d+)\s*/\s*(\d+)", pag_text)
-            if match:
-                current, total = int(match.group(1)), int(match.group(2))
-                if current >= total:
-                    break
-            else:
-                break
-        else:
+        pagination = parse_pagination(soup)
+        if pagination is None:
+            break
+        current, total = pagination
+        if current >= total:
             break
 
         page += 1
@@ -254,6 +247,68 @@ def extract_product(tile) -> dict:
     }
 
 
+def resolve_pharmacy_targets(
+    session: requests.Session, pharmacies: list[dict]
+) -> list[tuple[dict, str]]:
+    """Look up each pharmacy's UUID and encode it as a deliveryTarget.
+
+    Pharmacies whose UUID cannot be fetched or found are logged and skipped.
+    """
+    targets = []
+    for i, pharmacy in enumerate(pharmacies):
+        try:
+            uuid = get_pharmacy_uuid(session, pharmacy["url"])
+        except requests.RequestException as exc:
+            logger.warning(
+                "  [%d/%d] %s: failed to fetch UUID (%s), skipping",
+                i + 1, len(pharmacies), pharmacy["name"], exc,
+            )
+            continue
+
+        if uuid:
+            targets.append((pharmacy, make_delivery_target(uuid)))
+            logger.info(
+                "  [%d/%d] %s: UUID found", i + 1, len(pharmacies), pharmacy["name"]
+            )
+        else:
+            logger.info(
+                "  [%d/%d] %s: no UUID, skipping",
+                i + 1, len(pharmacies), pharmacy["name"],
+            )
+        time.sleep(PHARMACY_DELAY)
+
+    return targets
+
+
+def scrape_pharmacy_targets(
+    session: requests.Session, targets: list[tuple[dict, str]]
+) -> list[dict]:
+    """Scrape flowers for each (pharmacy, deliveryTarget) pair, skipping failures."""
+    all_products = []
+    failed = 0
+    for i, (pharmacy, delivery_target) in enumerate(targets):
+        logger.info(
+            "  [%d/%d] Scraping %s...", i + 1, len(targets), pharmacy["name"]
+        )
+        try:
+            products = scrape_flowers_for_pharmacy(session, pharmacy, delivery_target)
+        except requests.RequestException as exc:
+            failed += 1
+            logger.warning(
+                "    -> failed to scrape %s (%s), skipping",
+                pharmacy["name"], exc,
+            )
+            continue
+        all_products.extend(products)
+        logger.info("    -> %d flowers found", len(products))
+        time.sleep(PAGE_DELAY)
+
+    if failed:
+        logger.warning("%d pharmacies could not be scraped and were skipped.", failed)
+
+    return all_products
+
+
 def scrape_all_flowers() -> list[dict]:
     """Scrape all available flowers for all pharmacies with live stock.
 
@@ -265,58 +320,10 @@ def scrape_all_flowers() -> list[dict]:
         pharmacies = get_pharmacies_with_livebestand(session)
 
         logger.info("Fetching pharmacy UUIDs...")
-        pharmacy_targets = []
-        for i, pharmacy in enumerate(pharmacies):
-            try:
-                uuid = get_pharmacy_uuid(session, pharmacy["url"])
-            except requests.RequestException as exc:
-                logger.warning(
-                    "  [%d/%d] %s: failed to fetch UUID (%s), skipping",
-                    i + 1, len(pharmacies), pharmacy["name"], exc,
-                )
-                continue
+        targets = resolve_pharmacy_targets(session, pharmacies)
+        logger.info("%d pharmacies with valid UUIDs. Starting scrape...", len(targets))
 
-            if uuid:
-                delivery_target = make_delivery_target(uuid)
-                pharmacy_targets.append((pharmacy, delivery_target))
-                logger.info(
-                    "  [%d/%d] %s: UUID found", i + 1, len(pharmacies), pharmacy["name"]
-                )
-            else:
-                logger.info(
-                    "  [%d/%d] %s: no UUID, skipping",
-                    i + 1, len(pharmacies), pharmacy["name"],
-                )
-            time.sleep(PHARMACY_DELAY)
-
-        logger.info(
-            "%d pharmacies with valid UUIDs. Starting scrape...", len(pharmacy_targets)
-        )
-
-        all_products = []
-        failed = 0
-        for i, (pharmacy, delivery_target) in enumerate(pharmacy_targets):
-            logger.info(
-                "  [%d/%d] Scraping %s...",
-                i + 1, len(pharmacy_targets), pharmacy["name"],
-            )
-            try:
-                products = scrape_flowers_for_pharmacy(session, pharmacy, delivery_target)
-            except requests.RequestException as exc:
-                failed += 1
-                logger.warning(
-                    "    -> failed to scrape %s (%s), skipping",
-                    pharmacy["name"], exc,
-                )
-                continue
-            all_products.extend(products)
-            logger.info("    -> %d flowers found", len(products))
-            time.sleep(PAGE_DELAY)
-
-        if failed:
-            logger.warning("%d pharmacies could not be scraped and were skipped.", failed)
-
-    return all_products
+        return scrape_pharmacy_targets(session, targets)
 
 
 def write_products_csv(products: list[dict], output_file: Path) -> None:

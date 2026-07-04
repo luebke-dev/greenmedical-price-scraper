@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GreenMedical Livebestand</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="page">
+    <header>
+      <div class="title-row">
+        <div>
+          <div class="brand">
+            <span class="brand-dot" aria-hidden="true"></span>
+            <h1>GreenMedical Livebestand</h1>
+          </div>
+          <div class="updated">Stand: <span id="updatedAt">–</span></div>
+        </div>
+        <nav class="links" aria-label="Downloads">
+          <a href="data/greenmedical_flowers.csv">CSV</a>
+          <a href="data/flowers.json">JSON</a>
+        </nav>
+      </div>
+
+      <section class="metrics" id="metrics" aria-label="Kennzahlen"></section>
+    </header>
+
+    <section class="toolbar" aria-label="Filter">
+      <input id="searchInput" class="search" type="search" placeholder="Sorte, Apotheke, Stadt" autocomplete="off">
+      <div class="links">
+        <button id="toggleFilters" class="clear-button" type="button" aria-expanded="false" aria-controls="filters">
+          <span>Filter</span>
+          <span class="chevron" aria-hidden="true">▸</span>
+        </button>
+        <button id="clearSearch" class="clear-button" type="button">Zurücksetzen</button>
+        <div class="result-count" id="resultCount">0 Sorten</div>
+      </div>
+    </section>
+
+    <section class="filters" id="filters" aria-label="Bereichsfilter" hidden></section>
+
+    <section class="table-wrap" aria-label="Preistabelle">
+      <table>
+        <thead>
+          <tr id="tableHead"></tr>
+        </thead>
+        <tbody id="tableBody">
+          <tr><td class="empty">Daten werden geladen.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <noscript>
+      <p class="empty">Diese Seite benötigt JavaScript, um Kennzahlen und Preistabelle anzuzeigen.</p>
+    </noscript>
+
+    <footer>
+      Quelle: greenmedical.health. Preise und Verfügbarkeit können sich kurzfristig ändern.
+    </footer>
+  </main>
+
+  <script src="app.js" defer></script>
+</body>
+</html>

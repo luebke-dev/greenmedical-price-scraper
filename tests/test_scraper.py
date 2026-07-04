@@ -4,11 +4,22 @@ from base64 import b64decode
 
 from bs4 import BeautifulSoup
 
+import csv_fields
 import scraper
 
 
 def _tile(html: str):
     return BeautifulSoup(html, "lxml").find("article")
+
+
+class TestFieldnamesContract:
+    def test_scraper_shares_the_csv_fields_list(self):
+        assert scraper.FIELDNAMES is csv_fields.FIELDNAMES
+
+    def test_extract_product_keys_cover_fieldnames(self):
+        product = scraper.extract_product(_tile("<article></article>"))
+        pharmacy_fields = {"apotheke", "apotheke_plz", "apotheke_stadt"}
+        assert set(product) | pharmacy_fields == set(csv_fields.FIELDNAMES)
 
 
 class TestExtractBadgeValue:
@@ -121,3 +132,85 @@ class TestCreateSession:
             assert 429 in retry.status_forcelist
         finally:
             session.close()
+
+
+def _soup(html: str):
+    return BeautifulSoup(html, "lxml")
+
+
+class TestParsePagination:
+    def test_reads_current_and_total(self):
+        soup = _soup('<div class="paginationContainer">Seite 2 / 7</div>')
+        assert scraper.parse_pagination(soup) == (2, 7)
+
+    def test_missing_container_returns_none(self):
+        assert scraper.parse_pagination(_soup("<div>kein Pager</div>")) is None
+
+    def test_container_without_ratio_returns_none(self):
+        soup = _soup('<div class="paginationContainer">weiter</div>')
+        assert scraper.parse_pagination(soup) is None
+
+
+def _flower_page(name: str, href: str, pagination: str) -> str:
+    return f"""
+    <html><body>
+      <article class="productGridTile">
+        <a href="{href}"><h2>{name}</h2></a>
+        <span class="productGridTilePriceAmount">9,50 €</span>
+      </article>
+      <div class="paginationContainer">{pagination}</div>
+    </body></html>
+    """
+
+
+class _StubResponse:
+    def __init__(self, text: str):
+        self.text = text
+
+    def raise_for_status(self):
+        pass
+
+
+class _StubSession:
+    """Stands in for requests.Session; serves canned pages keyed by page param."""
+
+    def __init__(self, pages: list[str]):
+        self.pages = pages
+        self.requests = []
+
+    def get(self, url, params=None, timeout=None):
+        self.requests.append({"url": url, "params": dict(params), "timeout": timeout})
+        return _StubResponse(self.pages[int(params["page"]) - 1])
+
+
+class TestScrapeFlowersForPharmacy:
+    def test_walks_all_pages_and_injects_pharmacy_fields(self, monkeypatch):
+        monkeypatch.setattr(scraper, "PAGE_DELAY", 0)
+        session = _StubSession([
+            _flower_page("Sorte A", "/de/cannabis/flowers/a", "1 / 2"),
+            _flower_page("Sorte B", "/de/cannabis/flowers/b", "2 / 2"),
+        ])
+        pharmacy = {"name": "Adler Apotheke", "plz": "10115", "stadt": "Berlin"}
+
+        products = scraper.scrape_flowers_for_pharmacy(session, pharmacy, "TOKEN")
+
+        assert [r["params"]["page"] for r in session.requests] == ["1", "2"]
+        # Every page request must target the flowers URL at this pharmacy.
+        for request in session.requests:
+            assert request["url"] == scraper.FLOWERS_URL
+            assert request["params"]["deliveryTarget"] == "TOKEN"
+            assert request["params"]["onlyShowIfAvailable"] == "1"
+            assert request["timeout"] == scraper.REQUEST_TIMEOUT
+
+        assert [p["name"] for p in products] == ["Sorte A", "Sorte B"]
+        for product in products:
+            assert product["apotheke"] == "Adler Apotheke"
+            assert product["apotheke_plz"] == "10115"
+            assert product["apotheke_stadt"] == "Berlin"
+            assert "deliveryTarget=TOKEN" in product["produkt_url"]
+
+    def test_stops_when_a_page_has_no_tiles(self):
+        session = _StubSession(["<html><body>leer</body></html>"])
+        pharmacy = {"name": "Apo", "plz": "1", "stadt": "X"}
+        assert scraper.scrape_flowers_for_pharmacy(session, pharmacy, "T") == []
+        assert len(session.requests) == 1
