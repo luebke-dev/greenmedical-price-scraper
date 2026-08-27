@@ -19,7 +19,9 @@
       </tr>
       <tr v-for="offer in offers" :key="offer.offer_id">
         <td>{{ offer.apotheke || '' }}</td>
-        <td><span class="provider-badge">{{ de.offers.providers[offer.provider] }}</span></td>
+        <td>
+          <span class="provider-badge">{{ de.offers.providers[offer.provider] }}</span>
+        </td>
         <td>{{ offer.apotheke_stadt || '' }}</td>
         <td class="price">{{ offer.preis_pro_gramm || euro(offer.preis_eur_pro_gramm, '€/g') }}</td>
         <td class="price">{{ euro(offer.preis_eur_pro_gramm_thc, '€/g THC') }}</td>

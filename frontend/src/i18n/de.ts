@@ -9,7 +9,8 @@ export const de = {
     api: 'API',
     apiAria: 'API-Dokumentation (öffnet in neuem Tab)',
     alerts: 'Preisalarm',
-    footer: 'Quellen: greenmedical.health und DrAnsay. Preise und Verfügbarkeit können sich kurzfristig ändern.',
+    footer:
+      'Quellen: greenmedical.health und DrAnsay. Preise und Verfügbarkeit können sich kurzfristig ändern.',
     home: 'Zur Startseite',
   },
   refresh: {
