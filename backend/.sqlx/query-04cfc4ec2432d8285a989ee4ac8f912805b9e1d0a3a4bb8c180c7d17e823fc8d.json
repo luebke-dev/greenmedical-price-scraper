@@ -1,0 +1,93 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT r.id, r.subscriber_id, r.kind, r.strain_id, r.threshold::float8 AS \"threshold?: f64\",\n                  s.name AS \"strain_name?\", r.created_at\n           FROM subscription_rules r\n           JOIN subscribers sub ON sub.id = r.subscriber_id\n           LEFT JOIN strains s ON s.id = r.strain_id\n           WHERE sub.confirmed_at IS NOT NULL ORDER BY r.subscriber_id, r.id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "subscription_rules",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "subscriber_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "subscription_rules",
+            "name": "subscriber_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "subscription_rules",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "strain_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "subscription_rules",
+            "name": "strain_id"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "threshold?: f64",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "strain_name?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "strains",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "subscription_rules",
+            "name": "created_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      null,
+      false,
+      false
+    ]
+  },
+  "hash": "04cfc4ec2432d8285a989ee4ac8f912805b9e1d0a3a4bb8c180c7d17e823fc8d"
+}

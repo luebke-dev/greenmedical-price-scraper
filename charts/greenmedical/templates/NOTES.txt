@@ -34,7 +34,7 @@ Datenbank
 Scraper
 {{- if $cfg.scrapeEnabled }}
   aktiv – Cron "{{ $cfg.scrapeCron }}" in Zeitzone {{ $cfg.scrapeTimezone }}
-  Bootstrap beim Start: {{ if $cfg.scrapeBootstrap }}ja (wenn kein Lauf jünger als {{ $cfg.scrapeBootstrapMaxAge | default "8h" }} vorliegt){{ else }}nein{{ end }}
+  Bootstrap beim Start: {{ if $cfg.scrapeBootstrap }}ja (wenn kein Lauf jünger als {{ $cfg.scrapeBootstrapMaxAge | default "2h" }} vorliegt){{ else }}nein{{ end }}
 {{- else }}
   deaktiviert (SCRAPE_ENABLED=false). Läufe nur manuell über POST /api/v1/admin/scrape.
 {{- end }}
@@ -47,6 +47,27 @@ Scraper
   Admin-Endpoint: deaktiviert (kein ADMIN_TOKEN gesetzt → POST /api/v1/admin/scrape antwortet 404).
 {{- end }}
 
+
+Preisalarm (E-Mail)
+  Basis-URL für Links in Mails: {{ include "greenmedical.publicUrl" . }}{{ if empty $cfg.publicUrl }} (aus dem Ingress-Host abgeleitet; backend.config.publicUrl überschreibt){{ end }}
+{{- if .Values.email.enabled }}
+  Versand: aktiv über SMTP {{ .Values.email.smtp.host }}:{{ .Values.email.smtp.port }} ({{ .Values.email.smtp.tls }})
+{{- if .Values.email.smtp.existingSecret }}
+  Zugangsdaten: Secret "{{ .Values.email.smtp.existingSecret }}" (Keys SMTP_USERNAME/SMTP_PASSWORD, optional).
+{{- else if eq (include "greenmedical.smtp.inlineCredentials" .) "true" }}
+  Zugangsdaten: Secret "{{ include "greenmedical.secret.name" . }}" (aus email.smtp.username/password erzeugt).
+  ACHTUNG: nur für Entwicklung – im Produktivbetrieb email.smtp.existingSecret verwenden.
+{{- else }}
+  Zugangsdaten: keine (unauthentifizierter Relay).
+{{- end }}
+{{- if and .Values.networkPolicy.enabled (empty .Values.networkPolicy.smtp.podSelector) (empty .Values.networkPolicy.smtp.cidrs) }}
+  NetworkPolicy: SMTP-Egress zu {{ .Values.networkPolicy.externalEgress.cidr }} (private Bereiche ausgenommen) – für einen Relay
+  im Cluster/RFC1918-Netz networkPolicy.smtp.podSelector bzw. networkPolicy.smtp.cidrs setzen.
+{{- end }}
+{{- else }}
+  Versand: deaktiviert (EMAIL_ENABLED=false) – Mails werden nur geloggt, Abos können nicht bestätigt werden.
+  Aktivieren: email.enabled=true, email.smtp.host (+ existingSecret mit SMTP_USERNAME/SMTP_PASSWORD).
+{{- end }}
 {{- if .Values.tests.enabled }}
 
 Verbindungstest

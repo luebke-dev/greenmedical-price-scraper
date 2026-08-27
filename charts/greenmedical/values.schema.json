@@ -233,6 +233,28 @@
       },
       "additionalProperties": false
     },
+    "email": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "from": { "type": "string" },
+        "smtp": {
+          "type": "object",
+          "properties": {
+            "host": { "type": "string" },
+            "port": { "$ref": "#/definitions/portNumber" },
+            "tls": { "type": "string", "enum": ["starttls", "tls", "none"] },
+            "existingSecret": { "type": "string" },
+            "username": { "type": "string" },
+            "password": { "type": "string" }
+          },
+          "required": ["port", "tls"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["enabled", "smtp"],
+      "additionalProperties": false
+    },
     "backend": {
       "allOf": [
         { "$ref": "#/definitions/workloadCommon" },
@@ -250,6 +272,8 @@
                 "httpRequestTimeout": { "$ref": "#/definitions/duration" },
                 "snapshotRevalidateInterval": { "$ref": "#/definitions/duration" },
                 "corsAllowedOrigins": { "type": "string" },
+                "publicUrl": { "type": "string", "pattern": "^(https?://[^/]+.*)?$" },
+                "subscriptionRateLimit": { "type": "string", "pattern": "^([0-9]+/[0-9]+(ms|s|m|h|d))?$" },
                 "scrapeEnabled": { "type": "boolean" },
                 "scrapeCron": { "type": "string", "minLength": 1 },
                 "scrapeTimezone": { "type": "string", "minLength": 1 },
@@ -374,6 +398,15 @@
           "required": ["enabled", "cidr", "port"],
           "additionalProperties": false
         },
+        "smtp": {
+          "type": "object",
+          "properties": {
+            "cidrs": { "type": "array", "items": { "type": "string", "pattern": "^[0-9a-fA-F.:]+/[0-9]+$" } },
+            "podSelector": { "$ref": "#/definitions/labelSelector" },
+            "namespaceSelector": { "$ref": "#/definitions/labelSelector" }
+          },
+          "additionalProperties": false
+        },
         "dbPort": { "$ref": "#/definitions/portNumber" },
         "extraEgressCIDRs": { "type": "array", "items": { "type": "string", "pattern": "^[0-9a-fA-F.:]+/[0-9]+$" } },
         "dbPodSelector": { "$ref": "#/definitions/labelSelector" },
@@ -419,6 +452,6 @@
       "additionalProperties": false
     }
   },
-  "required": ["database", "adminToken", "backend", "frontend", "ingress", "metrics", "networkPolicy", "tests"],
+  "required": ["database", "adminToken", "email", "backend", "frontend", "ingress", "metrics", "networkPolicy", "tests"],
   "additionalProperties": false
 }

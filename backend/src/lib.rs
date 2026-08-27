@@ -4,12 +4,15 @@ pub mod api;
 pub mod config;
 pub mod db;
 pub mod domain;
+pub mod mail;
+pub mod notify;
 pub mod scheduler;
 pub mod scrape;
 pub mod shutdown;
 pub mod state;
 pub mod telemetry;
 
+use std::net::SocketAddr;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
 
@@ -66,7 +69,7 @@ pub async fn scrape_once(config: Config, reviews_only: bool) -> anyhow::Result<(
         migrate(&pool).await?;
     }
     let shutdown = shutdown::install_signal_handler();
-    let state = AppState::new(config, pool, shutdown);
+    let state = AppState::try_new(config, pool, shutdown)?;
     scheduler::cleanup_stale_runs(&state).await;
     if reviews_only {
         let outcome = scrape::run::scrape_reviews_only(&state).await?;
@@ -115,7 +118,18 @@ pub async fn serve(config: Config) -> anyhow::Result<()> {
         migrate(&pool).await?;
     }
     let shutdown = shutdown::install_signal_handler();
-    let state = AppState::new(config, pool, shutdown.clone());
+    let state = AppState::try_new(config, pool, shutdown.clone())?;
+    if state.config.email_enabled {
+        info!(
+            host = ?state.config.smtp_host,
+            port = state.config.smtp_port,
+            tls = ?state.config.smtp_tls,
+            "e-mail delivery via SMTP"
+        );
+    } else {
+        info!("e-mail delivery and subscription creation disabled (EMAIL_ENABLED=false)");
+    }
+    notify::refresh_gauge(&state).await;
 
     // Warm the snapshot cache; a missing run is fine.
     match state.snapshot.get_or_load(&state.pool).await {
@@ -145,8 +159,13 @@ pub async fn serve(config: Config) -> anyhow::Result<()> {
         .with_context(|| format!("binding {}", state.config.metrics_bind))?;
     info!(http = %state.config.http_bind, metrics = %state.config.metrics_bind, instance = %state.instance, "listening");
 
-    let api_server = axum::serve(api_listener, api::build_router(state.clone()))
-        .with_graceful_shutdown(shutdown.clone().cancelled_owned());
+    // Connect info provides the peer address for the subscription rate limit
+    // (used when no `X-Forwarded-For` header is present).
+    let api_server = axum::serve(
+        api_listener,
+        api::build_router(state.clone()).into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .with_graceful_shutdown(shutdown.clone().cancelled_owned());
     let metrics_server = axum::serve(metrics_listener, api::metrics_router(metrics_handle))
         .with_graceful_shutdown(shutdown.clone().cancelled_owned());
 

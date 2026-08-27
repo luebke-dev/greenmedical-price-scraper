@@ -27,6 +27,19 @@ data:
   {{- with $cfg.corsAllowedOrigins }}
   CORS_ALLOWED_ORIGINS: {{ . | quote }}
   {{- end }}
+  PUBLIC_URL: {{ include "greenmedical.publicUrl" . | quote }}
+  {{- with $cfg.subscriptionRateLimit }}
+  SUBSCRIPTION_RATE_LIMIT: {{ . | quote }}
+  {{- end }}
+  EMAIL_ENABLED: {{ .Values.email.enabled | toString | quote }}
+  {{- with .Values.email.from }}
+  EMAIL_FROM: {{ . | quote }}
+  {{- end }}
+  {{- if .Values.email.enabled }}
+  SMTP_HOST: {{ .Values.email.smtp.host | quote }}
+  SMTP_PORT: {{ .Values.email.smtp.port | toString | quote }}
+  SMTP_TLS: {{ .Values.email.smtp.tls | quote }}
+  {{- end }}
   SCRAPE_ENABLED: {{ $cfg.scrapeEnabled | toString | quote }}
   SCRAPE_CRON: {{ $cfg.scrapeCron | quote }}
   SCRAPE_TIMEZONE: {{ $cfg.scrapeTimezone | quote }}

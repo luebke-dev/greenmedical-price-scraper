@@ -1,22 +1,22 @@
 import { flushPromises, mount } from '@vue/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ReviewSort } from '@/api/types';
 import ReviewsSection from '@/components/ReviewsSection.vue';
-import { useReviewsStore, type ReviewsEntry } from '@/stores/reviews';
+import { useReviewsStore, type ReviewsEntry, type ReviewsQuery } from '@/stores/reviews';
 import { LATEST_AT, makeReview, makeReviewsResponse } from '../fixtures';
 import { installTestPlugins } from '../helpers';
 
 installTestPlugins();
 
-type Fetch = (id: number, sort?: ReviewSort) => Promise<ReviewsEntry>;
+type Fetch = (id: number, query: ReviewsQuery) => Promise<ReviewsEntry>;
 
-/** Stubs the store actions; the component only talks to fetchReviews/loadMore/abortAll. */
-function stubStore(fetchReviews: Fetch, loadMore: Fetch = fetchReviews) {
+const FIRST: ReviewsQuery = { sort: 'newest', limit: 25, offset: 0 };
+
+/** Stubs the store actions; the component only talks to fetchPage/abortAll. */
+function stubStore(fetchPage: Fetch) {
   const store = useReviewsStore();
-  const fetchSpy = vi.spyOn(store, 'fetchReviews').mockImplementation(fetchReviews);
-  const moreSpy = vi.spyOn(store, 'loadMore').mockImplementation(loadMore);
+  const fetchSpy = vi.spyOn(store, 'fetchPage').mockImplementation(fetchPage);
   const abortSpy = vi.spyOn(store, 'abortAll').mockImplementation(() => {});
-  return { store, fetchSpy, moreSpy, abortSpy };
+  return { store, fetchSpy, abortSpy };
 }
 
 function entryOf(reviews = 3, overrides: Partial<ReviewsEntry['summary']> = {}): ReviewsEntry {
@@ -38,7 +38,13 @@ function entryOf(reviews = 3, overrides: Partial<ReviewsEntry['summary']> = {}):
     distribution: { '1': 4, '2': 6, '3': 14, '4': 40, '5': 60 },
     ...overrides,
   });
-  return { summary: response.summary, reviews: response.reviews, total: 124 };
+  return {
+    summary: response.summary,
+    reviews: response.reviews,
+    total: 124,
+    limit: 25,
+    offset: 0,
+  };
 }
 
 async function mountSection(id = 7) {
@@ -56,7 +62,7 @@ describe('ReviewsSection', () => {
     const wrapper = mount(ReviewsSection, { props: { strainId: 7 } });
     expect(wrapper.find('.reviews').attributes('aria-busy')).toBe('true');
     expect(wrapper.find('.empty').text()).toBe('Bewertungen werden geladen.');
-    expect(fetchSpy).toHaveBeenCalledWith(7, 'newest');
+    expect(fetchSpy).toHaveBeenCalledWith(7, FIRST);
 
     resolve(entryOf());
     await flushPromises();
@@ -100,21 +106,28 @@ describe('ReviewsSection', () => {
     expect(items[1]!.find('.rating-stars').attributes('aria-label')).toBe('4,0 von 5 Sternen');
   });
 
-  it('loads the next page on "Mehr anzeigen" and re-fetches on sort change', async () => {
-    const first = entryOf(50);
-    const more: ReviewsEntry = { ...first, reviews: [...first.reviews, makeReview({ id: 99 })] };
-    const { fetchSpy, moreSpy } = stubStore(
-      () => Promise.resolve(first),
-      () => Promise.resolve(more),
+  it('pages with limit/offset (top + bottom controls) and re-fetches on sort change', async () => {
+    const { fetchSpy } = stubStore((_id, query) =>
+      Promise.resolve({ ...entryOf(Math.min(query.limit, 124 - query.offset)), ...query }),
     );
     const wrapper = await mountSection();
-    const footer = wrapper.find('.reviews-more');
-    expect(footer.find('.result-count').text()).toBe('50 von 124 Bewertungen');
-    await footer.find('button').trigger('click');
+    const pagers = wrapper.findAll('.table-pager');
+    expect(pagers).toHaveLength(2);
+    expect(pagers[0]!.find('.pager-range').text()).toBe('1–25 von 124 Bewertungen');
+    expect(pagers[1]!.classes()).toContain('table-pager-bottom');
+    expect(wrapper.findAll('li.review')).toHaveLength(25);
+
+    const buttons = pagers[1]!.findAll('.q-pagination button');
+    await buttons[buttons.length - 2]!.trigger('click'); // next
     await flushPromises();
-    expect(moreSpy).toHaveBeenCalledWith(7, 'newest');
-    expect(wrapper.findAll('li.review')).toHaveLength(51);
-    expect(wrapper.find('.reviews-more .result-count').text()).toBe('51 von 124 Bewertungen');
+    expect(fetchSpy).toHaveBeenLastCalledWith(7, { sort: 'newest', limit: 25, offset: 25 });
+    expect(wrapper.find('.table-pager-top .pager-range').text()).toBe('26–50 von 124 Bewertungen');
+
+    await wrapper.find('.table-pager-top select').setValue('100');
+    await flushPromises();
+    // Row 25 stays in view → page 1 of 100.
+    expect(fetchSpy).toHaveBeenLastCalledWith(7, { sort: 'newest', limit: 100, offset: 0 });
+    expect(wrapper.findAll('li.review')).toHaveLength(100);
 
     const select = wrapper.find('[data-testid="reviews-sort"]');
     expect(select.findAll('option').map((option) => option.text())).toEqual([
@@ -123,16 +136,21 @@ describe('ReviewsSection', () => {
       'Beste zuerst',
       'Schlechteste zuerst',
     ]);
+    await wrapper.find('.table-pager-top .q-pagination button:last-child').trigger('click'); // last
+    await flushPromises();
+    expect(fetchSpy).toHaveBeenLastCalledWith(7, { sort: 'newest', limit: 100, offset: 100 });
     await select.setValue('lowest');
     await flushPromises();
-    expect(fetchSpy).toHaveBeenLastCalledWith(7, 'lowest');
+    // Sort change → back to page 1.
+    expect(fetchSpy).toHaveBeenLastCalledWith(7, { sort: 'lowest', limit: 100, offset: 0 });
   });
 
-  it('hides "Mehr anzeigen" when everything is loaded', async () => {
+  it('hides the bottom pager when everything fits on one page', async () => {
     const entry = entryOf(3);
     stubStore(() => Promise.resolve({ ...entry, total: 3 }));
     const wrapper = await mountSection();
-    expect(wrapper.find('.reviews-more').exists()).toBe(false);
+    expect(wrapper.findAll('.table-pager')).toHaveLength(1);
+    expect(wrapper.find('.table-pager .q-pagination').exists()).toBe(false);
   });
 
   it('shows "Noch keine Bewertungen" for a scraped strain without reviews', async () => {
@@ -148,6 +166,8 @@ describe('ReviewsSection', () => {
         },
         reviews: [],
         total: 0,
+        limit: 25,
+        offset: 0,
       }),
     );
     const wrapper = await mountSection();
@@ -169,6 +189,8 @@ describe('ReviewsSection', () => {
         },
         reviews: [],
         total: 0,
+        limit: 25,
+        offset: 0,
       }),
     );
     const wrapper = await mountSection();
@@ -193,7 +215,7 @@ describe('ReviewsSection', () => {
     const wrapper = await mountSection(7);
     await wrapper.setProps({ strainId: 8 });
     await flushPromises();
-    expect(fetchSpy).toHaveBeenLastCalledWith(8, 'newest');
+    expect(fetchSpy).toHaveBeenLastCalledWith(8, FIRST);
     wrapper.unmount();
     expect(abortSpy).toHaveBeenCalled();
   });

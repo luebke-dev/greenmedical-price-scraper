@@ -133,6 +133,18 @@ Values validation. Included from the backend Deployment so every render runs it.
 {{- if and .Values.adminToken.existingSecret (empty .Values.adminToken.existingSecretKey) }}
 {{- fail "greenmedical: adminToken.existingSecretKey must not be empty" }}
 {{- end }}
+{{- if and .Values.email.enabled (empty .Values.email.smtp.host) }}
+{{- fail "greenmedical: email.enabled requires email.smtp.host" }}
+{{- end }}
+{{- if not (has .Values.email.smtp.tls (list "starttls" "tls" "none")) }}
+{{- fail "greenmedical: email.smtp.tls must be one of starttls, tls, none" }}
+{{- end }}
+{{- if and .Values.email.smtp.existingSecret (or .Values.email.smtp.username .Values.email.smtp.password) }}
+{{- fail "greenmedical: set only one of email.smtp.existingSecret and email.smtp.username/password" }}
+{{- end }}
+{{- if and (empty .Values.backend.config.publicUrl) (not (and .Values.ingress.enabled .Values.ingress.hosts)) }}
+{{- fail "greenmedical: backend.config.publicUrl is required (links in e-mails) unless ingress.enabled with at least one host, from which it is derived" }}
+{{- end }}
 {{- if lt (int .Values.backend.config.databaseMaxConnections) 4 }}
 {{- fail "greenmedical: backend.config.databaseMaxConnections must be >= 4 (one connection is held by the scrape advisory lock)" }}
 {{- end }}
@@ -158,10 +170,42 @@ Usage: {{- if include "greenmedical.isSet" .Values.backend.config.scrapeRetryTot
 {{- end }}
 
 {{/*
-Chart-managed Secret: created when database.url or adminToken.value is given.
+Chart-managed Secret: created when database.url, adminToken.value or inline SMTP credentials are given.
 */}}
 {{- define "greenmedical.secret.create" -}}
-{{- if or .Values.database.url .Values.adminToken.value }}true{{ else }}false{{ end }}
+{{- if or .Values.database.url .Values.adminToken.value (eq (include "greenmedical.smtp.inlineCredentials" .) "true") }}true{{ else }}false{{ end }}
+{{- end }}
+
+{{/*
+Public base URL for links in e-mails: backend.config.publicUrl, else derived from the first Ingress host.
+*/}}
+{{- define "greenmedical.publicUrl" -}}
+{{- if .Values.backend.config.publicUrl }}
+{{- .Values.backend.config.publicUrl | trimSuffix "/" }}
+{{- else }}
+{{- $host := (index .Values.ingress.hosts 0).host }}
+{{- printf "%s://%s" (ternary "https" "http" (not (empty .Values.ingress.tls))) $host }}
+{{- end }}
+{{- end }}
+
+{{/*
+SMTP credentials. "inlineCredentials" = username/password given in values (rendered into the chart Secret);
+"credentials" = any credential source configured (existingSecret or inline) while e-mail is enabled.
+*/}}
+{{- define "greenmedical.smtp.inlineCredentials" -}}
+{{- if and .Values.email.enabled (or .Values.email.smtp.username .Values.email.smtp.password) }}true{{ else }}false{{ end }}
+{{- end }}
+
+{{- define "greenmedical.smtp.credentials" -}}
+{{- if and .Values.email.enabled (or .Values.email.smtp.existingSecret .Values.email.smtp.username .Values.email.smtp.password) }}true{{ else }}false{{ end }}
+{{- end }}
+
+{{- define "greenmedical.smtp.secretName" -}}
+{{- if .Values.email.smtp.existingSecret }}
+{{- .Values.email.smtp.existingSecret }}
+{{- else }}
+{{- include "greenmedical.secret.name" . }}
+{{- end }}
 {{- end }}
 
 {{- define "greenmedical.secret.name" -}}

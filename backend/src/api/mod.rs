@@ -4,6 +4,10 @@ pub mod error;
 pub mod extract;
 pub mod handlers;
 pub mod metrics;
+pub mod openapi;
+pub mod rate_limit;
+pub mod strains_page;
+pub mod subscriptions;
 
 use std::time::Duration;
 
@@ -17,13 +21,14 @@ use tower::ServiceBuilder;
 use tower_http::compression::CompressionLayer;
 use tower_http::cors::{AllowOrigin, CorsLayer};
 use tower_http::request_id::{MakeRequestUuid, PropagateRequestIdLayer, SetRequestIdLayer};
+use tower_http::set_header::SetResponseHeaderLayer;
 use tower_http::trace::{DefaultOnResponse, TraceLayer};
 use tracing::Level;
 
 use crate::state::SharedState;
 
 pub use error::ApiError;
-pub use extract::{ApiPath, ApiQuery};
+pub use extract::{ApiJson, ApiPath, ApiQuery};
 pub use metrics::metrics_router;
 
 const X_REQUEST_ID: HeaderName = HeaderName::from_static("x-request-id");
@@ -53,6 +58,10 @@ pub fn build_router(state: SharedState) -> Router {
         .route("/strains", get(handlers::strains))
         .route("/strains/{id}", get(handlers::strain_detail))
         .route("/strains/{id}/history", get(handlers::strain_history))
+        .route(
+            "/strains/{id}/offer-history",
+            get(handlers::strain_offer_history),
+        )
         .route("/strains/{id}/reviews", get(handlers::strain_reviews))
         .route("/runs", get(handlers::runs_list))
         .route("/runs/{id}", get(handlers::run_detail))
@@ -61,9 +70,26 @@ pub fn build_router(state: SharedState) -> Router {
         .route("/export.json", get(handlers::export_json))
         .route("/admin/scrape", post(handlers::admin_scrape));
 
+    // Every subscription response is `Cache-Control: no-store`, errors included.
+    let subscriptions = Router::new()
+        .route("/", post(subscriptions::create))
+        .route("/confirm", post(subscriptions::confirm))
+        .route(
+            "/manage",
+            get(subscriptions::manage_get)
+                .put(subscriptions::manage_put)
+                .delete(subscriptions::manage_delete),
+        )
+        .layer(SetResponseHeaderLayer::overriding(
+            header::CACHE_CONTROL,
+            HeaderValue::from_static("no-store"),
+        ));
+    let api = api.nest("/subscriptions", subscriptions);
+
     let mut router = Router::new()
         .route("/healthz", get(handlers::healthz))
         .route("/readyz", get(handlers::readyz))
+        .merge(openapi::docs_router())
         .nest("/api/v1", api)
         .fallback(handlers::not_found)
         // Applies to every method router registered so far, including the nested ones.
@@ -77,7 +103,13 @@ pub fn build_router(state: SharedState) -> Router {
             .collect();
         let cors = CorsLayer::new()
             .allow_origin(AllowOrigin::list(allowed))
-            .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
+            .allow_methods([
+                Method::GET,
+                Method::POST,
+                Method::PUT,
+                Method::DELETE,
+                Method::OPTIONS,
+            ])
             .allow_headers([
                 header::AUTHORIZATION,
                 header::CONTENT_TYPE,

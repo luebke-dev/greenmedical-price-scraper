@@ -101,8 +101,15 @@ async fn metadata_equals_pure_function_output(pool: PgPool) {
 
     let stored = offers::for_run(&pool, run.id).await.unwrap();
     let strains = domain::group_by_strain(&stored);
-    let expected = domain::build_metadata(&stored, &strains, run.finished_at.unwrap(), run.clone());
+    let mut expected =
+        domain::build_metadata(&stored, &strains, run.finished_at.unwrap(), run.clone());
+    // Live fields are filled by the handler, not by the pure function.
+    expected.next_run_at = body["next_run_at"]
+        .as_str()
+        .map(|s| s.parse().expect("rfc3339"));
+    expected.schedule = state.config.schedule_dto();
     assert_eq!(body, serde_json::to_value(&expected).unwrap());
+    assert_eq!(body["scrape_running"], false);
     assert_eq!(body["total"], 4);
     assert_eq!(body["strain_count"], 3);
     assert_eq!(body["pharmacy_count"], 2);
@@ -119,6 +126,65 @@ async fn metadata_equals_pure_function_output(pool: PgPool) {
 }
 
 #[sqlx::test(migrations = "./migrations")]
+async fn metadata_reports_next_run_schedule_and_running_flag(pool: PgPool) {
+    let site = MockSite::start(default_site()).await;
+    let mut config = test_config(&site.base_url());
+    // The repo-root `.env` (loaded by sqlx::test) may disable the scheduler: pin it.
+    config.scrape_enabled = true;
+    config.scrape_cron = "0 0 * * * *".parse().unwrap();
+    config.scrape_timezone = chrono_tz::Europe::Berlin;
+    let state = test_state_with(pool.clone(), config);
+    scrape_now(&state, RunTrigger::Manual).await.unwrap();
+    let app = build_router(state.clone());
+
+    let before = Utc::now();
+    let (status, headers, body) = get(&app, "/api/v1/metadata").await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        headers.get(header::CACHE_CONTROL).unwrap(),
+        "public, max-age=60"
+    );
+    assert!(headers.get(header::ETAG).is_none(), "metadata has no ETag");
+    let body: Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(body["scrape_running"], false);
+    assert_eq!(
+        body["schedule"],
+        serde_json::json!({ "cron": "0 0 * * * *", "timezone": "Europe/Berlin" })
+    );
+    let next: chrono::DateTime<Utc> = body["next_run_at"].as_str().unwrap().parse().unwrap();
+    assert!(next > before);
+    assert!(next <= before + Duration::hours(1) + Duration::seconds(1));
+    assert_eq!(
+        (next.timestamp_subsec_nanos(), next.timestamp() % 3600),
+        (0, 0)
+    );
+    // Same instant the scheduler would compute.
+    assert_eq!(Some(next), state.config.next_scrape_at(before));
+
+    // A run in progress (started by any replica) flips the flag.
+    runs::insert_running(&pool, RunTrigger::Schedule, "other")
+        .await
+        .unwrap();
+    let (_, body) = get_json(&app, "/api/v1/metadata").await;
+    assert_eq!(body["scrape_running"], true);
+}
+
+#[sqlx::test(migrations = "./migrations")]
+async fn metadata_next_run_is_null_when_scheduler_disabled(pool: PgPool) {
+    let site = MockSite::start(default_site()).await;
+    let mut config = test_config(&site.base_url());
+    config.scrape_enabled = false;
+    let state = test_state_with(pool, config);
+    scrape_now(&state, RunTrigger::Manual).await.unwrap();
+    let app = build_router(state);
+    let (status, body) = get_json(&app, "/api/v1/metadata").await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["next_run_at"], Value::Null);
+    assert_eq!(body["schedule"], Value::Null);
+    assert_eq!(body["scrape_running"], false);
+}
+
+#[sqlx::test(migrations = "./migrations")]
 async fn strains_have_etag_and_support_304(pool: PgPool) {
     let site = MockSite::start(default_site()).await;
     let state = test_state(pool.clone(), &site.base_url());
@@ -127,25 +193,38 @@ async fn strains_have_etag_and_support_304(pool: PgPool) {
 
     let (status, headers, body) = get(&app, "/api/v1/strains").await;
     assert_eq!(status, StatusCode::OK);
-    let etag = format!("\"run-{}\"", run.id);
-    assert_eq!(headers[header::ETAG], etag);
+    let etag = headers[header::ETAG].to_str().unwrap().to_owned();
+    assert!(
+        etag.starts_with(&format!("\"run-{}-", run.id)) && etag.ends_with('"'),
+        "{etag}"
+    );
     assert_eq!(headers[header::CACHE_CONTROL], "public, max-age=300");
     let value: Value = serde_json::from_slice(&body).unwrap();
     assert_eq!(value["run"]["id"], run.id);
     assert!(value["reference_run"].is_null());
+    assert_eq!(value["total"], 3);
     let strains = value["strains"].as_array().unwrap();
     assert_eq!(strains.len(), 3);
     let og = strains.iter().find(|s| s["name"] == "OG Kush").unwrap();
-    assert_eq!(og["offers"].as_array().unwrap().len(), 2);
-    assert_eq!(og["offers"][0]["apotheke"], "Asavita"); // cheapest first
-    assert_eq!(og["offers"][0]["preis_eur_pro_gramm"], 5.99);
-    assert!(og["offers"][0]["offer_id"].as_i64().unwrap() > 0);
-    assert!(og["offers"][0]["pharmacy_id"].as_i64().unwrap() > 0);
+    assert!(og.get("offers").is_none(), "list items carry no offers");
+    assert!(
+        og.get("search").is_none(),
+        "list items carry no search text"
+    );
     assert_eq!(og["min_price"], 5.99);
     assert_eq!(og["pharmacy_count"], 2);
     assert_eq!(og["thc_value"], 24.0);
     assert!(og["trend"].is_null());
-    assert!(og["search"].as_str().unwrap().contains("asavita"));
+
+    // Offers and the search index live on the detail endpoint.
+    let (status, detail) = get_json(&app, &format!("/api/v1/strains/{}", og["id"])).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(detail["offers"].as_array().unwrap().len(), 2);
+    assert_eq!(detail["offers"][0]["apotheke"], "Asavita"); // cheapest first
+    assert_eq!(detail["offers"][0]["preis_eur_pro_gramm"], 5.99);
+    assert!(detail["offers"][0]["offer_id"].as_i64().unwrap() > 0);
+    assert!(detail["offers"][0]["pharmacy_id"].as_i64().unwrap() > 0);
+    assert!(detail["search"].as_str().unwrap().contains("asavita"));
 
     let response = app
         .clone()
@@ -784,7 +863,8 @@ async fn other_replicas_pick_up_new_runs(pool: PgPool) {
     let first = scrape_now(&replica_a, RunTrigger::Manual).await.unwrap();
     let (status, headers, _) = get(&app_b, "/api/v1/strains").await;
     assert_eq!(status, StatusCode::OK);
-    assert_eq!(headers[header::ETAG], format!("\"run-{}\"", first.id));
+    let first_etag = headers[header::ETAG].to_str().unwrap().to_owned();
+    assert!(first_etag.starts_with(&format!("\"run-{}-", first.id)));
     let offer_count_of = |body: &Value, name: &str| -> i64 {
         body["pharmacies"]
             .as_array()
@@ -813,7 +893,8 @@ async fn other_replicas_pick_up_new_runs(pool: PgPool) {
     // Replica B revalidates (interval 0) and serves the new run everywhere.
     let (status, headers, body) = get(&app_b, "/api/v1/strains").await;
     assert_eq!(status, StatusCode::OK);
-    assert_eq!(headers[header::ETAG], format!("\"run-{}\"", second.id));
+    let second_etag = headers[header::ETAG].to_str().unwrap();
+    assert!(second_etag.starts_with(&format!("\"run-{}-", second.id)));
     let value: Value = serde_json::from_slice(&body).unwrap();
     assert_eq!(value["run"]["id"], second.id);
     assert_eq!(value["strains"].as_array().unwrap().len(), 1);
@@ -833,7 +914,7 @@ async fn other_replicas_pick_up_new_runs(pool: PgPool) {
         .oneshot(
             Request::builder()
                 .uri("/api/v1/strains")
-                .header(header::IF_NONE_MATCH, format!("\"run-{}\"", first.id))
+                .header(header::IF_NONE_MATCH, &first_etag)
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -1019,4 +1100,92 @@ async fn admin_scrape_reports_lock_held_elsewhere(pool: PgPool) {
     assert_eq!(status, StatusCode::CONFLICT);
     assert_eq!(body["error"]["message"], "scrape_locked_elsewhere");
     guard.release_now().await.unwrap();
+}
+
+#[sqlx::test(migrations = "./migrations")]
+async fn openapi_document_and_docs_page_are_served(pool: PgPool) {
+    let app = build_router(test_state(pool, "http://127.0.0.1:1"));
+    let (status, headers, body) = get(&app, "/api/openapi.json").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(
+        headers[header::CONTENT_TYPE]
+            .to_str()
+            .unwrap()
+            .starts_with("application/json")
+    );
+    let doc: Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(doc["openapi"], "3.1.0");
+    let paths = doc["paths"].as_object().unwrap();
+    for path in [
+        "/healthz",
+        "/readyz",
+        "/api/v1/metadata",
+        "/api/v1/strains",
+        "/api/v1/strains/{id}",
+        "/api/v1/strains/{id}/history",
+        "/api/v1/strains/{id}/offer-history",
+        "/api/v1/strains/{id}/reviews",
+        "/api/v1/runs",
+        "/api/v1/runs/{id}",
+        "/api/v1/pharmacies",
+        "/api/v1/export.csv",
+        "/api/v1/export.json",
+        "/api/v1/admin/scrape",
+        "/api/v1/subscriptions",
+        "/api/v1/subscriptions/confirm",
+        "/api/v1/subscriptions/manage",
+    ] {
+        assert!(paths.contains_key(path), "missing {path}");
+    }
+    assert!(doc["components"]["schemas"]["StrainsPageDto"].is_object());
+    assert!(doc["components"]["schemas"]["ErrorEnvelopeDto"].is_object());
+    assert!(doc["components"]["schemas"]["SubscriptionDto"].is_object());
+    assert_eq!(
+        doc["components"]["securitySchemes"]["admin_token"]["scheme"],
+        "bearer"
+    );
+
+    let (status, headers, body) = get(&app, "/api/docs").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(
+        headers[header::CONTENT_TYPE]
+            .to_str()
+            .unwrap()
+            .starts_with("text/html")
+    );
+    let html = String::from_utf8(body).unwrap();
+    assert!(html.contains("<html"), "{html}");
+    // Self-contained: no script/style/link from a third-party host.
+    for needle in [
+        "src=\"http",
+        "src='http",
+        "href=\"http",
+        "href='http",
+        "cdn.",
+        "unpkg.com",
+        "jsdelivr",
+    ] {
+        assert!(
+            !html.contains(needle),
+            "docs page references an external host ({needle}):\n{html}"
+        );
+    }
+    assert!(html.contains("swagger-ui"), "{html}");
+    // The UI assets are served locally; the initializer points at our document.
+    let (status, _, body) = get(&app, "/api/docs/swagger-ui-bundle.js").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body.len() > 10_000);
+    let (status, _, body) = get(&app, "/api/docs/swagger-initializer.js").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(
+        String::from_utf8(body)
+            .unwrap()
+            .contains("/api/openapi.json")
+    );
+    let (status, _, _) = get(&app, "/api/docs/").await;
+    assert_eq!(status, StatusCode::OK);
+    let (status, _, body) = get(&app, "/api/docs/nope.js").await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    let value: Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(value["error"]["code"], "not_found");
 }

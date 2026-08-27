@@ -5,8 +5,8 @@
 //! error, so handlers use these thin wrappers instead.
 
 use axum::extract::path::ErrorKind;
-use axum::extract::rejection::{PathRejection, QueryRejection};
-use axum::extract::{FromRequestParts, Path, Query};
+use axum::extract::rejection::{JsonRejection, PathRejection, QueryRejection};
+use axum::extract::{FromRequest, FromRequestParts, Path, Query, Request};
 use axum::http::request::Parts;
 use serde::de::DeserializeOwned;
 
@@ -19,6 +19,31 @@ pub struct ApiPath<T>(pub T);
 /// `axum::extract::Query` with an `ApiError` rejection.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct ApiQuery<T>(pub T);
+
+/// `axum::extract::Json` with an `ApiError` rejection (`400 bad_request`).
+#[derive(Debug, Clone, Copy, Default)]
+pub struct ApiJson<T>(pub T);
+
+impl<S, T> FromRequest<S> for ApiJson<T>
+where
+    T: DeserializeOwned,
+    S: Send + Sync,
+{
+    type Rejection = ApiError;
+
+    async fn from_request(request: Request, state: &S) -> Result<Self, Self::Rejection> {
+        match axum::Json::<T>::from_request(request, state).await {
+            Ok(axum::Json(value)) => Ok(Self(value)),
+            Err(rejection) => Err(rejection.into()),
+        }
+    }
+}
+
+impl From<JsonRejection> for ApiError {
+    fn from(rejection: JsonRejection) -> Self {
+        ApiError::bad_request(format!("Ungültiger JSON-Body: {}", rejection.body_text()))
+    }
+}
 
 impl<S, T> FromRequestParts<S> for ApiPath<T>
 where
@@ -138,6 +163,55 @@ mod tests {
         let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
         let json = serde_json::from_slice(&body).unwrap_or(serde_json::Value::Null);
         (status, content_type, json)
+    }
+
+    async fn echo(ApiJson(params): ApiJson<Params>) -> String {
+        params.limit.unwrap_or(0).to_string()
+    }
+
+    #[tokio::test]
+    async fn json_body_rejections_are_enveloped() {
+        let app = Router::new().route("/echo", axum::routing::post(echo));
+        for (content_type, body) in [
+            ("application/json", "{\"limit\": \"x\"}"),
+            ("application/json", "not json"),
+            ("text/plain", "{}"),
+        ] {
+            let response = app
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .method("POST")
+                        .uri("/echo")
+                        .header(header::CONTENT_TYPE, content_type)
+                        .body(Body::from(body))
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(response.status(), StatusCode::BAD_REQUEST, "{body}");
+            let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+            let json: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+            assert_eq!(json["error"]["code"], "bad_request");
+            assert!(
+                json["error"]["message"]
+                    .as_str()
+                    .unwrap()
+                    .starts_with("Ungültiger JSON-Body")
+            );
+        }
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/echo")
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from("{\"limit\": 7}"))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
     }
 
     #[tokio::test]

@@ -509,6 +509,12 @@ pub async fn execute_run(state: SharedState, mut handle: RunHandle) -> anyhow::R
     // the finalizer repeats this on all other exit paths.
     state.snapshot.invalidate();
 
+    // Price alerts: compare this (now usable) run with its predecessor. Runs
+    // before phase 2 and never fails the run.
+    if matches!(final_status, RunStatus::Success | RunStatus::Partial) {
+        crate::notify::evaluate_run_logged(&state, run_id).await;
+    }
+
     // Phase 2: reviews for the strains of this (now usable) run.
     if state.config.reviews_enabled
         && final_status != RunStatus::Failed

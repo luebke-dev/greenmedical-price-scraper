@@ -15,16 +15,20 @@
         <span v-else>{{ de.app.noDate }}</span>
       </div>
     </div>
-    <nav class="links" :aria-label="de.app.downloads">
-      <a :href="EXPORT_CSV_URL" download="greenmedical_flowers.csv">{{ de.app.csv }}</a>
-      <a :href="EXPORT_JSON_URL" download="flowers.json">{{ de.app.json }}</a>
+    <nav class="links" :aria-label="de.app.nav">
+      <router-link v-if="metadata?.email_enabled" :to="{ name: 'subscribe' }">{{
+        de.app.alerts
+      }}</router-link>
+      <a :href="API_DOCS_URL" target="_blank" rel="noopener" :aria-label="de.app.apiAria">{{
+        de.app.api
+      }}</a>
     </nav>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { EXPORT_CSV_URL, EXPORT_JSON_URL } from '@/api/endpoints';
+import { API_DOCS_URL } from '@/api/endpoints';
 import type { Metadata } from '@/api/types';
 import { de } from '@/i18n/de';
 import { dateTime } from '@/lib/format';

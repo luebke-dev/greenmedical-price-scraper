@@ -127,7 +127,7 @@ pub async fn persist(
 }
 
 /// Sort orders of `GET /strains/{id}/reviews`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum ReviewSort {
     #[default]

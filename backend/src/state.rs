@@ -8,8 +8,10 @@ use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 use tokio_util::task::TaskTracker;
 
+use crate::api::rate_limit::RateLimiter;
 use crate::config::Config;
 use crate::db::snapshot::SnapshotCache;
+use crate::mail::{Mailer, mailer_from_config};
 
 /// Process-wide state shared by the API, the scheduler and scrape runs.
 ///
@@ -29,14 +31,40 @@ pub struct AppState {
     /// closing the pool, so a run cancelled by SIGTERM can still be marked failed.
     pub tasks: TaskTracker,
     pub instance: String,
+    /// Outbound e-mail (`EMAIL_ENABLED=false` disables subscription creation).
+    pub mailer: Arc<dyn Mailer>,
+    /// Per-IP limit of `POST /api/v1/subscriptions`.
+    pub rate_limiter: RateLimiter,
 }
 
 pub type SharedState = Arc<AppState>;
 
 impl AppState {
+    /// State with the mailer derived from the configuration; panics on an
+    /// unusable SMTP configuration (use [`Self::try_new`] to handle it).
     pub fn new(config: Config, pool: PgPool, shutdown: CancellationToken) -> SharedState {
+        Self::try_new(config, pool, shutdown).expect("valid e-mail configuration")
+    }
+
+    pub fn try_new(
+        config: Config,
+        pool: PgPool,
+        shutdown: CancellationToken,
+    ) -> anyhow::Result<SharedState> {
+        let mailer = mailer_from_config(&config)?;
+        Ok(Self::with_mailer(config, pool, shutdown, mailer))
+    }
+
+    /// State with an explicit mailer (tests).
+    pub fn with_mailer(
+        config: Config,
+        pool: PgPool,
+        shutdown: CancellationToken,
+        mailer: Arc<dyn Mailer>,
+    ) -> SharedState {
         let instance = config.instance_name();
         let snapshot = SnapshotCache::new(config.snapshot_revalidate_interval);
+        let rate_limiter = RateLimiter::new(config.subscription_rate_limit);
         Arc::new(Self {
             config: Arc::new(config),
             pool,
@@ -46,6 +74,8 @@ impl AppState {
             shutdown,
             tasks: TaskTracker::new(),
             instance,
+            mailer,
+            rate_limiter,
         })
     }
 }

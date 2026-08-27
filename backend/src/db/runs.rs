@@ -194,6 +194,16 @@ pub async fn mark_stale<'e>(exec: impl PgExecutor<'e>, older_than: Duration) -> 
     Ok(result.rows_affected())
 }
 
+/// Is any run currently `running` (on any replica)? Served from the partial
+/// index `scrape_runs_running_idx`.
+pub async fn any_running<'e>(exec: impl PgExecutor<'e>) -> sqlx::Result<bool> {
+    sqlx::query_scalar!(
+        r#"SELECT EXISTS(SELECT 1 FROM scrape_runs WHERE status = 'running') AS "running!""#
+    )
+    .fetch_one(exec)
+    .await
+}
+
 /// Newest usable (`success`/`partial`) run.
 pub async fn latest_usable<'e>(exec: impl PgExecutor<'e>) -> sqlx::Result<Option<RunDto>> {
     let row = sqlx::query_as!(

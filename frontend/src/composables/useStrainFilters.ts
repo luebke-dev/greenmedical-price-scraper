@@ -1,44 +1,52 @@
-import { computed, onScopeDispose, reactive, ref, watch, type Ref } from 'vue';
+import { computed, onScopeDispose, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter, type LocationQuery } from 'vue-router';
-import type { Strain } from '@/api/types';
 import {
-  applyFilters,
-  computeAllBounds,
+  boundsFromFacets,
+  buildStrainsParams,
   fullRanges,
-  genetikOptions,
+  genetikFromFacets,
   type RangeKey,
   type RangeValue,
 } from '@/lib/filter';
-import { sortRows, toggleSort, type SortKey } from '@/lib/sort';
+import { toggleSort, type SortKey } from '@/lib/sort';
 import {
   defaultFilterState,
   fromQuery,
+  isPageSize,
   serializeQuery,
   toQuery,
   type FilterState,
 } from '@/lib/url-state';
+import { useCatalogStore } from '@/stores/catalog';
 import { INDEX_ROUTE_NAME, useNavigationStore } from '@/stores/navigation';
 
-export const SEARCH_DEBOUNCE_MS = 150;
+export const SEARCH_DEBOUNCE_MS = 250;
 
 function isEmptyQuery(query: LocationQuery): boolean {
   return Object.keys(query).length === 0;
 }
 
 /**
- * Filter/sort state for the strain table, mirrored into the URL query
- * (?q&genetik&preis&thc&cbd&sort&dir) via router.replace. The search text is debounced.
+ * Filter/sort/page state for the strain table, mirrored into the URL query
+ * (?q&genetik&preis&thc&cbd&sort&dir&page&size) via router.replace and turned into
+ * GET /strains requests (catalog.loadPage). The search text is debounced; every filter,
+ * search or sort change goes back to page 1.
+ *
+ * Slider bounds and genetik chips come from the facets of the last response. Before the first
+ * response a deep link is sent as given (ranges unclamped, genetik unchecked) and reconciled
+ * once the facets arrive.
  *
  * The overview page is kept alive, so the URL is only synchronised while the overview route is
  * active: on other routes the URL belongs to that page and the state is simply preserved.
  */
-export function useStrainFilters(rows: Ref<readonly Strain[]>) {
+export function useStrainFilters() {
   const route = useRoute();
   const router = useRouter();
   const navigation = useNavigationStore();
+  const catalog = useCatalogStore();
 
-  const bounds = computed(() => computeAllBounds(rows.value));
-  const genetik = computed(() => genetikOptions(rows.value));
+  const bounds = computed(() => boundsFromFacets(catalog.facets));
+  const genetik = computed(() => genetikFromFacets(catalog.facets));
   const genetikKeys = computed(() => new Set(genetik.value.map((option) => option.key)));
 
   const state = reactive<FilterState>(defaultFilterState());
@@ -46,14 +54,20 @@ export function useStrainFilters(rows: Ref<readonly Strain[]>) {
   const searchInput = ref('');
 
   const isActive = (): boolean => route.name === INDEX_ROUTE_NAME;
-  const hasData = (): boolean => rows.value.length > 0;
+  const hasFacets = (): boolean => catalog.facets !== null;
 
   /**
    * Parse options shared by every URL → state conversion. Unknown genetik keys are only dropped
-   * once data exists – before that every key is unknown and a deep link would lose its filter.
+   * and ranges only clamped once the facets exist – before that every key is unknown and a deep
+   * link would lose its filter.
    */
   function parseOptions() {
-    return { bounds: bounds.value, genetikKeys: hasData() ? genetikKeys.value : undefined };
+    const known = hasFacets();
+    return {
+      bounds: bounds.value,
+      genetikKeys: known ? genetikKeys.value : undefined,
+      passThroughRanges: !known,
+    };
   }
 
   function assign(next: FilterState): void {
@@ -61,6 +75,8 @@ export function useStrainFilters(rows: Ref<readonly Strain[]>) {
     state.genetik = next.genetik;
     state.ranges = next.ranges;
     state.sort = next.sort;
+    state.page = next.page;
+    state.size = next.size;
   }
 
   function currentQuery() {
@@ -82,26 +98,27 @@ export function useStrainFilters(rows: Ref<readonly Strain[]>) {
     searchInput.value = next.query;
   }
 
-  /** Re-derives the state from itself, clamping ranges/genetik to the current data. */
+  /** Re-derives the state from itself, clamping ranges/genetik to the current facets. */
   function rederive(): void {
     assign(fromQuery(currentQuery(), parseOptions()));
   }
 
   /** State → URL (replace, so filter changes do not pollute the history). */
   function writeRoute(): void {
-    // Without data the bounds are empty and every range in the URL would be lost by a rewrite;
-    // the URL is re-read once the data (and thereby the bounds) arrives.
-    if (!isActive() || !hasData()) return;
+    if (!isActive()) return;
     const inUrl = serializeQuery(toQuery(fromQuery(route.query, parseOptions()), bounds.value));
     if (inUrl === currentQueryString()) return;
     void router.replace({ query: currentQuery() });
   }
 
-  // (Re-)read the URL whenever the data (and thereby the bounds) changes. While another page is
-  // shown the re-derivation is deferred until the overview becomes active again.
+  // (Re-)read the URL whenever the facets (and thereby the bounds/chips) change. While another
+  // page is shown the re-derivation is deferred until the overview becomes active again.
   let boundsChangedWhileAway = false;
+  // Compared by value: every response carries a fresh facets object, but only a real change
+  // (new run) may re-read the URL – a pending router.replace would otherwise be lost.
+  const facetsKey = computed(() => JSON.stringify([bounds.value, [...genetikKeys.value]]));
   watch(
-    bounds,
+    facetsKey,
     () => {
       if (isActive()) readRoute(true);
       else boundsChangedWhileAway = true;
@@ -139,28 +156,25 @@ export function useStrainFilters(rows: Ref<readonly Strain[]>) {
     { immediate: true },
   );
 
+  // State → request. Only the API-relevant projection triggers a fetch, so e.g. clamping a
+  // range to bounds it already satisfies does not refetch.
+  const params = computed(() => buildStrainsParams(state, bounds.value));
+  const requestKey = computed(() => JSON.stringify(params.value));
+  watch(requestKey, () => void catalog.loadPage(params.value), { immediate: true });
+
   let timer: ReturnType<typeof setTimeout> | null = null;
   watch(searchInput, (value) => {
     if (timer) clearTimeout(timer);
     timer = setTimeout(() => {
       timer = null;
+      if (state.query === value) return;
       state.query = value;
+      state.page = 1;
     }, SEARCH_DEBOUNCE_MS);
   });
   onScopeDispose(() => {
     if (timer) clearTimeout(timer);
   });
-
-  const filtered = computed(() =>
-    sortRows(
-      applyFilters(
-        rows.value,
-        { query: state.query, genetik: new Set(state.genetik), ranges: state.ranges },
-        bounds.value,
-      ),
-      state.sort,
-    ),
-  );
 
   function reset(): void {
     if (timer) clearTimeout(timer);
@@ -169,20 +183,36 @@ export function useStrainFilters(rows: Ref<readonly Strain[]>) {
     state.query = '';
     state.genetik = [];
     state.ranges = fullRanges(bounds.value);
+    state.page = 1;
   }
 
   function toggleGenetik(key: string): void {
     state.genetik = state.genetik.includes(key)
       ? state.genetik.filter((item) => item !== key)
       : [...state.genetik, key];
+    state.page = 1;
   }
 
   function setRange(key: RangeKey, value: RangeValue): void {
     state.ranges = { ...state.ranges, [key]: value };
+    state.page = 1;
   }
 
   function setSort(key: SortKey): void {
     state.sort = toggleSort(state.sort, key);
+    state.page = 1;
+  }
+
+  function setPage(page: number): void {
+    state.page = Math.max(1, Math.floor(page));
+  }
+
+  function setSize(size: number): void {
+    if (!isPageSize(size) || size === state.size) return;
+    // Keep the first visible row in view.
+    const firstRow = (state.page - 1) * state.size;
+    state.size = size;
+    state.page = Math.floor(firstRow / size) + 1;
   }
 
   return {
@@ -190,11 +220,14 @@ export function useStrainFilters(rows: Ref<readonly Strain[]>) {
     searchInput,
     bounds,
     genetik,
-    filtered,
-    count: computed(() => filtered.value.length),
+    params,
+    rows: computed(() => catalog.strains),
+    count: computed(() => catalog.total),
     reset,
     toggleGenetik,
     setRange,
     setSort,
+    setPage,
+    setSize,
   };
 }

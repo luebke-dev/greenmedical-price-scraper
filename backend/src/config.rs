@@ -26,6 +26,54 @@ fn parse_cron(value: &str) -> Result<cron::Schedule, String> {
         .map_err(|e| format!("invalid cron expression {value:?}: {e}"))
 }
 
+/// `SUBSCRIPTION_RATE_LIMIT`: at most `count` requests per `per` and client IP.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RateLimit {
+    pub count: u32,
+    pub per: Duration,
+}
+
+impl std::str::FromStr for RateLimit {
+    type Err = String;
+
+    /// Parses `"<count>/<duration>"`, e.g. `5/1h` or `20/15m`.
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        let (count, per) = value
+            .split_once('/')
+            .ok_or_else(|| format!("expected <count>/<duration>, got {value:?}"))?;
+        let count: u32 = count
+            .trim()
+            .parse()
+            .map_err(|e| format!("invalid count in {value:?}: {e}"))?;
+        if count == 0 {
+            return Err(format!("count must be at least 1 in {value:?}"));
+        }
+        let per = humantime::parse_duration(per.trim())
+            .map_err(|e| format!("invalid duration in {value:?}: {e}"))?;
+        if per.is_zero() {
+            return Err(format!("duration must be positive in {value:?}"));
+        }
+        Ok(Self { count, per })
+    }
+}
+
+impl std::fmt::Display for RateLimit {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}/{}", self.count, humantime::format_duration(self.per))
+    }
+}
+
+/// `SMTP_TLS`: how the SMTP connection is secured.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum SmtpTls {
+    /// Plain connection upgraded with STARTTLS (default, port 587).
+    Starttls,
+    /// Implicit TLS (port 465).
+    Tls,
+    /// No encryption (local relays, mailpit).
+    None,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum LogFormat {
     Json,
@@ -102,7 +150,8 @@ pub struct Config {
     pub scrape_enabled: bool,
 
     /// `cron` crate format: sec min hour day-of-month month day-of-week.
-    #[arg(long, env = "SCRAPE_CRON", default_value = "0 0 4,10,16,22 * * *", value_parser = parse_cron)]
+    /// Default: every full hour (in `SCRAPE_TIMEZONE`).
+    #[arg(long, env = "SCRAPE_CRON", default_value = "0 0 * * * *", value_parser = parse_cron)]
     pub scrape_cron: cron::Schedule,
 
     #[arg(long, env = "SCRAPE_TIMEZONE", default_value = "Europe/Berlin", value_parser = parse_timezone)]
@@ -111,7 +160,7 @@ pub struct Config {
     #[arg(long, env = "SCRAPE_BOOTSTRAP", default_value = "true", value_parser = BoolishValueParser::new(), action = ArgAction::Set)]
     pub scrape_bootstrap: bool,
 
-    #[arg(long, env = "SCRAPE_BOOTSTRAP_MAX_AGE", default_value = "8h", value_parser = parse_duration)]
+    #[arg(long, env = "SCRAPE_BOOTSTRAP_MAX_AGE", default_value = "2h", value_parser = parse_duration)]
     pub scrape_bootstrap_max_age: Duration,
 
     #[arg(long, env = "SCRAPE_STALE_RUN_AFTER", default_value = "2h", value_parser = parse_duration)]
@@ -164,6 +213,41 @@ pub struct Config {
     /// Instance label stored on runs; defaults to `$HOSTNAME`.
     #[arg(long, env = "INSTANCE_NAME")]
     pub instance_name: Option<String>,
+
+    /// Base URL of the frontend for links in e-mails (`/sorte/{id}`, `/abo/...`).
+    #[arg(long, env = "PUBLIC_URL", default_value = "http://localhost:9000")]
+    pub public_url: Url,
+
+    /// `false` disables subscription creation and outbound e-mail delivery.
+    #[arg(long, env = "EMAIL_ENABLED", default_value = "false", value_parser = BoolishValueParser::new(), action = ArgAction::Set)]
+    pub email_enabled: bool,
+
+    #[arg(long, env = "SMTP_HOST")]
+    pub smtp_host: Option<String>,
+
+    #[arg(long, env = "SMTP_PORT", default_value_t = 587)]
+    pub smtp_port: u16,
+
+    #[arg(long, env = "SMTP_USERNAME")]
+    pub smtp_username: Option<String>,
+
+    #[arg(long, env = "SMTP_PASSWORD", hide_env_values = true)]
+    pub smtp_password: Option<String>,
+
+    #[arg(long, env = "SMTP_TLS", default_value = "starttls", value_enum)]
+    pub smtp_tls: SmtpTls,
+
+    /// Sender of every e-mail (`Name <address>` or bare address).
+    #[arg(
+        long,
+        env = "EMAIL_FROM",
+        default_value = "GreenMedical Livebestand <noreply@localhost>"
+    )]
+    pub email_from: String,
+
+    /// Maximum subscription creations (= confirmation mails) per client IP, in memory.
+    #[arg(long, env = "SUBSCRIPTION_RATE_LIMIT", default_value = "5/1h")]
+    pub subscription_rate_limit: RateLimit,
 }
 
 /// `database_url` with the password replaced by `***` (or `***` when unparsable).
@@ -220,6 +304,18 @@ impl std::fmt::Debug for Config {
                 },
             )
             .field("instance_name", &self.instance_name)
+            .field("public_url", &self.public_url)
+            .field("email_enabled", &self.email_enabled)
+            .field("smtp_host", &self.smtp_host)
+            .field("smtp_port", &self.smtp_port)
+            .field("smtp_username", &self.smtp_username)
+            .field("smtp_password", &self.smtp_password.as_ref().map(|_| "***"))
+            .field("smtp_tls", &self.smtp_tls)
+            .field("email_from", &self.email_from)
+            .field(
+                "subscription_rate_limit",
+                &self.subscription_rate_limit.to_string(),
+            )
             .finish()
     }
 }
@@ -268,6 +364,27 @@ impl Config {
             .unwrap_or_else(|| "unknown".to_owned())
     }
 
+    /// Next scheduled scrape strictly after `now`, or `None` when the
+    /// scheduler is disabled. Pure function of the configuration, so every
+    /// replica reports the same value (`Metadata.next_run_at`).
+    pub fn next_scrape_at(
+        &self,
+        now: chrono::DateTime<chrono::Utc>,
+    ) -> Option<chrono::DateTime<chrono::Utc>> {
+        if !self.scrape_enabled {
+            return None;
+        }
+        crate::scheduler::next_fire(&self.scrape_cron, self.scrape_timezone, now)
+    }
+
+    /// `Metadata.schedule`: active cron + timezone, `None` when disabled.
+    pub fn schedule_dto(&self) -> Option<crate::domain::ScheduleDto> {
+        self.scrape_enabled.then(|| crate::domain::ScheduleDto {
+            cron: self.scrape_cron.source().to_owned(),
+            timezone: self.scrape_timezone.name().to_owned(),
+        })
+    }
+
     /// Origins list without empty entries.
     pub fn cors_origins(&self) -> Vec<String> {
         self.cors_allowed_origins
@@ -300,10 +417,10 @@ mod tests {
         assert_eq!(cfg.log_format, LogFormat::Json);
         assert!(cfg.migrate_on_startup);
         assert!(cfg.scrape_enabled);
-        assert_eq!(cfg.scrape_cron.source(), "0 0 4,10,16,22 * * *");
+        assert_eq!(cfg.scrape_cron.source(), "0 0 * * * *");
         assert_eq!(cfg.scrape_timezone, chrono_tz::Europe::Berlin);
         assert!(cfg.scrape_bootstrap);
-        assert_eq!(cfg.scrape_bootstrap_max_age, Duration::from_secs(8 * 3600));
+        assert_eq!(cfg.scrape_bootstrap_max_age, Duration::from_secs(2 * 3600));
         assert_eq!(cfg.scrape_stale_run_after, Duration::from_secs(2 * 3600));
         assert_eq!(cfg.scrape_base_url.as_str(), "https://greenmedical.health/");
         assert_eq!(cfg.scrape_user_agent, DEFAULT_USER_AGENT);
@@ -317,6 +434,91 @@ mod tests {
         assert_eq!(cfg.reviews_max_age, Duration::from_secs(24 * 3600));
         assert_eq!(cfg.reviews_max_per_run, 0);
         assert_eq!(cfg.admin_token(), None);
+        assert_eq!(cfg.public_url.as_str(), "http://localhost:9000/");
+        assert!(!cfg.email_enabled);
+        assert_eq!(cfg.smtp_host, None);
+        assert_eq!(cfg.smtp_port, 587);
+        assert_eq!(cfg.smtp_tls, SmtpTls::Starttls);
+        assert_eq!(
+            cfg.email_from,
+            "GreenMedical Livebestand <noreply@localhost>"
+        );
+        assert_eq!(
+            cfg.subscription_rate_limit,
+            RateLimit {
+                count: 5,
+                per: Duration::from_secs(3600)
+            }
+        );
+    }
+
+    #[test]
+    fn rate_limit_parsing() {
+        assert_eq!(
+            "20/15m".parse::<RateLimit>().unwrap(),
+            RateLimit {
+                count: 20,
+                per: Duration::from_secs(900)
+            }
+        );
+        assert_eq!(
+            " 1 / 30s ".trim().parse::<RateLimit>().unwrap(),
+            RateLimit {
+                count: 1,
+                per: Duration::from_secs(30)
+            }
+        );
+        for bad in ["5", "/1h", "0/1h", "5/0s", "x/1h", "5/never", "5/1h/2"] {
+            assert!(
+                bad.parse::<RateLimit>().is_err(),
+                "{bad} should be rejected"
+            );
+        }
+        assert_eq!(
+            RateLimit {
+                count: 5,
+                per: Duration::from_secs(3600)
+            }
+            .to_string(),
+            "5/1h"
+        );
+        let cfg = parse(&["--subscription-rate-limit", "3/10m"]);
+        assert_eq!(cfg.subscription_rate_limit.count, 3);
+        assert!(
+            Config::parse_from_args([
+                "greenmedical-backend",
+                "--database-url",
+                "postgres://x",
+                "--subscription-rate-limit",
+                "lots"
+            ])
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn smtp_settings_and_redaction() {
+        let cfg = parse(&[
+            "--email-enabled",
+            "true",
+            "--smtp-host",
+            "mail.test",
+            "--smtp-port",
+            "1025",
+            "--smtp-tls",
+            "none",
+            "--smtp-username",
+            "u",
+            "--smtp-password",
+            "pw-secret",
+        ]);
+        assert!(cfg.email_enabled);
+        assert_eq!(cfg.smtp_host.as_deref(), Some("mail.test"));
+        assert_eq!(cfg.smtp_port, 1025);
+        assert_eq!(cfg.smtp_tls, SmtpTls::None);
+        let dbg = format!("{cfg:?}");
+        assert!(!dbg.contains("pw-secret"), "{dbg}");
+        assert!(dbg.contains("smtp_password: Some(\"***\")"), "{dbg}");
     }
 
     #[test]
@@ -380,6 +582,26 @@ mod tests {
             cli.command,
             Some(Command::ScrapeOnce { reviews_only: true })
         );
+    }
+
+    #[test]
+    fn next_scrape_at_is_none_when_disabled() {
+        let now = chrono::DateTime::parse_from_rfc3339("2026-08-27T10:20:00Z")
+            .unwrap()
+            .with_timezone(&chrono::Utc);
+        let cfg = parse(&[]);
+        assert_eq!(
+            cfg.next_scrape_at(now).unwrap().to_rfc3339(),
+            "2026-08-27T11:00:00+00:00"
+        );
+        let schedule = cfg.schedule_dto().unwrap();
+        assert_eq!(
+            (schedule.cron.as_str(), schedule.timezone.as_str()),
+            ("0 0 * * * *", "Europe/Berlin")
+        );
+        let off = parse(&["--scrape-enabled", "false"]);
+        assert_eq!(off.next_scrape_at(now), None);
+        assert_eq!(off.schedule_dto(), None);
     }
 
     #[test]

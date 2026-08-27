@@ -1,3 +1,17 @@
 # Chart-testing variant: default values plus the minimum required input (a database URL).
 database:
   url: postgres://greenmedical:greenmedical@postgres.greenmedical.svc.cluster.local:5432/greenmedical
+
+# Public URL is required without an Ingress; SMTP credentials inline (dev style) → chart-managed Secret.
+backend:
+  config:
+    publicUrl: http://localhost:8080
+email:
+  enabled: true
+  from: "GreenMedical Livebestand <noreply@example.com>"
+  smtp:
+    host: mailpit.greenmedical.svc.cluster.local
+    port: 1025
+    tls: none
+    username: dev
+    password: dev-password

@@ -17,6 +17,7 @@ import {
   seriesAriaLabel,
 } from '@/lib/history';
 import { makeHistory, makePoint } from '../fixtures';
+import { buildOfferHistoryParams } from '@/lib/history';
 
 const NOW = new Date('2026-08-27T20:00:42Z');
 
@@ -280,5 +281,29 @@ describe('buildChartOption', () => {
     expect(option.legend.data).toEqual(['Minimum', 'Durchschnitt', 'Maximum', 'Apo (Leipzig)']);
     expect(option.yAxis.name).toBe('€/g');
     expect(option.xAxis.data).toEqual(['27.08.2026, 22:00']);
+  });
+});
+
+describe('buildOfferHistoryParams', () => {
+  const range = {
+    from: '2026-07-28T20:00:00.000Z',
+    to: '2026-08-27T20:00:00.000Z',
+    bucket: 'run',
+  } as const;
+
+  it('maps range, mode and page/size to limit/offset', () => {
+    expect(buildOfferHistoryParams(range, { mode: 'changes', page: 1, size: 50 })).toEqual({
+      ...range,
+      mode: 'changes',
+      limit: 50,
+      offset: 0,
+    });
+    expect(buildOfferHistoryParams(range, { mode: 'all', page: 3, size: 25 })).toEqual({
+      ...range,
+      mode: 'all',
+      limit: 25,
+      offset: 50,
+    });
+    expect(buildOfferHistoryParams(range, { mode: 'all', page: 0, size: 100 }).offset).toBe(0);
   });
 });

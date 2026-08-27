@@ -32,6 +32,10 @@ frontend:
     tag: dev
     pullPolicy: Never
 
+# No mail server on minikube: subscriptions and delivery are disabled. PUBLIC_URL comes from Ingress.
+email:
+  enabled: false
+
 ingress:
   enabled: true
   className: nginx

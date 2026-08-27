@@ -27,8 +27,10 @@ constant_time_eq = "0.5"
 cron = "0.17"
 csv = "1.4"
 humantime = "2.4"
+lettre = { version = "0.11", default-features = false, features = ["smtp-transport", "builder", "hostname", "tokio1", "tokio1-rustls-tls"] }
 metrics = "0.24.6"
 metrics-exporter-prometheus = { version = "0.18.3", default-features = false }
+rand = "0.9"
 regex = "1"
 reqwest = { version = "0.13.4", default-features = false, features = ["rustls", "gzip", "http2", "charset", "cookies"] }
 scraper = "0.27"
@@ -40,10 +42,13 @@ thiserror = "2"
 tokio = { version = "1.53", features = ["rt-multi-thread", "macros", "signal", "time", "sync", "net"] }
 tokio-util = { version = "0.7", features = ["rt"] }
 tower = { version = "0.5", features = ["util"] }
-tower-http = { version = "0.7.0", features = ["trace", "compression-gzip", "cors", "request-id", "util"] }
+tower-http = { version = "0.7.0", features = ["trace", "compression-gzip", "cors", "request-id", "util", "set-header"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json", "fmt"] }
+unicode-normalization = "0.1"
 url = "2.5"
+utoipa = { version = "5", features = ["axum_extras", "chrono", "url"] }
+utoipa-swagger-ui = { version = "9", default-features = false, features = ["axum", "vendored"] }
 
 [dev-dependencies]
 http-body-util = "0.1"

@@ -55,6 +55,13 @@
         <p v-if="!detail.in_latest_run" class="notice" role="status">
           {{ de.strain.notInLatestRun }}
         </p>
+        <div v-if="catalog.metadata?.email_enabled" class="facts-actions">
+          <router-link
+            class="back-link alert-button"
+            :to="{ name: 'subscribe', query: { strain_id: String(detail.id) } }"
+            >{{ de.subscribe.strainButton }}</router-link
+          >
+        </div>
       </section>
 
       <section class="history" :aria-label="de.history.heading">
@@ -98,14 +105,8 @@
         <div class="section-head">
           <h3>{{ de.offerHistory.heading }}</h3>
         </div>
-        <div class="table-wrap" :aria-busy="offerHistoryLoading ? 'true' : 'false'">
-          <EmptyState v-if="offerHistoryError" :message="offerHistoryError" tone="error" />
-          <OfferHistoryTable
-            v-else-if="offerHistory && (offerHistory.pharmacies?.length ?? 0) > 0"
-            :history="offerHistory"
-          />
-          <EmptyState v-else-if="offerHistoryLoading" :message="de.history.loading" />
-          <EmptyState v-else :message="de.offerHistory.empty" />
+        <div class="table-wrap">
+          <OfferHistoryTable :strain-id="strainId" :preset="preset" />
         </div>
       </section>
     </template>
@@ -141,6 +142,7 @@ import {
   type HistoryPreset,
 } from '@/lib/history';
 import { strainErrorMessage, useCatalogStore } from '@/stores/catalog';
+import { useHistoryStore } from '@/stores/history';
 import { useNavigationStore } from '@/stores/navigation';
 
 defineOptions({ name: 'StrainPage' });
@@ -180,29 +182,29 @@ const latestAt = computed(
 
 let controller: AbortController | null = null;
 
-watch(
-  strainId,
-  async (id) => {
-    controller?.abort();
-    detail.value = null;
-    error.value = null;
-    if (id === null) {
-      error.value = de.strain.notFound;
-      return;
-    }
-    controller = new AbortController();
-    const signal = controller.signal;
-    try {
-      const result = await catalog.loadDetail(id, signal);
-      if (signal.aborted) return;
-      detail.value = result;
-    } catch (cause) {
-      if (signal.aborted) return;
-      error.value = strainErrorMessage(cause);
-    }
-  },
-  { immediate: true },
-);
+/** Loads the detail; `keepStale` leaves the old data visible while the new run is fetched. */
+async function loadDetail(keepStale = false): Promise<void> {
+  const id = strainId.value;
+  controller?.abort();
+  if (!keepStale) detail.value = null;
+  error.value = null;
+  if (id === null) {
+    error.value = de.strain.notFound;
+    return;
+  }
+  controller = new AbortController();
+  const signal = controller.signal;
+  try {
+    const result = await catalog.loadDetail(id, signal);
+    if (signal.aborted) return;
+    detail.value = result;
+  } catch (cause) {
+    if (signal.aborted) return;
+    error.value = strainErrorMessage(cause);
+  }
+}
+
+watch(strainId, () => void loadDetail(), { immediate: true });
 
 onBeforeUnmount(() => controller?.abort());
 
@@ -210,19 +212,24 @@ const preset = ref<HistoryPreset>(DEFAULT_PRESET);
 const thcMode = ref(false);
 const pharmacies = ref(false);
 
+const historyStore = useHistoryStore();
 const {
   history,
   loading: historyLoading,
   error: historyError,
+  reload: reloadHistory,
 } = useHistoryQuery(strainId, preset, pharmacies);
 
-// The offer history always needs the per-pharmacy series, independent of the chart toggle.
-const withPharmacies = ref(true);
-const {
-  history: offerHistory,
-  loading: offerHistoryLoading,
-  error: offerHistoryError,
-} = useHistoryQuery(strainId, preset, withPharmacies);
+// A new scrape run has landed: detail, history, offers (part of the detail) and reviews are
+// refetched; the offer-history table and the reviews section watch the counter themselves.
+watch(
+  () => catalog.runChanged,
+  () => {
+    void loadDetail(true);
+    historyStore.clear();
+    void reloadHistory();
+  },
+);
 
 const series = computed(() =>
   history.value

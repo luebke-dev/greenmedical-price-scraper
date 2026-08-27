@@ -19,8 +19,11 @@ GreenMedical-Partnerapotheken — gescrapt von [greenmedical.health](https://gre
 ```bash
 cp .env.example .env
 docker compose up -d                          # nur PostgreSQL
-docker compose --profile app up -d --build    # + Backend (:8080) + Frontend (:8081)
+docker compose --profile app up -d --build    # + Backend (:8080) + Frontend (:8081) + Mailpit (:8025)
 ```
+
+API-Dokumentation (OpenAPI): <http://localhost:8080/api/docs> (bzw. `/api/docs` hinter Frontend/Ingress).
+Preisalarm-E-Mails landen in der Entwicklung im Mailpit-UI unter <http://localhost:8025>.
 
 Entwicklung mit Hot Reload:
 
