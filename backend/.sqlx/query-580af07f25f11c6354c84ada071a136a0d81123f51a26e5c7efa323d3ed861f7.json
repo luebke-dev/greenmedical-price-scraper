@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO reviews (strain_id, fingerprint, author, reviewed_on, rating, verified, content, first_seen_at, last_seen_at)\n               SELECT $1, d.fingerprint, d.author, d.reviewed_on, d.rating, d.verified, d.content, now(), now()\n               FROM (SELECT DISTINCT ON (u.fingerprint) u.*\n                     FROM UNNEST($2::text[], $3::text[], $4::date[], $5::float8[], $6::bool[], $7::text[])\n                          WITH ORDINALITY AS u(fingerprint, author, reviewed_on, rating, verified, content, position)\n                     ORDER BY u.fingerprint, u.position) d\n               ORDER BY d.position\n               ON CONFLICT (strain_id, fingerprint) DO UPDATE SET last_seen_at = now(), verified = EXCLUDED.verified",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "TextArray",
+        "TextArray",
+        "DateArray",
+        "Float8Array",
+        "BoolArray",
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "580af07f25f11c6354c84ada071a136a0d81123f51a26e5c7efa323d3ed861f7"
+}

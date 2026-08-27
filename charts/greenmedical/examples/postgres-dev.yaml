@@ -1,0 +1,152 @@
+# Plain PostgreSQL 17 for development clusters (minikube, kind, …).
+# NOT part of the chart and NOT suitable for production – use a managed database or CloudNativePG
+# (see charts/greenmedical/README.md). Apply into the namespace of the greenmedical release:
+#
+#   kubectl -n <namespace> apply -f charts/greenmedical/examples/postgres-dev.yaml
+#
+# and point the chart at it:
+#
+#   database:
+#     url: postgres://greenmedical:greenmedical@postgres:5432/greenmedical
+#
+# or, closer to production, reference the Secret below:
+#
+#   database:
+#     existingSecret: postgres-dev
+#     existingSecretKey: DATABASE_URL
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgres-dev
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/part-of: greenmedical
+type: Opaque
+stringData:
+  POSTGRES_USER: greenmedical
+  POSTGRES_PASSWORD: greenmedical
+  POSTGRES_DB: greenmedical
+  DATABASE_URL: postgres://greenmedical:greenmedical@postgres:5432/greenmedical
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-dev-data
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/part-of: greenmedical
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/part-of: greenmedical
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: postgres
+      app.kubernetes.io/part-of: greenmedical
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: postgres
+        app.kubernetes.io/part-of: greenmedical
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        # postgres user in the alpine image
+        runAsNonRoot: true
+        runAsUser: 70
+        runAsGroup: 70
+        fsGroup: 70
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: postgres
+          image: docker.io/library/postgres:17-alpine
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          envFrom:
+            - secretRef:
+                name: postgres-dev
+          env:
+            # Sub-directory so the volume root (lost+found) does not upset initdb.
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          ports:
+            - name: postgres
+              containerPort: 5432
+              protocol: TCP
+          startupProbe:
+            exec:
+              command: ["pg_isready", "-U", "greenmedical", "-d", "greenmedical", "-h", "127.0.0.1"]
+            periodSeconds: 2
+            failureThreshold: 30
+          # Readiness = accepts queries (unix socket, trust auth); liveness = server process answers.
+          readinessProbe:
+            exec:
+              command: ["psql", "-U", "greenmedical", "-d", "greenmedical", "-qAtc", "SELECT 1"]
+            periodSeconds: 5
+            timeoutSeconds: 3
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "greenmedical", "-d", "greenmedical", "-h", "127.0.0.1"]
+            periodSeconds: 10
+            timeoutSeconds: 3
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+              ephemeral-storage: 64Mi
+            limits:
+              memory: 512Mi
+              ephemeral-storage: 512Mi
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+            - name: run
+              mountPath: /var/run/postgresql
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: postgres-dev-data
+        - name: run
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/part-of: greenmedical
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/part-of: greenmedical
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres
+      protocol: TCP

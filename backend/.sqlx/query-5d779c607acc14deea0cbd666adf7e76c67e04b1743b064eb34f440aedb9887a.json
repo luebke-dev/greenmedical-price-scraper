@@ -1,0 +1,35 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT strain_id, MIN(price_eur)::float8 AS \"min_price?: f64\"\n           FROM offers WHERE run_id = $1 AND price_eur IS NOT NULL GROUP BY strain_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "strain_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "offers",
+            "name": "strain_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "min_price?: f64",
+        "type_info": "Float8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      null
+    ]
+  },
+  "hash": "5d779c607acc14deea0cbd666adf7e76c67e04b1743b064eb34f440aedb9887a"
+}

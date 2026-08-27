@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="GreenMedical Livebestand">
+  <rect width="128" height="128" rx="24" fill="#141c18"/>
+  <circle cx="64" cy="64" r="44" fill="#2f8f6b"/>
+  <path d="M64 30c-18 10-26 26-24 46 14 2 30-6 38-22-8 2-16 8-22 16 2-14 6-28 8-40z" fill="#e6f4ee"/>
+  <path d="M40 92 L56 76 L68 84 L88 60" fill="none" stroke="#141c18" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

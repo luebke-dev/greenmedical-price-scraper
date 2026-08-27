@@ -1,0 +1,3 @@
+# Chart-testing variant: default values plus the minimum required input (a database URL).
+database:
+  url: postgres://greenmedical:greenmedical@postgres.greenmedical.svc.cluster.local:5432/greenmedical

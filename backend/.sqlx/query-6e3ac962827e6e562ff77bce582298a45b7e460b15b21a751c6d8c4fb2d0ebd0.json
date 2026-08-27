@@ -1,0 +1,64 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT pharmacy_name, pharmacy_url, stage, message FROM scrape_run_errors WHERE run_id = $1 ORDER BY id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "pharmacy_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "scrape_run_errors",
+            "name": "pharmacy_name"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "pharmacy_url",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "scrape_run_errors",
+            "name": "pharmacy_url"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "stage",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "scrape_run_errors",
+            "name": "stage"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "message",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "scrape_run_errors",
+            "name": "message"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "6e3ac962827e6e562ff77bce582298a45b7e460b15b21a751c6d8c4fb2d0ebd0"
+}

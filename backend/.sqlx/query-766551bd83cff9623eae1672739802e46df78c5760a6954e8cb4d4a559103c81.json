@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE scrape_runs SET finished_at = now(), status = 'failed', error = $2 WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "766551bd83cff9623eae1672739802e46df78c5760a6954e8cb4d4a559103c81"
+}

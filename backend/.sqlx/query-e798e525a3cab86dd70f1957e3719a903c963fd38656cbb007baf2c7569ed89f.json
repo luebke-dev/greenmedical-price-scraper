@@ -1,0 +1,131 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT p.id, p.external_id, p.name, p.plz, p.city, p.address, p.url, p.first_seen_at, p.last_seen_at,\n                  (SELECT COUNT(*) FROM offers o WHERE o.pharmacy_id = p.id AND o.run_id = $1) AS \"offer_count_latest!\"\n           FROM pharmacies p ORDER BY p.name, p.id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "pharmacies",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "external_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "pharmacies",
+            "name": "external_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "pharmacies",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "plz",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "pharmacies",
+            "name": "plz"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "city",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "pharmacies",
+            "name": "city"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "address",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "pharmacies",
+            "name": "address"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "url",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "pharmacies",
+            "name": "url"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "first_seen_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "pharmacies",
+            "name": "first_seen_at"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "last_seen_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "pharmacies",
+            "name": "last_seen_at"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "offer_count_latest!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "e798e525a3cab86dd70f1957e3719a903c963fd38656cbb007baf2c7569ed89f"
+}

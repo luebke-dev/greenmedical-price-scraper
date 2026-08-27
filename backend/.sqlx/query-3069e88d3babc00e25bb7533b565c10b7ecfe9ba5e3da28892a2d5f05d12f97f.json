@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO strain_rating_snapshots (strain_id, run_id, scraped_at, rating_value, review_count)\n           VALUES ($1, $2, now(), NULLIF($3::float8, 'NaN'::float8), $4)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8",
+        "Float8",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "3069e88d3babc00e25bb7533b565c10b7ecfe9ba5e3da28892a2d5f05d12f97f"
+}
