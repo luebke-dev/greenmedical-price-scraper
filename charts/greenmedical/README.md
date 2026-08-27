@@ -1,6 +1,6 @@
 # Helm-Chart `greenmedical`
 
-Deployt den **GreenMedical Livebestand** auf Kubernetes:
+Deployt den **green.luebke.dev** auf Kubernetes:
 
 | Komponente | Image | Ports | Aufgabe |
 |---|---|---|---|
@@ -139,7 +139,7 @@ backend:
     subscriptionRateLimit: "5/1h"           # optional, Backend-Default
 email:
   enabled: true
-  from: "GreenMedical Livebestand <noreply@example.com>"
+  from: "green.luebke.dev <noreply@example.com>"
   smtp:
     host: smtp.example.com
     port: 587

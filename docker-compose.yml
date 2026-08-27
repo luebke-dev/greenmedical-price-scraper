@@ -90,7 +90,7 @@ services:
       SMTP_HOST: mailpit
       SMTP_PORT: "1025"
       SMTP_TLS: none
-      EMAIL_FROM: ${EMAIL_FROM:-GreenMedical Livebestand <noreply@localhost>}
+      EMAIL_FROM: ${EMAIL_FROM:-green.luebke.dev <noreply@localhost>}
       SUBSCRIPTION_RATE_LIMIT: ${SUBSCRIPTION_RATE_LIMIT:-5/1h}
       INSTANCE_NAME: compose-backend
     ports:

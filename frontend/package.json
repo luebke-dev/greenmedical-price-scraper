@@ -1,8 +1,8 @@
 {
   "name": "greenmedical-frontend",
   "version": "2026.8.0",
-  "description": "GreenMedical Livebestand – Preistabelle und Preisentwicklung",
-  "productName": "GreenMedical Livebestand",
+  "description": "green.luebke.dev – Preistabelle und Preisentwicklung",
+  "productName": "green.luebke.dev",
   "author": "Sebastian Lübke",
   "type": "module",
   "private": true,

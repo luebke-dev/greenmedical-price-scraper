@@ -2,7 +2,7 @@
 
 export const de = {
   app: {
-    title: 'GreenMedical Livebestand',
+    title: 'green.luebke.dev',
     updated: 'Stand:',
     noDate: '–',
     nav: 'Navigation',

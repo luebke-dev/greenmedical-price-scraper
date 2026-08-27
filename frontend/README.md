@@ -1,4 +1,4 @@
-# GreenMedical Livebestand – Frontend
+# green.luebke.dev – Frontend
 
 Quasar 2 / Vue 3 / TypeScript SPA (`@quasar/app-vite` v3, pnpm). Zeigt Kennzahlen, die
 filter- und sortierbare Preistabelle sowie Preisentwicklung, Bewertungen und Angebote pro Sorte

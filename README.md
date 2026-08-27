@@ -1,4 +1,4 @@
-# GreenMedical Livebestand
+# green.luebke.dev
 
 Preise, Verfügbarkeit, Preisverlauf und Bewertungen lieferbarer Cannabisblüten
 von [greenmedical.health](https://greenmedical.health) und

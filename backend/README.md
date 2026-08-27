@@ -82,7 +82,7 @@ ahmt `Intl.Collator('de', { numeric: true, sensitivity: 'base' })` nach
 | `SMTP_HOST`, `SMTP_PORT` | –, `587` | SMTP-Relay (`lettre`, rustls – kein OpenSSL); `SMTP_HOST` ist Pflicht bei `EMAIL_ENABLED=true` |
 | `SMTP_USERNAME`, `SMTP_PASSWORD` | – | optional; PLAIN/LOGIN-Auth nur wenn beide gesetzt |
 | `SMTP_TLS` | `starttls` | `starttls` \| `tls` (implizit, Port 465) \| `none` (z. B. mailpit) |
-| `EMAIL_FROM` | `GreenMedical Livebestand <noreply@localhost>` | Absender (`Name <adresse>` oder nur Adresse) |
+| `EMAIL_FROM` | `green.luebke.dev <noreply@localhost>` | Absender (`Name <adresse>` oder nur Adresse) |
 | `SUBSCRIPTION_RATE_LIMIT` | `5/1h` | `<Anzahl>/<Dauer>`: max. Abo-Anlagen (= Bestätigungsmails) pro Client-IP, in-memory pro Prozess |
 
 Status eines Laufs: `failed` bei 0 Apotheken, 0 aufgelösten UUIDs, Erfolgsquote unter

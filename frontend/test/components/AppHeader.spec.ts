@@ -11,7 +11,7 @@ installTestPlugins();
 describe('AppHeader', () => {
   it('shows the run timestamp, the Preisalarm link and the API docs link', () => {
     const wrapper = mount(AppHeader, { props: { metadata: makeMetadata() } });
-    expect(wrapper.find('h1').text()).toBe('GreenMedical Livebestand');
+    expect(wrapper.find('h1').text()).toBe('green.luebke.dev');
     expect(wrapper.find('time').text()).toBe('27.08.2026, 22:00');
     expect(wrapper.find('time').attributes('datetime')).toBe('2026-08-27T20:00:00Z');
     const links = wrapper.findAll('nav a');

@@ -8,7 +8,7 @@ backend:
     publicUrl: http://localhost:8080
 email:
   enabled: true
-  from: "GreenMedical Livebestand <noreply@example.com>"
+  from: "green.luebke.dev <noreply@example.com>"
   smtp:
     host: mailpit.greenmedical.svc.cluster.local
     port: 1025

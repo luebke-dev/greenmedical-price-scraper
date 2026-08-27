@@ -64,7 +64,7 @@ pub fn confirmation(public_url: &Url, to: &str, confirm_token: &str) -> Email {
     let subject = "Bitte bestätige deinen Preisalarm".to_owned();
     let text = format!(
         "Hallo,\n\n\
-         du hast einen Preisalarm für den GreenMedical Livebestand angelegt.\n\
+         du hast einen Preisalarm für green.luebke.dev angelegt.\n\
          Bitte bestätige deine E-Mail-Adresse über diesen Link:\n\n\
          {link}\n\n\
          Ohne Bestätigung wird das Abo nach 7 Tagen automatisch gelöscht.\n\
@@ -74,7 +74,7 @@ pub fn confirmation(public_url: &Url, to: &str, confirm_token: &str) -> Email {
         &subject,
         &format!(
             "<p>Hallo,</p>\
-             <p>du hast einen Preisalarm für den GreenMedical Livebestand angelegt.<br>\
+             <p>du hast einen Preisalarm für green.luebke.dev angelegt.<br>\
              Bitte bestätige deine E-Mail-Adresse:</p>\
              <p><a href=\"{link}\">Preisalarm bestätigen</a></p>\
              <p style=\"color:#666;font-size:0.9em\">Ohne Bestätigung wird das Abo nach 7 Tagen automatisch gelöscht.<br>\

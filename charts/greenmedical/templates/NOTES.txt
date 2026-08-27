@@ -1,6 +1,6 @@
 {{- $cfg := .Values.backend.config -}}
 {{- $backendReplicas := include "greenmedical.replicas" .Values.backend | int -}}
-GreenMedical {{ .Chart.Version }} (App {{ .Values.backend.image.tag | default .Chart.AppVersion }}) wurde als Release "{{ .Release.Name }}"
+green.luebke.dev {{ .Chart.Version }} (App {{ .Values.backend.image.tag | default .Chart.AppVersion }}) wurde als Release "{{ .Release.Name }}"
 im Namespace "{{ .Release.Namespace }}" installiert.
 
 Zugriff auf die Oberfläche

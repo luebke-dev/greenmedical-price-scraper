@@ -256,7 +256,7 @@ pub struct Config {
     #[arg(
         long,
         env = "EMAIL_FROM",
-        default_value = "GreenMedical Livebestand <noreply@localhost>"
+        default_value = "green.luebke.dev <noreply@localhost>"
     )]
     pub email_from: String,
 
@@ -457,10 +457,7 @@ mod tests {
         assert_eq!(cfg.smtp_host, None);
         assert_eq!(cfg.smtp_port, 587);
         assert_eq!(cfg.smtp_tls, SmtpTls::Starttls);
-        assert_eq!(
-            cfg.email_from,
-            "GreenMedical Livebestand <noreply@localhost>"
-        );
+        assert_eq!(cfg.email_from, "green.luebke.dev <noreply@localhost>");
         assert_eq!(
             cfg.subscription_rate_limit,
             RateLimit {

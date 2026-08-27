@@ -53,7 +53,7 @@ impl Modify for Security {
 #[derive(OpenApi)]
 #[openapi(
     info(
-        title = "GreenMedical Livebestand API",
+        title = "green.luebke.dev API",
         description = "JSON-API des GreenMedical Price Scrapers: Sorten, Angebote, Preisverlauf, Bewertungen, \
                        Scrape-Läufe, Exporte und Preisalarm-Abos.\n\n\
                        Zeitstempel sind RFC 3339 UTC (optional mit Sekundenbruchteilen). Fehler haben immer die Form \
