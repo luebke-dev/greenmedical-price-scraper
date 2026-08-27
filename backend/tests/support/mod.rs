@@ -59,7 +59,12 @@ pub fn test_config(base_url: &str) -> Config {
 }
 
 /// State with a [`RecordingMailer`] so tests can inspect sent e-mails.
-pub fn test_state_with_mailer(pool: PgPool, config: Config) -> (SharedState, Arc<RecordingMailer>) {
+pub fn test_state_with_mailer(
+    pool: PgPool,
+    mut config: Config,
+) -> (SharedState, Arc<RecordingMailer>) {
+    // An explicitly injected recording mailer represents enabled delivery without SMTP.
+    config.email_enabled = true;
     let mailer = RecordingMailer::new();
     let state = AppState::with_mailer(config, pool, CancellationToken::new(), mailer.clone());
     state.ready.store(true, std::sync::atomic::Ordering::SeqCst);
