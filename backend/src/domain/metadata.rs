@@ -116,10 +116,10 @@ pub fn build_metadata(
     generated_at: DateTime<Utc>,
     run: RunDto,
 ) -> MetadataDto {
-    let pharmacies: HashSet<i64> = offers
+    let pharmacies: HashSet<&str> = offers
         .iter()
         .filter(|o| !o.apotheke.is_empty())
-        .map(|o| o.pharmacy_id)
+        .map(|o| o.apotheke.as_str())
         .collect();
     let cheapest_gram = cheapest(offers, |o| o.preis_eur_pro_gramm);
 

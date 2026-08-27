@@ -115,7 +115,7 @@ pub fn group_by_strain(offers: &[OfferRecord]) -> Vec<StrainDto> {
             let pharmacy_count = members
                 .iter()
                 .filter(|o| !o.apotheke.is_empty())
-                .map(|o| o.pharmacy_id)
+                .map(|o| o.apotheke.as_str())
                 .collect::<HashSet<_>>()
                 .len() as i64;
 
