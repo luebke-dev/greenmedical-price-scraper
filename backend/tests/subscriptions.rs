@@ -94,6 +94,31 @@ async fn seed_first_run(pool: &PgPool) -> i64 {
 }
 
 #[sqlx::test(migrations = "./migrations")]
+async fn creation_is_unavailable_when_email_delivery_is_disabled(pool: PgPool) {
+    let state = support::test_state(pool.clone(), "http://127.0.0.1:1");
+    let app = build_router(state);
+
+    let (status, _, body) = post(
+        &app,
+        "/api/v1/subscriptions",
+        json!({
+            "email": "max@example.org",
+            "rules": [{"kind": "new_strain"}]
+        }),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE, "{body}");
+    assert_eq!(body["error"]["code"], "unavailable");
+    assert!(
+        subs::find_by_email(&pool, "max@example.org")
+            .await
+            .unwrap()
+            .is_none()
+    );
+}
+
+#[sqlx::test(migrations = "./migrations")]
 async fn create_confirm_manage_and_unsubscribe(pool: PgPool) {
     seed_first_run(&pool).await;
     let x = strain_id(&pool, "Sorte X").await;
