@@ -486,7 +486,7 @@ async fn strains_and_metadata_expose_ratings_with_best_rated_threshold(pool: PgP
     let state = test_state(pool.clone(), "http://127.0.0.1:1");
     let app = build_router(state.clone());
 
-    let (_, body) = get_json(&app, "/api/v1/strains").await;
+    let (_, body) = get_json(&app, "/api/v1/strains?sort=name").await;
     let x = &body["strains"][0];
     assert_eq!(x["name"], "Sorte X");
     assert_eq!(x["rating"]["value"], 3.8);
@@ -496,9 +496,10 @@ async fn strains_and_metadata_expose_ratings_with_best_rated_threshold(pool: PgP
     let y = &body["strains"][1];
     assert_eq!(y["rating"]["value"], 4.9);
     assert_eq!(y["product_uuid"], Value::Null);
-    assert!(body["search"].is_null());
+    assert!(x.get("search").is_none(), "list items carry no search text");
+    let (_, detail) = get_json(&app, &format!("/api/v1/strains/{strain_x}")).await;
     assert!(
-        !x["search"].as_str().unwrap().contains("fünf"),
+        !detail["search"].as_str().unwrap().contains("fünf"),
         "reviews are not searchable"
     );
 

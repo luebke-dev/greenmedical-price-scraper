@@ -1,15 +1,23 @@
 // Shared test data builders.
 import type {
+  Facets,
   History,
   HistoryPoint,
   Metadata,
   Offer,
+  OfferHistoryPage,
+  OfferHistoryRow,
+  OfferPhaseRow,
   PharmacySeries,
   Rating,
   Review,
+  Rule,
   ReviewsResponse,
   Run,
   Strain,
+  StrainListItem,
+  StrainsPage,
+  Subscription,
   Trend,
 } from '@/api/types';
 
@@ -133,6 +141,93 @@ export function makeStrain(input: StrainInput = {}): Strain {
   };
 }
 
+/** List item as returned by GET /strains (no offers, no search). */
+export function makeListItem(input: StrainInput = {}): StrainListItem {
+  const { offers: _offers, search: _search, ...item } = makeStrain(input);
+  void _offers;
+  void _search;
+  return item;
+}
+
+export function makeFacets(overrides: Partial<Facets> = {}): Facets {
+  return {
+    genetik: [
+      { value: 'Hybrid', count: 3 },
+      { value: 'Indica', count: 5 },
+      { value: 'Sativa', count: 2 },
+    ],
+    price: { min: 5.49, max: 12.35 },
+    thc: { min: 18.2, max: 31 },
+    cbd: { min: 0.3, max: 12 },
+    rating: { min: 3.1, max: 4.9 },
+    ...overrides,
+  };
+}
+
+export function makeStrainsPage(
+  strains: StrainListItem[],
+  overrides: Partial<StrainsPage> = {},
+): StrainsPage {
+  return {
+    run: makeRun(),
+    reference_run: null,
+    total: strains.length,
+    limit: 50,
+    offset: 0,
+    facets: makeFacets(),
+    strains,
+    ...overrides,
+  };
+}
+
+export function makePhaseRow(overrides: Partial<OfferPhaseRow> = {}): OfferPhaseRow {
+  return {
+    pharmacy_id: 1,
+    pharmacy: 'Grüne Blüte',
+    city: 'Markkleeberg',
+    price: 6.49,
+    price_per_thc_gram: 27.04,
+    availability: 'Auf Lager',
+    from: '2026-08-26T08:00:00Z',
+    to: null,
+    runs: 3,
+    delisted: false,
+    ...overrides,
+  };
+}
+
+export function makeOfferRow(overrides: Partial<OfferHistoryRow> = {}): OfferHistoryRow {
+  return {
+    at: '2026-08-27T08:00:00Z',
+    run_id: 40,
+    pharmacy_id: 1,
+    pharmacy: 'Grüne Blüte',
+    city: 'Markkleeberg',
+    price: 6.49,
+    price_per_thc_gram: 27.04,
+    availability: 'Auf Lager',
+    ...overrides,
+  };
+}
+
+export function makeOfferHistoryPage(
+  rows: OfferHistoryRow[] | OfferPhaseRow[],
+  overrides: Partial<OfferHistoryPage> = {},
+): OfferHistoryPage {
+  return {
+    strain_id: 7,
+    bucket: 'run',
+    mode: 'changes',
+    from: '2026-07-28T20:00:00Z',
+    to: LATEST_AT,
+    total: rows.length,
+    limit: 50,
+    offset: 0,
+    rows,
+    ...overrides,
+  };
+}
+
 export function makeMetadata(overrides: Partial<Metadata> = {}): Metadata {
   const highlight = {
     price: 5.49,
@@ -234,6 +329,28 @@ export function makeReviewsResponse(
     history: [],
     reviews,
     total: reviews.length,
+    ...overrides,
+  };
+}
+
+export function makeRule(overrides: Partial<Rule> = {}): Rule {
+  return {
+    id: 1,
+    kind: 'strain_price_below',
+    strain_id: 7,
+    strain_name: 'OG Kush',
+    threshold: 6,
+    created_at: LATEST_AT,
+    ...overrides,
+  };
+}
+
+export function makeSubscription(overrides: Partial<Subscription> = {}): Subscription {
+  return {
+    email: 'test@example.de',
+    confirmed: true,
+    rules: [makeRule()],
+    created_at: LATEST_AT,
     ...overrides,
   };
 }

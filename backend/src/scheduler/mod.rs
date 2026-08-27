@@ -93,6 +93,14 @@ pub async fn cleanup_stale_runs(state: &SharedState) {
     }
 }
 
+/// Delete unconfirmed subscribers older than 7 days and refresh the gauge.
+pub async fn cleanup_subscriptions(state: &SharedState) {
+    if let Err(err) = crate::notify::cleanup_unconfirmed(state).await {
+        error!(%err, "subscription cleanup failed");
+    }
+    crate::notify::refresh_gauge(state).await;
+}
+
 /// The scheduler loop. Returns when the shutdown token is cancelled.
 pub async fn run_scheduler(state: SharedState) {
     let shutdown = state.shutdown.clone();
@@ -100,6 +108,7 @@ pub async fn run_scheduler(state: SharedState) {
     let schedule = state.config.scrape_cron.clone();
 
     cleanup_stale_runs(&state).await;
+    cleanup_subscriptions(&state).await;
 
     let jitter = jitter_for(&state.instance);
     info!(jitter_s = jitter.as_secs(), "scheduler starting");
@@ -149,6 +158,7 @@ pub async fn run_scheduler(state: SharedState) {
             }
         }
         cleanup_stale_runs(&state).await;
+        cleanup_subscriptions(&state).await;
         try_run(&state, RunTrigger::Schedule).await;
     }
 }

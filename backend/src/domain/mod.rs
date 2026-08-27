@@ -3,10 +3,12 @@
 //! Nothing in this module touches the database or the network; every
 //! function works on plain values so it can be unit-tested exhaustively.
 
+pub mod collate;
 pub mod export;
 pub mod group;
 pub mod metadata;
 pub mod model;
+pub mod offer_history;
 pub mod text;
 pub mod trend;
 

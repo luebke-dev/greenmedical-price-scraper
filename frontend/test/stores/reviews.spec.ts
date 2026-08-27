@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getReviews } from '@/api/endpoints';
 import type { ReviewsResponse } from '@/api/types';
-import { REVIEWS_PAGE, reviewsCacheKey, useReviewsStore } from '@/stores/reviews';
+import { DEFAULT_REVIEW_PAGE_SIZE, reviewsCacheKey, useReviewsStore } from '@/stores/reviews';
 import { makeReview, makeReviewsResponse } from '../fixtures';
 import { createTestPinia } from '../helpers';
 
@@ -22,87 +22,57 @@ function abortError(): Error {
   return error;
 }
 
+const FIRST = { sort: 'newest', limit: DEFAULT_REVIEW_PAGE_SIZE, offset: 0 } as const;
+
 describe('reviews store', () => {
   beforeEach(() => {
     createTestPinia();
     fetchMock.mockReset();
   });
 
-  it('builds cache keys per strain and sort', () => {
-    expect(reviewsCacheKey(7, 'newest')).toBe('7|newest');
-    expect(reviewsCacheKey(7, 'lowest')).toBe('7|lowest');
+  it('defaults to 25 per page and builds cache keys per strain, sort, limit and offset', () => {
+    expect(DEFAULT_REVIEW_PAGE_SIZE).toBe(25);
+    expect(reviewsCacheKey(7, FIRST)).toBe('7|newest|25|0');
+    expect(reviewsCacheKey(7, { sort: 'lowest', limit: 100, offset: 200 })).toBe(
+      '7|lowest|100|200',
+    );
   });
 
-  it('fetches the first page with limit 50 and caches it per strain + sort', async () => {
+  it('fetches a page with limit/offset/sort and caches it per key', async () => {
     fetchMock.mockResolvedValue(page(0, 3, 3));
     const store = useReviewsStore();
-    const entry = await store.fetchReviews(7, 'newest');
+    const entry = await store.fetchPage(7, FIRST);
+    expect(entry).toMatchObject({ total: 3, limit: 25, offset: 0 });
     expect(entry.reviews).toHaveLength(3);
     expect(fetchMock).toHaveBeenCalledWith(
       7,
-      { limit: REVIEWS_PAGE, offset: 0, sort: 'newest' },
+      { limit: 25, offset: 0, sort: 'newest' },
       expect.any(AbortSignal),
     );
 
-    await expect(store.fetchReviews(7, 'newest')).resolves.toBe(entry);
+    await expect(store.fetchPage(7, FIRST)).resolves.toBe(entry);
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
-    await store.fetchReviews(7, 'highest');
-    await store.fetchReviews(8, 'newest');
-    expect(fetchMock).toHaveBeenCalledTimes(3);
-    expect(store.cache.size).toBe(3);
+    await store.fetchPage(7, { ...FIRST, offset: 25 });
+    await store.fetchPage(7, { ...FIRST, sort: 'highest' });
+    await store.fetchPage(7, { ...FIRST, limit: 100 });
+    await store.fetchPage(8, FIRST);
+    expect(fetchMock).toHaveBeenCalledTimes(5);
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      7,
+      { limit: 25, offset: 25, sort: 'newest' },
+      expect.any(AbortSignal),
+    );
+    expect(store.cache.size).toBe(5);
   });
 
   it('shares one in-flight request between concurrent callers', async () => {
     fetchMock.mockResolvedValue(page(0, 1, 1));
     const store = useReviewsStore();
-    const [a, b] = await Promise.all([store.fetchReviews(7), store.fetchReviews(7)]);
+    const [a, b] = await Promise.all([store.fetchPage(7, FIRST), store.fetchPage(7, FIRST)]);
     expect(a).toBe(b);
     expect(fetchMock).toHaveBeenCalledTimes(1);
-  });
-
-  it('loadMore appends the next page via offset and de-duplicates ids', async () => {
-    fetchMock.mockResolvedValueOnce(page(0, 50, 120));
-    const store = useReviewsStore();
-    await store.fetchReviews(7);
-    expect(store.hasMore(7)).toBe(true);
-
-    fetchMock.mockResolvedValueOnce({
-      ...page(50, 50, 120),
-      // The backend may shift by a newly scraped review: id 50 shows up again.
-      reviews: [makeReview({ id: 50 }), ...page(50, 49, 120).reviews],
-    });
-    const second = await store.loadMore(7);
-    expect(fetchMock).toHaveBeenLastCalledWith(
-      7,
-      { limit: REVIEWS_PAGE, offset: 50, sort: 'newest' },
-      expect.any(AbortSignal),
-    );
-    expect(second.reviews).toHaveLength(99);
-    expect(new Set(second.reviews.map((review) => review.id)).size).toBe(99);
-    expect(second.reviews[0]!.id).toBe(1);
-    expect(second.reviews[50]!.id).toBe(51);
-    expect(store.cache.get(reviewsCacheKey(7, 'newest'))).toBe(second);
-
-    fetchMock.mockResolvedValueOnce(page(99, 21, 120));
-    const third = await store.loadMore(7);
-    expect(third.reviews).toHaveLength(120);
-    expect(store.hasMore(7)).toBe(false);
-
-    // Complete: no further request.
-    await expect(store.loadMore(7)).resolves.toBe(third);
-    expect(fetchMock).toHaveBeenCalledTimes(3);
-  });
-
-  it('loadMore without a cached first page fetches the first page', async () => {
-    fetchMock.mockResolvedValue(page(0, 2, 2));
-    const store = useReviewsStore();
-    await store.loadMore(9, 'oldest');
-    expect(fetchMock).toHaveBeenCalledWith(
-      9,
-      { limit: REVIEWS_PAGE, offset: 0, sort: 'oldest' },
-      expect.any(AbortSignal),
-    );
   });
 
   it('abortAll cancels pending requests without caching, clear drops the cache', async () => {
@@ -113,13 +83,13 @@ describe('reviews store', () => {
         ),
     );
     const store = useReviewsStore();
-    const request = store.fetchReviews(7);
+    const request = store.fetchPage(7, FIRST);
     store.abortAll();
     await expect(request).rejects.toMatchObject({ name: 'AbortError' });
     expect(store.cache.size).toBe(0);
 
     fetchMock.mockResolvedValue(page(0, 1, 1));
-    await store.fetchReviews(7);
+    await store.fetchPage(7, FIRST);
     expect(store.cache.size).toBe(1);
     store.clear();
     expect(store.cache.size).toBe(0);
@@ -128,10 +98,10 @@ describe('reviews store', () => {
   it('propagates errors and allows a retry', async () => {
     fetchMock.mockRejectedValueOnce(new Error('boom'));
     const store = useReviewsStore();
-    await expect(store.fetchReviews(7)).rejects.toThrow('boom');
+    await expect(store.fetchPage(7, FIRST)).rejects.toThrow('boom');
     expect(store.cache.size).toBe(0);
     fetchMock.mockResolvedValue(page(0, 1, 1));
-    await store.fetchReviews(7);
+    await store.fetchPage(7, FIRST);
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });

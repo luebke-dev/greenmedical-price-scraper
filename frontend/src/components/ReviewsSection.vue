@@ -63,6 +63,16 @@
           <div class="reviews-asof">{{ de.reviews.asOf(dateTime(entry.summary.scraped_at)) }}</div>
         </div>
 
+        <TablePager
+          position="top"
+          :page="pageNumber"
+          :size="size"
+          :total="entry.total"
+          :sizes="REVIEW_PAGE_SIZES"
+          :noun="de.reviews.noun"
+          @update:page="setPage"
+          @update:size="setSize"
+        />
         <ol v-if="entry.reviews.length > 0" class="reviews-list" :aria-label="de.reviews.listAria">
           <li v-for="review in entry.reviews" :key="review.id" class="review">
             <div class="review-head">
@@ -77,14 +87,17 @@
           </li>
         </ol>
 
-        <div v-if="entry.total > entry.reviews.length" class="reviews-more">
-          <span class="result-count">{{
-            de.reviews.shown(entry.reviews.length, entry.total)
-          }}</span>
-          <button type="button" class="clear-button" :disabled="loading" @click="more">
-            {{ loading ? de.reviews.loading : de.reviews.more }}
-          </button>
-        </div>
+        <TablePager
+          v-if="entry.total > size"
+          position="bottom"
+          :page="pageNumber"
+          :size="size"
+          :total="entry.total"
+          :sizes="REVIEW_PAGE_SIZES"
+          :noun="de.reviews.noun"
+          @update:page="setPage"
+          @update:size="setSize"
+        />
       </template>
     </div>
   </section>
@@ -96,9 +109,16 @@ import type { ReviewSort } from '@/api/types';
 import { de } from '@/i18n/de';
 import { calendarDay, dateTime, integer, num, rating } from '@/lib/format';
 import { isAbortError } from '@/api/client';
-import { DEFAULT_REVIEW_SORT, useReviewsStore, type ReviewsEntry } from '@/stores/reviews';
+import {
+  DEFAULT_REVIEW_PAGE_SIZE,
+  DEFAULT_REVIEW_SORT,
+  REVIEW_PAGE_SIZES,
+  useReviewsStore,
+  type ReviewsEntry,
+} from '@/stores/reviews';
 import EmptyState from './EmptyState.vue';
 import RatingStars from './RatingStars.vue';
+import TablePager from './TablePager.vue';
 
 const SORT_OPTIONS: readonly ReviewSort[] = ['newest', 'oldest', 'highest', 'lowest'];
 
@@ -106,6 +126,8 @@ const props = defineProps<{ strainId: number }>();
 
 const store = useReviewsStore();
 const sort = ref<ReviewSort>(DEFAULT_REVIEW_SORT);
+const pageNumber = ref(1);
+const size = ref(DEFAULT_REVIEW_PAGE_SIZE);
 const entry = shallowRef<ReviewsEntry | null>(null);
 const loading = ref(false);
 const error = ref<string | null>(null);
@@ -127,16 +149,35 @@ async function run(task: () => Promise<ReviewsEntry>): Promise<void> {
   }
 }
 
+function query() {
+  return {
+    sort: sort.value,
+    limit: size.value,
+    offset: (pageNumber.value - 1) * size.value,
+  };
+}
+
 function load(): void {
+  void run(() => store.fetchPage(props.strainId, query()));
+}
+
+function setPage(page: number): void {
+  pageNumber.value = Math.max(1, Math.floor(page));
+}
+
+function setSize(next: number): void {
+  if (!REVIEW_PAGE_SIZES.includes(next) || next === size.value) return;
+  const firstRow = (pageNumber.value - 1) * size.value;
+  size.value = next;
+  pageNumber.value = Math.floor(firstRow / next) + 1;
+}
+
+// A new strain or sort order starts at page 1 and drops the stale entry (summary may differ).
+watch([() => props.strainId, sort], () => {
   entry.value = null;
-  void run(() => store.fetchReviews(props.strainId, sort.value));
-}
-
-function more(): void {
-  void run(() => store.loadMore(props.strainId, sort.value));
-}
-
-watch([() => props.strainId, sort], load, { immediate: true });
+  pageNumber.value = 1;
+});
+watch([() => props.strainId, sort, pageNumber, size], load, { immediate: true });
 onBeforeUnmount(() => {
   generation += 1;
   store.abortAll();

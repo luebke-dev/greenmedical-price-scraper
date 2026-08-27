@@ -1,6 +1,6 @@
-import type { Strain } from '@/api/types';
+// Sort state of the overview table. Sorting itself happens on the server (GET /strains?sort&dir).
+
 import { de } from '@/i18n/de';
-import { collator } from './format';
 
 export type SortKey =
   | 'name'
@@ -72,54 +72,6 @@ export function columnDef(key: SortKey): ColumnDef {
   const column = COLUMNS.find((item) => item.key === key);
   if (!column) throw new Error(`unknown column: ${key}`);
   return column;
-}
-
-export function getSortValue(row: Strain, key: SortKey): number | string | null {
-  switch (key) {
-    case 'price':
-      return row.sort.price;
-    case 'price_per_thc_gram':
-      return row.sort.price_per_thc_gram;
-    case 'thc':
-      return row.sort.thc;
-    case 'cbd':
-      return row.sort.cbd;
-    case 'pharmacy_count':
-      return row.pharmacy_count;
-    case 'rating':
-      return row.sort.rating ?? null;
-    default:
-      return row[key] || '';
-  }
-}
-
-function compareNumbers(left: number | null, right: number | null, direction: 1 | -1): number {
-  // Deliberate deviation from app.js: rows without a value go last in BOTH directions.
-  if (left === null && right === null) return 0;
-  if (left === null) return 1;
-  if (right === null) return -1;
-  return (left - right) * direction;
-}
-
-export function compareRows(left: Strain, right: Strain, sort: SortState): number {
-  const column = columnDef(sort.key);
-  const direction = sort.direction === 'asc' ? 1 : -1;
-  const leftValue = getSortValue(left, sort.key);
-  const rightValue = getSortValue(right, sort.key);
-
-  if (column.type === 'number') {
-    return compareNumbers(
-      typeof leftValue === 'number' ? leftValue : null,
-      typeof rightValue === 'number' ? rightValue : null,
-      direction,
-    );
-  }
-  return collator.compare(String(leftValue ?? ''), String(rightValue ?? '')) * direction;
-}
-
-/** Returns a new, stably sorted array. */
-export function sortRows(rows: readonly Strain[], sort: SortState): Strain[] {
-  return [...rows].sort((left, right) => compareRows(left, right, sort));
 }
 
 /** Same column → flip direction; other column → its default direction (ascending). */

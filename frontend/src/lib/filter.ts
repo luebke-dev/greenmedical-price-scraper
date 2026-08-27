@@ -1,7 +1,10 @@
-import type { Strain } from '@/api/types';
+// Range/genetik filter helpers and the GET /strains query builder. Filtering and sorting happen
+// on the server; this module only shapes the state into parameters and the facets into bounds.
+
+import type { StrainsParams } from '@/api/endpoints';
+import type { FacetRange, Facets } from '@/api/types';
 import { de } from '@/i18n/de';
-import { collator } from './format';
-import { matchesSearch } from './search';
+import type { SortState } from './sort';
 
 export type RangeKey = 'price' | 'thc' | 'cbd';
 
@@ -11,34 +14,12 @@ export interface RangeConfig {
   unit: string;
   step: number;
   decimals: number;
-  get: (row: Strain) => number | null;
 }
 
 export const RANGE_CONFIGS: readonly RangeConfig[] = [
-  {
-    key: 'price',
-    label: de.filters.price,
-    unit: ' €/g',
-    step: 0.1,
-    decimals: 2,
-    get: (row) => row.sort.price,
-  },
-  {
-    key: 'thc',
-    label: de.filters.thc,
-    unit: ' %',
-    step: 0.5,
-    decimals: 1,
-    get: (row) => row.sort.thc,
-  },
-  {
-    key: 'cbd',
-    label: de.filters.cbd,
-    unit: ' %',
-    step: 0.1,
-    decimals: 1,
-    get: (row) => row.sort.cbd,
-  },
+  { key: 'price', label: de.filters.price, unit: ' €/g', step: 0.1, decimals: 2 },
+  { key: 'thc', label: de.filters.thc, unit: ' %', step: 0.5, decimals: 1 },
+  { key: 'cbd', label: de.filters.cbd, unit: ' %', step: 0.1, decimals: 1 },
 ];
 
 export function rangeConfig(key: RangeKey): RangeConfig {
@@ -90,29 +71,22 @@ export function ceilToStep(value: number, step: number): number {
 }
 
 /**
- * Slider bounds for one range filter: min floored / max ceiled to the step.
- * Returns null when there are no values or when min === max (nothing to filter).
+ * Slider bounds from a raw facet range: min floored / max ceiled to the step.
+ * Returns null without a facet or when min === max (nothing to filter).
  */
-export function computeBounds(rows: readonly Strain[], config: RangeConfig): RangeBounds | null {
-  let lowest = Number.POSITIVE_INFINITY;
-  let highest = Number.NEGATIVE_INFINITY;
-  for (const row of rows) {
-    const value = config.get(row);
-    if (value === null || value === undefined || Number.isNaN(value)) continue;
-    if (value < lowest) lowest = value;
-    if (value > highest) highest = value;
-  }
-  if (lowest === Number.POSITIVE_INFINITY) return null;
-  const min = floorToStep(lowest, config.step);
-  const max = ceilToStep(highest, config.step);
-  if (min === max) return null;
+export function boundsFromFacet(facet: FacetRange | null, config: RangeConfig): RangeBounds | null {
+  if (!facet || !Number.isFinite(facet.min) || !Number.isFinite(facet.max)) return null;
+  const min = floorToStep(facet.min, config.step);
+  const max = ceilToStep(facet.max, config.step);
+  if (min >= max) return null;
   return { min, max };
 }
 
-export function computeAllBounds(rows: readonly Strain[]): BoundsState {
+export function boundsFromFacets(facets: Facets | null | undefined): BoundsState {
   const bounds: BoundsState = {};
+  if (!facets) return bounds;
   for (const config of RANGE_CONFIGS) {
-    const range = computeBounds(rows, config);
+    const range = boundsFromFacet(facets[config.key], config);
     if (range) bounds[config.key] = range;
   }
   return bounds;
@@ -143,23 +117,6 @@ export function clampRange(value: RangeValue, bounds: RangeBounds): RangeValue {
   return { lo, hi };
 }
 
-/** Strains without a value only stay visible while the filter is untouched. */
-export function matchesRange(row: Strain, ranges: RangeState, bounds: BoundsState): boolean {
-  for (const config of RANGE_CONFIGS) {
-    const range = bounds[config.key];
-    const value = ranges[config.key];
-    if (!range || !value) continue;
-    const rowValue = config.get(row);
-    const atFullRange = isFullRange(value, range);
-    if (rowValue === null || rowValue === undefined) {
-      if (!atFullRange) return false;
-      continue;
-    }
-    if (rowValue < value.lo || rowValue > value.hi) return false;
-  }
-  return true;
-}
-
 export function genetikKey(label: string | null | undefined): string {
   return (label ?? '').toLowerCase();
 }
@@ -167,44 +124,57 @@ export function genetikKey(label: string | null | undefined): string {
 export interface GenetikOption {
   key: string;
   label: string;
+  count?: number | undefined;
+}
+
+/** Chip options from the facets (already alphabetical, de). Empty when fewer than 2. */
+export function genetikFromFacets(facets: Facets | null | undefined): GenetikOption[] {
+  const options: GenetikOption[] = [];
+  const seen = new Set<string>();
+  for (const item of facets?.genetik ?? []) {
+    const key = genetikKey(item.value);
+    if (key === '' || seen.has(key)) continue;
+    seen.add(key);
+    options.push({ key, label: item.value, count: item.count });
+  }
+  return options.length < 2 ? [] : options;
+}
+
+export interface StrainsQueryState {
+  query: string;
+  /** Lowercased genetik keys. */
+  genetik: readonly string[];
+  ranges: RangeState;
+  sort: SortState;
+  /** 1-based page. */
+  page: number;
+  size: number;
 }
 
 /**
- * Distinct genetics (case-insensitive), sorted by collator. Empty when fewer than 2.
- * Like site/app.js the label shows the casing of the LAST occurrence of a key.
+ * Filter state → GET /strains parameters. A slider at its full width (or a range whose bounds
+ * are unknown yet but that is not narrowed) is omitted; without bounds (facets not loaded yet,
+ * e.g. a cold-start deep link) the range is sent as given.
  */
-export function genetikOptions(rows: readonly Strain[]): GenetikOption[] {
-  const byKey = new Map<string, string>();
-  for (const row of rows) {
-    const label = row.genetik || '';
-    if (label) byKey.set(label.toLowerCase(), label);
+export function buildStrainsParams(state: StrainsQueryState, bounds: BoundsState): StrainsParams {
+  const params: StrainsParams = {};
+  const q = state.query.trim();
+  if (q) params.q = q;
+  if (state.genetik.length > 0) params.genetik = [...state.genetik];
+
+  for (const config of RANGE_CONFIGS) {
+    const value = state.ranges[config.key];
+    if (!value) continue;
+    const range = bounds[config.key];
+    if (range && isFullRange(value, range)) continue;
+    const clamped = range ? clampRange(value, range) : value;
+    if (!range || clamped.lo > range.min) params[`${config.key}_min`] = clamped.lo;
+    if (!range || clamped.hi < range.max) params[`${config.key}_max`] = clamped.hi;
   }
-  if (byKey.size < 2) return [];
-  return [...byKey.entries()]
-    .map(([key, label]) => ({ key, label }))
-    .sort((a, b) => collator.compare(a.label, b.label));
-}
 
-export function matchesGenetik(row: Strain, selected: ReadonlySet<string>): boolean {
-  if (selected.size === 0) return true;
-  return selected.has(genetikKey(row.genetik));
-}
-
-export interface FilterCriteria {
-  query: string;
-  genetik: ReadonlySet<string>;
-  ranges: RangeState;
-}
-
-export function applyFilters(
-  rows: readonly Strain[],
-  criteria: FilterCriteria,
-  bounds: BoundsState,
-): Strain[] {
-  return rows.filter(
-    (row) =>
-      matchesSearch(row, criteria.query) &&
-      matchesRange(row, criteria.ranges, bounds) &&
-      matchesGenetik(row, criteria.genetik),
-  );
+  params.sort = state.sort.key;
+  params.dir = state.sort.direction;
+  params.limit = state.size;
+  params.offset = Math.max(0, state.page - 1) * state.size;
+  return params;
 }

@@ -19,6 +19,15 @@ adminToken:
   existingSecret: greenmedical-admin
   existingSecretKey: token
 
+email:
+  enabled: true
+  from: "Preisalarm <preisalarm@example.com>"
+  smtp:
+    host: smtp.example.com
+    port: 587
+    tls: starttls
+    existingSecret: greenmedical-smtp
+
 backend:
   replicaCount: 2
   image:
@@ -28,6 +37,8 @@ backend:
     logFormat: json
     rustLog: "info,sqlx=warn,greenmedical=debug"
     corsAllowedOrigins: "https://greenmedical.example.com"
+    publicUrl: https://greenmedical.example.com
+    subscriptionRateLimit: "10/1h"
     scrapeCron: "0 30 3,9,15,21 * * *"
     scrapeUserAgent: "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0"
     snapshotRevalidateInterval: "15s"
@@ -198,6 +209,15 @@ networkPolicy:
         app.kubernetes.io/name: prometheus
   extraEgressCIDRs:
     - 10.20.0.0/16
+  smtp:
+    cidrs:
+      - 10.40.0.0/16
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: postfix
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: mail
   dbPodSelector:
     matchLabels:
       cnpg.io/cluster: greenmedical-db

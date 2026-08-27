@@ -3,17 +3,26 @@ import { shallowReactive } from 'vue';
 import { getReviews } from '@/api/endpoints';
 import type { Review, ReviewSort, ReviewSummary, ReviewsResponse } from '@/api/types';
 
-export const REVIEWS_PAGE = 50;
+export const REVIEW_PAGE_SIZES: readonly number[] = [25, 50, 100];
+export const DEFAULT_REVIEW_PAGE_SIZE = 25;
 export const DEFAULT_REVIEW_SORT: ReviewSort = 'newest';
+
+export interface ReviewsQuery {
+  sort: ReviewSort;
+  limit: number;
+  offset: number;
+}
 
 export interface ReviewsEntry {
   summary: ReviewSummary;
   reviews: Review[];
   total: number;
+  limit: number;
+  offset: number;
 }
 
-export function reviewsCacheKey(id: number, sort: ReviewSort): string {
-  return `${id}|${sort}`;
+export function reviewsCacheKey(id: number, query: ReviewsQuery): string {
+  return `${id}|${query.sort}|${query.limit}|${query.offset}`;
 }
 
 interface Inflight {
@@ -21,28 +30,37 @@ interface Inflight {
   controller: AbortController;
 }
 
-function toEntry(response: ReviewsResponse): ReviewsEntry {
-  return { summary: response.summary, reviews: response.reviews, total: response.total };
+function toEntry(response: ReviewsResponse, query: ReviewsQuery): ReviewsEntry {
+  return {
+    summary: response.summary,
+    reviews: response.reviews,
+    total: response.total,
+    limit: query.limit,
+    offset: query.offset,
+  };
 }
 
 export const useReviewsStore = defineStore('reviews', () => {
-  /** First page (+ appended pages) per strain and sort order. */
+  /** One page per strain, sort order, page size and offset. */
   const cache = shallowReactive(new Map<string, ReviewsEntry>());
   const inflight = new Map<string, Inflight>();
 
-  function request(
-    cacheKey: string,
-    id: number,
-    sort: ReviewSort,
-    offset: number,
-    merge: (response: ReviewsResponse) => ReviewsEntry,
-  ): Promise<ReviewsEntry> {
+  /** Returns the cached page or fetches it. Concurrent callers share one request. */
+  function fetchPage(id: number, query: ReviewsQuery): Promise<ReviewsEntry> {
+    const cacheKey = reviewsCacheKey(id, query);
+    const cached = cache.get(cacheKey);
+    if (cached) return Promise.resolve(cached);
     const pending = inflight.get(cacheKey);
     if (pending) return pending.promise;
+
     const controller = new AbortController();
-    const promise = getReviews(id, { limit: REVIEWS_PAGE, offset, sort }, controller.signal)
+    const promise = getReviews(
+      id,
+      { limit: query.limit, offset: query.offset, sort: query.sort },
+      controller.signal,
+    )
       .then((response) => {
-        const entry = merge(response);
+        const entry = toEntry(response, query);
         cache.set(cacheKey, entry);
         return entry;
       })
@@ -51,36 +69,6 @@ export const useReviewsStore = defineStore('reviews', () => {
       });
     inflight.set(cacheKey, { promise, controller });
     return promise;
-  }
-
-  /** Returns the cached entry or fetches the first page. Concurrent callers share one request. */
-  function fetchReviews(id: number, sort: ReviewSort = DEFAULT_REVIEW_SORT): Promise<ReviewsEntry> {
-    const cacheKey = reviewsCacheKey(id, sort);
-    const cached = cache.get(cacheKey);
-    if (cached) return Promise.resolve(cached);
-    return request(cacheKey, id, sort, 0, toEntry);
-  }
-
-  /** Loads the next page after the cached reviews and appends it (no-op when complete). */
-  function loadMore(id: number, sort: ReviewSort = DEFAULT_REVIEW_SORT): Promise<ReviewsEntry> {
-    const cacheKey = reviewsCacheKey(id, sort);
-    const current = cache.get(cacheKey);
-    if (!current) return fetchReviews(id, sort);
-    if (current.reviews.length >= current.total) return Promise.resolve(current);
-    return request(cacheKey, id, sort, current.reviews.length, (response) => {
-      const seen = new Set(current.reviews.map((review) => review.id));
-      const fresh = response.reviews.filter((review) => !seen.has(review.id));
-      return {
-        summary: response.summary,
-        reviews: [...current.reviews, ...fresh],
-        total: response.total,
-      };
-    });
-  }
-
-  function hasMore(id: number, sort: ReviewSort = DEFAULT_REVIEW_SORT): boolean {
-    const entry = cache.get(reviewsCacheKey(id, sort));
-    return entry ? entry.reviews.length < entry.total : false;
   }
 
   /** Aborts every pending request (e.g. when leaving the strain page). */
@@ -94,5 +82,5 @@ export const useReviewsStore = defineStore('reviews', () => {
     cache.clear();
   }
 
-  return { cache, fetchReviews, loadMore, hasMore, abortAll, clear };
+  return { cache, fetchPage, abortAll, clear };
 });

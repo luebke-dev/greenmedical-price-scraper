@@ -1,27 +1,23 @@
 import { describe, expect, it } from 'vitest';
 import {
   RANGE_CONFIGS,
-  applyFilters,
+  boundsFromFacet,
+  boundsFromFacets,
+  buildStrainsParams,
   ceilToStep,
   clampRange,
-  computeAllBounds,
-  computeBounds,
   floorToStep,
   fullRanges,
-  genetikOptions,
+  genetikFromFacets,
   isFullRange,
-  matchesGenetik,
-  matchesRange,
   rangeConfig,
   roundToStep,
   stepDecimals,
+  type StrainsQueryState,
 } from '@/lib/filter';
-import { matchesSearch, normalizeQuery } from '@/lib/search';
-import { makeStrain } from '../fixtures';
+import { makeFacets } from '../fixtures';
 
 const price = rangeConfig('price');
-const thc = rangeConfig('thc');
-const cbd = rangeConfig('cbd');
 
 describe('range configs', () => {
   it('uses the same keys, steps and decimals as site/app.js', () => {
@@ -59,7 +55,6 @@ describe('step rounding', () => {
   });
 
   it('keeps exact multiples where app.js drifted (deliberate deviation)', () => {
-    // app.js: Math.floor(0.3 / 0.1) * 0.1 === 0.2 and Math.ceil(0.7 / 0.1) * 0.1 === 0.7000000000000001
     expect(Math.floor(0.3 / 0.1) * 0.1).toBe(0.2);
     expect(floorToStep(0.3, 0.1)).toBe(0.3);
     expect(ceilToStep(0.7, 0.1)).toBe(0.7);
@@ -68,66 +63,29 @@ describe('step rounding', () => {
   });
 });
 
-describe('computeBounds', () => {
-  it('floors min and ceils max to the step', () => {
-    const rows = [makeStrain({ id: 1, price: 5.49 }), makeStrain({ id: 2, price: 12.31 })];
-    expect(computeBounds(rows, price)).toEqual({ min: 5.4, max: 12.4 });
-  });
-
-  it('ignores null values', () => {
-    const rows = [makeStrain({ id: 1, price: null }), makeStrain({ id: 2, price: 7 })];
-    expect(computeBounds(rows, price)).toBeNull();
-    rows.push(makeStrain({ id: 3, price: 8.05 }));
-    expect(computeBounds(rows, price)).toEqual({ min: 7, max: 8.1 });
-  });
-
-  it('returns null when there are no values or min === max', () => {
-    expect(computeBounds([], price)).toBeNull();
-    expect(computeBounds([makeStrain({ price: null })], price)).toBeNull();
-    const same = [makeStrain({ id: 1, price: 6 }), makeStrain({ id: 2, price: 6 })];
-    expect(computeBounds(same, price)).toBeNull();
-  });
-
-  it('computes bounds per key with the respective steps', () => {
-    const rows = [
-      makeStrain({ id: 1, price: 5.49, thcValue: 27, cbdValue: 0.99 }),
-      makeStrain({ id: 2, price: 9.9, thcValue: 18.2, cbdValue: 12 }),
-    ];
-    expect(computeAllBounds(rows)).toEqual({
-      price: { min: 5.4, max: 9.9 },
-      thc: { min: 18, max: 27 },
-      cbd: { min: 0.9, max: 12 },
+describe('bounds from facets', () => {
+  it('floors/ceils the raw facet range to the step of each key', () => {
+    expect(boundsFromFacet({ min: 5.49, max: 12.35 }, price)).toEqual({ min: 5.4, max: 12.4 });
+    expect(boundsFromFacets(makeFacets())).toEqual({
+      price: { min: 5.4, max: 12.4 },
+      thc: { min: 18, max: 31 },
+      cbd: { min: 0.3, max: 12 },
     });
-    expect(fullRanges(computeAllBounds(rows))).toEqual({
-      price: { lo: 5.4, hi: 9.9 },
-      thc: { lo: 18, hi: 27 },
-      cbd: { lo: 0.9, hi: 12 },
+    expect(fullRanges(boundsFromFacets(makeFacets()))).toEqual({
+      price: { lo: 5.4, hi: 12.4 },
+      thc: { lo: 18, hi: 31 },
+      cbd: { lo: 0.3, hi: 12 },
     });
   });
-});
 
-describe('matchesRange', () => {
-  const rows = [
-    makeStrain({ id: 1, price: 5.49 }),
-    makeStrain({ id: 2, price: 8 }),
-    makeStrain({ id: 3, price: null }),
-  ];
-  const bounds = computeAllBounds(rows);
-
-  it('keeps null rows only while the filter is at its full range', () => {
-    const full = fullRanges(bounds);
-    expect(rows.map((row) => matchesRange(row, full, bounds))).toEqual([true, true, true]);
-
-    const narrowed = { ...full, price: { lo: 5.4, hi: 7.9 } };
-    expect(rows.map((row) => matchesRange(row, narrowed, bounds))).toEqual([true, false, false]);
-
-    // Slightly moved lower thumb → still not "full range" → null rows disappear.
-    const nudged = { ...full, price: { lo: 5.5, hi: bounds.price!.max } };
-    expect(rows.map((row) => matchesRange(row, nudged, bounds))).toEqual([false, true, false]);
-  });
-
-  it('ignores keys without bounds', () => {
-    expect(matchesRange(rows[2]!, { price: { lo: 6, hi: 7 } }, {})).toBe(true);
+  it('drops keys without a facet or without a span', () => {
+    expect(boundsFromFacet(null, price)).toBeNull();
+    expect(boundsFromFacet({ min: 7, max: 7 }, price)).toBeNull();
+    expect(boundsFromFacet({ min: 7.01, max: 7.09 }, price)).toEqual({ min: 7, max: 7.1 });
+    expect(boundsFromFacets(null)).toEqual({});
+    expect(boundsFromFacets(makeFacets({ price: null, thc: { min: 20, max: 20 } }))).toEqual({
+      cbd: { min: 0.3, max: 12 },
+    });
   });
 
   it('isFullRange / clampRange', () => {
@@ -140,114 +98,97 @@ describe('matchesRange', () => {
   });
 });
 
-describe('genetik', () => {
-  it('collects distinct values case-insensitively and sorts them', () => {
-    const rows = [
-      makeStrain({ id: 1, genetik: 'Sativa' }),
-      makeStrain({ id: 2, genetik: 'indica' }),
-      makeStrain({ id: 3, genetik: 'Indica' }),
-      makeStrain({ id: 4, genetik: 'Hybrid Sativa Dominant' }),
-      makeStrain({ id: 5, genetik: '' }),
-    ];
-    // Like site/app.js: the label shows the casing of the LAST occurrence.
-    expect(genetikOptions(rows)).toEqual([
-      { key: 'hybrid sativa dominant', label: 'Hybrid Sativa Dominant' },
-      { key: 'indica', label: 'Indica' },
-      { key: 'sativa', label: 'Sativa' },
+describe('genetik from facets', () => {
+  it('keeps the server order, lowercases the key and carries the count', () => {
+    expect(genetikFromFacets(makeFacets())).toEqual([
+      { key: 'hybrid', label: 'Hybrid', count: 3 },
+      { key: 'indica', label: 'Indica', count: 5 },
+      { key: 'sativa', label: 'Sativa', count: 2 },
     ]);
   });
 
-  it('returns no options for fewer than two distinct values', () => {
+  it('dedupes case variants and returns nothing below two options', () => {
     expect(
-      genetikOptions([makeStrain({ genetik: 'Indica' }), makeStrain({ genetik: 'INDICA' })]),
+      genetikFromFacets(
+        makeFacets({
+          genetik: [
+            { value: 'Indica', count: 1 },
+            { value: 'INDICA', count: 1 },
+            { value: '', count: 9 },
+          ],
+        }),
+      ),
     ).toEqual([]);
-    expect(genetikOptions([])).toEqual([]);
-  });
-
-  it('matches case-folded and passes everything when nothing is selected', () => {
-    const row = makeStrain({ genetik: 'Indica' });
-    expect(matchesGenetik(row, new Set())).toBe(true);
-    expect(matchesGenetik(row, new Set(['indica']))).toBe(true);
-    expect(matchesGenetik(row, new Set(['sativa']))).toBe(false);
-    expect(matchesGenetik(makeStrain({ genetik: '' }), new Set(['indica']))).toBe(false);
+    expect(genetikFromFacets(null)).toEqual([]);
   });
 });
 
-describe('search', () => {
-  it('normalizes the query (trim + lowercase)', () => {
-    expect(normalizeQuery('  Grüne BLÜTE ')).toBe('grüne blüte');
+describe('buildStrainsParams', () => {
+  const bounds = boundsFromFacets(makeFacets());
+  const base: StrainsQueryState = {
+    query: '',
+    genetik: [],
+    ranges: fullRanges(bounds),
+    sort: { key: 'price', direction: 'asc' },
+    page: 1,
+    size: 50,
+  };
+
+  it('sends only sort/dir/limit/offset for the default state', () => {
+    expect(buildStrainsParams(base, bounds)).toEqual({
+      sort: 'price',
+      dir: 'asc',
+      limit: 50,
+      offset: 0,
+    });
   });
 
-  it('matches substrings of the precomputed search field', () => {
-    const row = makeStrain({ name: 'OG Kush', bezeichnung: 'Cannamedical CM 24/1' });
-    expect(matchesSearch(row, 'kush')).toBe(true);
-    expect(matchesSearch(row, 'CM 24')).toBe(true);
-    expect(matchesSearch(row, 'markkleeberg')).toBe(true);
-    expect(matchesSearch(row, 'haze')).toBe(false);
-    expect(matchesSearch(row, '')).toBe(true);
-    expect(matchesSearch(row, '   ')).toBe(true);
-  });
-});
-
-describe('applyFilters', () => {
-  const rows = [
-    makeStrain({ id: 1, name: 'Alpha', genetik: 'Indica', price: 5.49, thcValue: 27, cbdValue: 1 }),
-    makeStrain({ id: 2, name: 'Beta', genetik: 'Sativa', price: 8, thcValue: 20, cbdValue: 0.99 }),
-    makeStrain({
-      id: 3,
-      name: 'Gamma',
-      genetik: 'Indica',
-      price: null,
-      thcValue: null,
-      cbdValue: 5,
-    }),
-  ];
-  const bounds = computeAllBounds(rows);
-
-  it('combines search, genetik and ranges', () => {
-    const all = applyFilters(
-      rows,
-      { query: '', genetik: new Set(), ranges: fullRanges(bounds) },
-      bounds,
-    );
-    expect(all.map((r) => r.id)).toEqual([1, 2, 3]);
-
-    const indica = applyFilters(
-      rows,
-      { query: '', genetik: new Set(['indica']), ranges: fullRanges(bounds) },
-      bounds,
-    );
-    expect(indica.map((r) => r.id)).toEqual([1, 3]);
-
-    const cheap = applyFilters(
-      rows,
-      {
-        query: '',
-        genetik: new Set(),
-        ranges: { ...fullRanges(bounds), price: { lo: 5.4, hi: 6 } },
+  it('omits ranges at the full slider width and sends only the moved side', () => {
+    const state: StrainsQueryState = {
+      ...base,
+      ranges: {
+        price: { lo: 6, hi: 12.4 },
+        thc: { lo: 18, hi: 25.5 },
+        cbd: { lo: 1, hi: 4.4 },
       },
-      bounds,
-    );
-    expect(cheap.map((r) => r.id)).toEqual([1]);
-
-    const searched = applyFilters(
-      rows,
-      { query: 'gam', genetik: new Set(), ranges: fullRanges(bounds) },
-      bounds,
-    );
-    expect(searched.map((r) => r.id)).toEqual([3]);
+    };
+    expect(buildStrainsParams(state, bounds)).toMatchObject({
+      price_min: 6,
+      thc_max: 25.5,
+      cbd_min: 1,
+      cbd_max: 4.4,
+    });
+    expect(buildStrainsParams(state, bounds)).not.toHaveProperty('price_max');
+    expect(buildStrainsParams(state, bounds)).not.toHaveProperty('thc_min');
   });
 
-  it('keeps the original order (sorting is separate)', () => {
-    const reversed = [...rows].reverse();
-    const result = applyFilters(reversed, { query: '', genetik: new Set(), ranges: {} }, bounds);
-    expect(result.map((r) => r.id)).toEqual([3, 2, 1]);
+  it('clamps values outside the bounds', () => {
+    const state: StrainsQueryState = { ...base, ranges: { price: { lo: 1, hi: 8 } } };
+    expect(buildStrainsParams(state, bounds)).toMatchObject({ price_max: 8 });
+    expect(buildStrainsParams(state, bounds)).not.toHaveProperty('price_min');
   });
 
-  it('thc/cbd bounds use their own steps', () => {
-    expect(bounds.thc).toEqual({ min: 20, max: 27 });
-    expect(bounds.cbd).toEqual({ min: 0.9, max: 5 });
-    expect(thc.get(rows[2]!)).toBeNull();
-    expect(cbd.get(rows[1]!)).toBe(0.99);
+  it('passes ranges through as given while the bounds are unknown (cold-start deep link)', () => {
+    const state: StrainsQueryState = { ...base, ranges: { price: { lo: 6, hi: 8 } } };
+    expect(buildStrainsParams(state, {})).toMatchObject({ price_min: 6, price_max: 8 });
+  });
+
+  it('maps query, genetik, sort and page/size', () => {
+    const state: StrainsQueryState = {
+      ...base,
+      query: '  kush ',
+      genetik: ['indica', 'sativa'],
+      sort: { key: 'rating', direction: 'desc' },
+      page: 3,
+      size: 25,
+    };
+    expect(buildStrainsParams(state, bounds)).toEqual({
+      q: 'kush',
+      genetik: ['indica', 'sativa'],
+      sort: 'rating',
+      dir: 'desc',
+      limit: 25,
+      offset: 50,
+    });
   });
 });

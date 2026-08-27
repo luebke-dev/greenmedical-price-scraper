@@ -91,6 +91,21 @@ spec:
                   name: {{ include "greenmedical.adminToken.secretName" . }}
                   key: {{ include "greenmedical.adminToken.secretKey" . }}
             {{- end }}
+            {{- if eq (include "greenmedical.smtp.credentials" .) "true" }}
+            {{- $smtpSecret := include "greenmedical.smtp.secretName" . }}
+            - name: SMTP_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $smtpSecret }}
+                  key: SMTP_USERNAME
+                  optional: true
+            - name: SMTP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $smtpSecret }}
+                  key: SMTP_PASSWORD
+                  optional: true
+            {{- end }}
             - name: INSTANCE_NAME
               valueFrom:
                 fieldRef:

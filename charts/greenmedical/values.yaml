@@ -54,6 +54,29 @@ adminToken:
   value: ""
 
 # ---------------------------------------------------------------------------
+# E-mail (price alert subscriptions)
+# ---------------------------------------------------------------------------
+email:
+  # -- Send mails via SMTP. When false the backend only logs them (subject, recipient, text on INFO);
+  # subscriptions can still be created but nobody can confirm them.
+  enabled: false
+  # -- Sender address (`Name <addr>` or plain address). Empty = backend default
+  # (`GreenMedical Livebestand <noreply@localhost>`).
+  from: ""
+  smtp:
+    # -- SMTP server host. REQUIRED when `email.enabled` is true.
+    host: ""
+    port: 587
+    # -- `starttls` | `tls` | `none`
+    tls: starttls
+    # -- Name of an existing Secret with the keys `SMTP_USERNAME` and `SMTP_PASSWORD`. RECOMMENDED.
+    # Both keys are optional (unauthenticated relay: create the Secret without them or leave this empty).
+    existingSecret: ""
+    # -- Plain credentials; rendered into the chart-managed Secret. Development only.
+    username: ""
+    password: ""
+
+# ---------------------------------------------------------------------------
 # Backend
 # ---------------------------------------------------------------------------
 backend:
@@ -88,6 +111,13 @@ backend:
     snapshotRevalidateInterval: ""
     # -- Comma-separated allowed origins; empty = no CORS headers (frontend proxies /api same-origin).
     corsAllowedOrigins: ""
+    # -- Public base URL used for links in e-mails (`/sorte/{id}`, `/abo/...`), without trailing slash.
+    # Empty = derived from the first Ingress host (`https://` with `ingress.tls`, else `http://`) when
+    # `ingress.enabled`; otherwise it is REQUIRED and the render fails.
+    publicUrl: ""
+    # -- Max. subscription creations / confirmation mails per client IP (`<count>/<duration>`, in-memory).
+    # Empty = backend default (`5/1h`).
+    subscriptionRateLimit: ""
     # -- Enable the in-process scrape scheduler. The API works without it.
     scrapeEnabled: true
     # -- Cron in `cron` crate format (sec min hour dom mon dow). Default: 04:00, 10:00, 16:00, 22:00.
@@ -387,6 +417,13 @@ networkPolicy:
       - 169.254.0.0/16
       - 100.64.0.0/10
     port: 443
+  # SMTP egress (only rendered when email.enabled). Port = email.smtp.port. Target: pods in the cluster
+  # (podSelector, optionally namespaceSelector) and/or CIDRs. With neither set, the rule falls back to
+  # `externalEgress.cidr`/`except` (i.e. an SMTP relay on the internet).
+  smtp:
+    cidrs: []
+    podSelector: {}
+    namespaceSelector: {}
   # Database egress: either CIDRs (external / managed DB) and/or a pod selector (in-cluster DB).
   # At least one of them (or a rule in backend.extraEgress) is REQUIRED when enabled=true –
   # without a route to PostgreSQL the backend never becomes ready and the rollout hangs.

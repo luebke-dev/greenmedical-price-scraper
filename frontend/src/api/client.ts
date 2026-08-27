@@ -20,6 +20,9 @@ export type QueryParams = Record<string, QueryValue>;
 export interface FetchOptions {
   query?: QueryParams | undefined;
   signal?: AbortSignal | undefined;
+  method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | undefined;
+  /** Serialised as JSON (`Content-Type: application/json`). */
+  body?: unknown;
 }
 
 /** Builds `${API_BASE}${path}?…` and omits null/undefined query values. */
@@ -57,12 +60,19 @@ async function toApiError(response: Response): Promise<ApiError> {
 }
 
 export async function fetchJson<T>(path: string, options: FetchOptions = {}): Promise<T> {
-  const init: RequestInit = { headers: { Accept: 'application/json' } };
+  const headers: Record<string, string> = { Accept: 'application/json' };
+  const init: RequestInit = { headers, method: options.method ?? 'GET' };
   if (options.signal) init.signal = options.signal;
+  if (options.body !== undefined) {
+    headers['Content-Type'] = 'application/json';
+    init.body = JSON.stringify(options.body);
+  }
   const response = await fetch(buildUrl(path, options.query), init);
   if (!response.ok) {
     throw await toApiError(response);
   }
+  // 204 No Content (e.g. DELETE /subscriptions/manage).
+  if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
 }
 

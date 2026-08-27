@@ -1,6 +1,9 @@
 <template>
   <q-page class="index-page">
-    <MetricCards :metadata="catalog.metadata" :loading="!catalog.metadata && !catalog.error" />
+    <MetricCards
+      :metadata="catalog.metadata"
+      :loading="!catalog.metadata && !catalog.metadataError"
+    />
 
     <FilterToolbar
       v-model="filters.searchInput.value"
@@ -23,24 +26,29 @@
     />
 
     <StrainTable
-      :rows="filters.filtered.value"
+      :rows="filters.rows.value"
       :sort="filters.state.sort"
+      :page="filters.state.page"
+      :size="filters.state.size"
+      :total="filters.count.value"
       :latest-at="catalog.latestAt"
       :loading="catalog.loading"
       :error="catalog.error"
       @sort="filters.setSort"
+      @paginate="onPaginate"
       @retry="catalog.refresh()"
     />
   </q-page>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { ref } from 'vue';
 import FilterPanel from '@/components/FilterPanel.vue';
 import FilterToolbar from '@/components/FilterToolbar.vue';
 import MetricCards from '@/components/MetricCards.vue';
 import StrainTable from '@/components/StrainTable.vue';
 import { useStrainFilters } from '@/composables/useStrainFilters';
+import type { PageRequest } from '@/lib/url-state';
 import { useCatalogStore } from '@/stores/catalog';
 
 // Name is required for <keep-alive include="IndexPage">.
@@ -49,7 +57,11 @@ defineOptions({ name: 'IndexPage' });
 const FILTER_PANEL_ID = 'filters';
 
 const catalog = useCatalogStore();
-const rows = computed(() => catalog.strains);
-const filters = useStrainFilters(rows);
+const filters = useStrainFilters();
 const filtersOpen = ref(false);
+
+function onPaginate(request: PageRequest): void {
+  if (request.size !== filters.state.size) filters.setSize(request.size);
+  else filters.setPage(request.page);
+}
 </script>

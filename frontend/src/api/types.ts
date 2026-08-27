@@ -119,10 +119,34 @@ export interface Metadata {
   run: Run;
 }
 
-export interface StrainsResponse {
+/** List item of GET /strains: no offers (see GET /strains/{id}) and no search text. */
+export type StrainListItem = Omit<Strain, 'offers' | 'search'>;
+
+export interface FacetRange {
+  min: number;
+  max: number;
+}
+
+export interface Facets {
+  /** Over ALL strains of the run, alphabetical (de), empty value omitted. */
+  genetik: { value: string; count: number }[];
+  /** Raw (unrounded) bounds over every strain with a value. */
+  price: FacetRange | null;
+  thc: FacetRange | null;
+  cbd: FacetRange | null;
+  rating: FacetRange | null;
+}
+
+export interface StrainsPage {
   run: Run;
   reference_run: Run | null;
-  strains: Strain[];
+  /** Hits after filtering. */
+  total: number;
+  limit: number;
+  offset: number;
+  /** Independent of the filter (slider bounds / chips). */
+  facets: Facets;
+  strains: StrainListItem[];
 }
 
 export type HistoryBucket = 'run' | 'day';
@@ -161,6 +185,47 @@ export interface History {
   timezone: string;
   points: HistoryPoint[]; // aufsteigend
   pharmacies?: PharmacySeries[]; // nur bei ?pharmacies=true
+}
+
+export type OfferHistoryMode = 'changes' | 'all';
+
+/** mode=all: one row per (bucket, pharmacy) with an offer. */
+export interface OfferHistoryRow {
+  at: string;
+  run_id?: number;
+  pharmacy_id: number;
+  pharmacy: string;
+  city: string;
+  price: number | null;
+  price_per_thc_gram: number | null;
+  availability: string;
+}
+
+/** mode=changes: one row per pharmacy and consecutive stretch of runs with the same price+status. */
+export interface OfferPhaseRow {
+  pharmacy_id: number;
+  pharmacy: string;
+  city: string;
+  price: number | null;
+  price_per_thc_gram: number | null;
+  availability: string;
+  from: string;
+  /** null ⇒ still holds in the last bucket of the range. */
+  to: string | null;
+  runs: number;
+  delisted: boolean;
+}
+
+export interface OfferHistoryPage {
+  strain_id: number;
+  bucket: HistoryBucket;
+  mode: OfferHistoryMode;
+  from: string;
+  to: string;
+  total: number;
+  limit: number;
+  offset: number;
+  rows: OfferHistoryRow[] | OfferPhaseRow[];
 }
 
 export interface Pharmacy {
@@ -232,4 +297,44 @@ export interface ApiErrorBody {
     code: string;
     message: string;
   };
+}
+
+// --- Preisalarm-Abos --------------------------------------------------------
+
+export type RuleKind =
+  | 'strain_available'
+  | 'strain_price_below'
+  | 'any_price_below'
+  | 'thc_above'
+  | 'new_strain'
+  | 'strain_price_change';
+
+export interface RuleInput {
+  kind: RuleKind;
+  strain_id?: number;
+  threshold?: number;
+}
+
+export interface Rule extends RuleInput {
+  id: number;
+  strain_name?: string | null;
+  created_at: string;
+}
+
+export interface SubscriptionCreate {
+  email: string;
+  rules: RuleInput[];
+  /** Honeypot, must stay empty. */
+  website?: string;
+}
+
+export interface Subscription {
+  email: string;
+  confirmed: boolean;
+  rules: Rule[];
+  created_at: string;
+}
+
+export interface SubscriptionCreated {
+  status: 'confirmation_sent';
 }

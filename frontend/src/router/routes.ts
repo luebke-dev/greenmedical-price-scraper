@@ -13,6 +13,17 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/pages/StrainPage.vue'),
         props: (route) => ({ id: Number(route.params.id) }),
       },
+      { path: 'abo', name: 'subscribe', component: () => import('@/pages/SubscribePage.vue') },
+      {
+        path: 'abo/bestaetigen',
+        name: 'subscribe-confirm',
+        component: () => import('@/pages/ConfirmPage.vue'),
+      },
+      {
+        path: 'abo/verwalten',
+        name: 'subscribe-manage',
+        component: () => import('@/pages/ManagePage.vue'),
+      },
       // Always leave this as last one.
       {
         path: ':catchAll(.*)*',

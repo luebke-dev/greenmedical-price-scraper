@@ -1,6 +1,13 @@
-import type { History, HistoryBucket, HistoryPoint, PharmacySeriesPoint } from '@/api/types';
+import type { OfferHistoryParams } from '@/api/endpoints';
+import type {
+  History,
+  HistoryBucket,
+  HistoryPoint,
+  OfferHistoryMode,
+  PharmacySeriesPoint,
+} from '@/api/types';
 import { de } from '@/i18n/de';
-import { calendarDay, dateTime, euro } from './format';
+import { calendarDay, dateTime } from './format';
 
 export type HistoryPreset = '7d' | '30d' | '90d' | 'all';
 
@@ -180,125 +187,28 @@ export function seriesAriaLabel(name: string, series: HistorySeries): string {
   return de.history.chartAria(name, series.unit, series.categories.length, first, last);
 }
 
-export interface OfferHistoryRow {
-  key: string;
-  date: string;
-  /** True for the first row of a run/day group (used for visual separation). */
-  first: boolean;
-  pharmacy: string;
-  city: string;
-  price: string;
-  thcPrice: string;
-  availability: string;
+export const OFFER_HISTORY_SIZES: readonly number[] = [25, 50, 100];
+export const DEFAULT_OFFER_HISTORY_SIZE = 50;
+export const DEFAULT_OFFER_HISTORY_MODE: OfferHistoryMode = 'changes';
+
+export interface OfferHistoryQueryState {
+  mode: OfferHistoryMode;
+  /** 1-based page. */
+  page: number;
+  size: number;
 }
 
-/**
- * Flattens the per-pharmacy series of a history response into one row per (run, pharmacy),
- * newest run first, pharmacies alphabetically within a run. Requires `pharmacies=true`.
- */
-export function offerHistoryRows(history: History): OfferHistoryRow[] {
-  const collator = new Intl.Collator('de', { sensitivity: 'base' });
-  const flat: (Omit<OfferHistoryRow, 'first'> & { at: string })[] = [];
-  for (const series of history.pharmacies ?? []) {
-    for (const point of series.points) {
-      if (point.price === null && !point.availability) continue;
-      flat.push({
-        key: `${point.at}|${series.pharmacy_id}`,
-        at: point.at,
-        date: formatHistoryAt(point.at, history.bucket),
-        pharmacy: series.name,
-        city: series.city,
-        price: euro(point.price, '€/g'),
-        thcPrice: euro(point.price_per_thc_gram, '€/g THC'),
-        availability: point.availability,
-      });
-    }
-  }
-  flat.sort((a, b) =>
-    a.at < b.at ? 1 : a.at > b.at ? -1 : collator.compare(a.pharmacy, b.pharmacy),
-  );
-  return flat.map((row, index) => ({
-    ...row,
-    first: index === 0 || flat[index - 1]!.at !== row.at,
-  }));
-}
-
-export interface OfferPhaseRow {
-  key: string;
-  pharmacy: string;
-  city: string;
-  price: string;
-  thcPrice: string;
-  availability: string;
-  /** Formatted start of the phase (first run with this price/status). */
-  from: string;
-  /** Formatted end (last run seen with this state); null when it still holds in the latest run. */
-  to: string | null;
-  /** Number of runs/days the phase covers. */
-  runs: number;
-  /** True when the pharmacy stopped listing the strain in this phase. */
-  delisted: boolean;
-  rawFrom: string;
-}
-
-/**
- * Condenses the per-pharmacy series into phases: one row per pharmacy and consecutive stretch of
- * runs with the same price + status. A pharmacy missing from a run (while the strain itself was
- * seen in that run) starts a "nicht mehr gelistet" phase. Newest phase first.
- */
-export function offerHistoryPhases(history: History): OfferPhaseRow[] {
-  const collator = new Intl.Collator('de', { sensitivity: 'base' });
-  const runs = [...new Set(history.points.map((point) => point.at))].sort();
-  if (runs.length === 0) return [];
-  const latest = runs[runs.length - 1]!;
-  const rows: OfferPhaseRow[] = [];
-
-  for (const series of history.pharmacies ?? []) {
-    const byAt = new Map(series.points.map((point) => [point.at, point]));
-    let current: (OfferPhaseRow & { stateKey: string }) | null = null;
-    let seen = false;
-    for (const at of runs) {
-      const point = byAt.get(at);
-      const listed = point !== undefined && (point.price !== null || point.availability !== '');
-      if (!listed && !seen) continue; // ignore runs before the pharmacy first listed the strain
-      seen = true;
-      const stateKey = listed ? `${point.price ?? ''}|${point.availability}` : 'delisted';
-      if (current && current.stateKey === stateKey) {
-        current.to = at === latest ? null : formatHistoryAt(at, history.bucket);
-        current.runs += 1;
-        continue;
-      }
-      if (current) rows.push(stripState(current));
-      current = {
-        stateKey,
-        key: `${series.pharmacy_id}|${at}`,
-        pharmacy: series.name,
-        city: series.city,
-        price: listed ? euro(point.price, '€/g') : '',
-        thcPrice: listed ? euro(point.price_per_thc_gram, '€/g THC') : '',
-        availability: listed ? point.availability : '',
-        from: formatHistoryAt(at, history.bucket),
-        to: at === latest ? null : formatHistoryAt(at, history.bucket),
-        runs: 1,
-        delisted: !listed,
-        rawFrom: at,
-      };
-    }
-    if (current) rows.push(stripState(current));
-  }
-
-  rows.sort((a, b) =>
-    a.rawFrom < b.rawFrom
-      ? 1
-      : a.rawFrom > b.rawFrom
-        ? -1
-        : collator.compare(a.pharmacy, b.pharmacy),
-  );
-  return rows;
-}
-
-function stripState(row: OfferPhaseRow & { stateKey: string }): OfferPhaseRow {
-  const { stateKey: _omit, ...rest } = row;
-  void _omit;
-  return rest;
+/** Range + mode + page → GET /strains/{id}/offer-history parameters (limit/offset). */
+export function buildOfferHistoryParams(
+  range: HistoryRange,
+  state: OfferHistoryQueryState,
+): OfferHistoryParams {
+  return {
+    from: range.from,
+    to: range.to,
+    bucket: range.bucket,
+    mode: state.mode,
+    limit: state.size,
+    offset: Math.max(0, state.page - 1) * state.size,
+  };
 }

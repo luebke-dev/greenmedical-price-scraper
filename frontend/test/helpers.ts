@@ -18,6 +18,9 @@ export function createTestRouter(
     routes: [
       { path: '/', name: 'index', component: Stub },
       { path: '/sorte/:id(\\d+)', name: 'strain', component: Stub },
+      { path: '/abo', name: 'subscribe', component: Stub },
+      { path: '/abo/bestaetigen', name: 'subscribe-confirm', component: Stub },
+      { path: '/abo/verwalten', name: 'subscribe-manage', component: Stub },
     ],
   });
 }

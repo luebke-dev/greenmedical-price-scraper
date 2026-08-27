@@ -127,6 +127,38 @@ adminToken:
   value: dev-token
 ```
 
+## Preisalarm-E-Mails
+
+Das Backend verschickt Bestätigungs- und Preisalarm-Mails (siehe `docs/api-contract.md`, „Preisalarm-Abos“).
+Ohne `email.enabled=true` werden Mails nur geloggt – Abos lassen sich dann nicht bestätigen.
+
+```yaml
+backend:
+  config:
+    publicUrl: https://preise.example.com   # Basis für Links in Mails; Default: erster Ingress-Host
+    subscriptionRateLimit: "5/1h"           # optional, Backend-Default
+email:
+  enabled: true
+  from: "GreenMedical Livebestand <noreply@example.com>"
+  smtp:
+    host: smtp.example.com
+    port: 587
+    tls: starttls                           # starttls | tls | none
+    existingSecret: greenmedical-smtp       # Keys SMTP_USERNAME / SMTP_PASSWORD (beide optional)
+# oder – nur Entwicklung – email.smtp.username / email.smtp.password (landen im Chart-Secret)
+```
+
+```bash
+kubectl -n greenmedical create secret generic greenmedical-smtp \
+  --from-literal=SMTP_USERNAME=preisalarm --from-literal=SMTP_PASSWORD='GEHEIM'
+```
+
+`backend.config.publicUrl` ist Pflicht, wenn kein Ingress aktiv ist; mit Ingress wird
+`https://<erster Host>` (bzw. `http://` ohne `ingress.tls`) verwendet. Mit `networkPolicy.enabled=true`
+entsteht zusätzlich eine Egress-Regel auf `email.smtp.port` – Ziel per `networkPolicy.smtp.podSelector`
+(Relay im Cluster) und/oder `networkPolicy.smtp.cidrs`; ohne Angabe gilt der Bereich von
+`networkPolicy.externalEgress` (Relay im Internet, private Netze ausgenommen).
+
 ## Wichtige Werte
 
 Vollständige Liste mit Kommentaren: [`values.yaml`](values.yaml). Typen und Enums werden über
@@ -149,6 +181,12 @@ Vollständige Liste mit Kommentaren: [`values.yaml`](values.yaml). Typen und Enu
 | `backend.config.httpRequestTimeout` | `30s` | serverseitiges Request-Timeout (`408`) |
 | `backend.config.snapshotRevalidateInterval` | `""` (Backend-Default `30s`) | wie oft der Snapshot-Cache prüft, ob ein anderes Replikat einen neueren Lauf gespeichert hat |
 | `backend.config.corsAllowedOrigins` | `""` | nur nötig, wenn die API ohne nginx-Proxy direkt aufgerufen wird |
+| `backend.config.publicUrl` | `""` (= erster Ingress-Host) | Basis-URL für Links in E-Mails; Pflicht ohne Ingress |
+| `backend.config.subscriptionRateLimit` | `""` (Backend-Default `5/1h`) | Abos/Bestätigungsmails pro IP |
+| `email.enabled` | `false` | Mailversand via SMTP; `false` = nur loggen |
+| `email.from` | `""` (Backend-Default) | Absender |
+| `email.smtp.host` / `port` / `tls` | `""` / `587` / `starttls` | SMTP-Server (`host` Pflicht bei `email.enabled`) |
+| `email.smtp.existingSecret` | `""` | Secret mit `SMTP_USERNAME`/`SMTP_PASSWORD` (alternativ `username`/`password`, nur Dev) |
 | `backend.config.extra` | `{}` | weitere Env-Variablen → ConfigMap |
 | `backend.resources` | 50m/64Mi, Limit 256Mi | kein CPU-Limit (bewusst) |
 | `backend.terminationGracePeriodSeconds` | `60` | Zeit, um einen laufenden Scrape sauber abzubrechen |
@@ -162,6 +200,7 @@ Vollständige Liste mit Kommentaren: [`values.yaml`](values.yaml). Typen und Enu
 | `networkPolicy.enabled` | `false` | siehe unten; verlangt `extraEgressCIDRs` und/oder `dbPodSelector` |
 | `networkPolicy.extraEgressCIDRs` | `[]` | DB-Egress zu externen Adressen (Port `networkPolicy.dbPort`) |
 | `networkPolicy.dbPodSelector` / `dbNamespaceSelector` | `{}` | DB-Egress zu Pods im Cluster (z. B. CNPG) |
+| `networkPolicy.smtp.cidrs` / `podSelector` / `namespaceSelector` | `[]` / `{}` | SMTP-Egress-Ziel (nur bei `email.enabled`); leer = wie `externalEgress` |
 | `tests.enabled` | `true` | `helm test`-Pod (curl) |
 | `tests.requireData` | `false` | Test schlägt fehl, wenn `/api/v1/metadata` noch 404 (kein Lauf) liefert |
 | `serviceAccount.create` | `true` | Token wird nicht gemountet (`automountServiceAccountToken: false`) |
@@ -180,7 +219,8 @@ Mit `networkPolicy.enabled=true` entstehen zwei Policies:
 
 * **Backend** – Ingress nur vom Frontend (8080), von `networkPolicy.monitoring` (9090) und vom Test-Pod.
   Egress zu DNS, per HTTPS (443) ins Internet (für `greenmedical.health`; private Bereiche ausgenommen)
-  sowie zur Datenbank via `extraEgressCIDRs` und/oder `dbPodSelector`. **Mindestens eines davon ist
+  sowie zur Datenbank via `extraEgressCIDRs` und/oder `dbPodSelector`; bei `email.enabled` zusätzlich zum
+  SMTP-Server (`email.smtp.port`, Ziel aus `networkPolicy.smtp`). **Mindestens eines davon ist
   Pflicht** (alternativ eine eigene Regel in `backend.extraEgress`) – ohne DB-Egress würde das Backend nie
   `ready`, deshalb bricht das Chart in diesem Fall beim Rendern ab.
 * **Frontend** – Ingress nur von `networkPolicy.ingressController` (Default: Namespace `ingress-nginx`)

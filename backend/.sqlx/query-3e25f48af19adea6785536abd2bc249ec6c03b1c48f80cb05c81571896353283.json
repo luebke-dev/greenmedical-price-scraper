@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT COUNT(*) FILTER (WHERE confirmed_at IS NOT NULL) AS \"confirmed!\",\n                  COUNT(*) FILTER (WHERE confirmed_at IS NULL) AS \"unconfirmed!\"\n           FROM subscribers",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "confirmed!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "unconfirmed!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "3e25f48af19adea6785536abd2bc249ec6c03b1c48f80cb05c81571896353283"
+}

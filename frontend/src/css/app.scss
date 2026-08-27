@@ -304,7 +304,8 @@ h3 {
   margin: 24px 0 14px;
 }
 
-.search.q-field {
+.search.q-field,
+.field.q-field {
   width: 100%;
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-sm);
@@ -543,9 +544,59 @@ h3 {
 }
 
 .strain-table .q-table__bottom {
+  border-top: 1px solid var(--line);
+  padding: 8px 12px;
+  min-height: 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+/* Seitensteuerung (Übersicht, Angebotshistorie, Bewertungen) */
+.table-pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 10px 16px;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.table-pager-top {
+  border-bottom: 1px solid var(--line);
+}
+
+.table-pager-bottom {
+  border-top: 1px solid var(--line);
+}
+
+.table-pager .pager-pages {
+  flex: 1 1 auto;
+  justify-content: center;
+}
+
+.pager-size {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.pager-size-select {
+  padding: 4px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+
+.strain-table .q-table__bottom--nodata {
+  display: block;
   border-top: 0;
   padding: 0;
-  min-height: 0;
 }
 
 .strain-table .q-table__bottom--nodata {
@@ -1024,6 +1075,237 @@ table.offers tbody tr:last-child td {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Preisalarm (Abo-Formulare) – same look as the filter panel
+// ---------------------------------------------------------------------------
+
+.form-card {
+  max-width: 860px;
+}
+
+.subscribe-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin-top: 14px;
+}
+
+.form-subheading {
+  margin: 18px 0 8px;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.field-label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.field-hint {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.field-error {
+  display: block;
+  margin-top: 6px;
+  color: var(--amber);
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.form-error {
+  margin: 0;
+}
+
+.field.q-field {
+  &.q-field--error {
+    border-color: var(--amber);
+  }
+
+  .q-field__suffix,
+  .q-field__append {
+    color: var(--muted);
+    font-weight: 600;
+  }
+
+  .q-field__bottom {
+    display: none;
+  }
+}
+
+.field-select {
+  width: 100%;
+  min-height: 46px;
+  padding: 0 12px;
+}
+
+.success {
+  margin: 16px 0 0;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-weight: 700;
+}
+
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.primary-button {
+  border-color: var(--accent-strong);
+  background: var(--accent-strong);
+  color: #fff;
+
+  &:hover:not(:disabled) {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+}
+
+.danger-button:hover:not(:disabled) {
+  border-color: var(--amber);
+  background: var(--amber-soft);
+  color: var(--amber);
+}
+
+.clear-button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.email-field {
+  display: block;
+  max-width: 460px;
+}
+
+.rule-editor {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.rule-editor-legend {
+  padding: 0;
+  margin-bottom: 10px;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.rule-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.rule-row-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.rule-remove {
+  min-height: 34px;
+  padding: 0 12px;
+  font-size: 0.86rem;
+}
+
+.rule-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 0.7fr);
+  gap: 12px 14px;
+  align-items: start;
+}
+
+.rule-field {
+  display: block;
+  min-width: 0;
+}
+
+.rule-editor-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.facts-actions {
+  margin-top: 18px;
+}
+
+.rule-summary {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.rule-summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-soft);
+}
+
+.rule-summary-kind {
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.rule-summary-text {
+  font-weight: 650;
+}
+
+.dialog-card {
+  min-width: min(420px, 90vw);
+  margin-bottom: 0;
+}
+
+.dialog-card p {
+  margin: 8px 0 16px;
+}
+
+// Honeypot: out of sight, out of the tab order, but still a real input for bots.
+.hp {
+  position: absolute;
+  left: -10000px;
+  top: auto;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+@media (max-width: 760px) {
+  .rule-fields {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Angebotshistorie (Sortenseite) */
 .offer-history-table td.date {
   white-space: nowrap;
@@ -1035,12 +1317,22 @@ table.offers tbody tr:last-child td {
   border-top: 2px solid var(--line-strong);
 }
 
-.offer-history-more {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px 4px 4px;
+.offer-history-table.q-table__container {
+  background: transparent;
+  color: var(--text);
+  border-radius: 0;
+}
+
+.offer-history-table .q-table__bottom {
+  border-top: 1px solid var(--line);
+  padding: 8px 12px;
+  min-height: 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.offer-history-table.is-loading table {
+  opacity: 0.6;
 }
 
 .offer-history-toolbar {
@@ -1281,12 +1573,8 @@ table.offers tbody tr:last-child td {
   line-height: 1.5;
 }
 
-.reviews-more {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px 4px 4px;
+.reviews .table-pager {
+  padding-inline: 4px;
 }
 
 @media (max-width: 700px) {

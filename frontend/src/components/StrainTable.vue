@@ -4,17 +4,31 @@
     :aria-label="de.table.heading"
     :aria-busy="loading ? 'true' : 'false'"
   >
+    <TablePager
+      class="strain-pager"
+      position="top"
+      :page="page"
+      :size="size"
+      :total="total"
+      :noun="de.toolbar.noun"
+      @update:page="(value) => emit('paginate', { page: value, size })"
+      @update:size="(value) => emit('paginate', { page, size: value })"
+    />
     <q-table
       class="strain-table"
       :rows="rows"
       :columns="tableColumns"
       row-key="id"
-      :pagination="{ rowsPerPage: 0 }"
-      hide-pagination
+      v-model:pagination="pagination"
+      :rows-per-page-options="PAGE_SIZES"
+      :loading="loading"
+      :rows-per-page-label="de.pager.perPage"
+      :pagination-label="de.pager.tableLabel"
       hide-selected-banner
       flat
       square
       table-class="strains"
+      @request="onRequest"
     >
       <template #header>
         <tr>
@@ -114,27 +128,58 @@
 import type { QTableProps } from 'quasar';
 import { computed } from 'vue';
 import { useRouter } from 'vue-router';
-import type { Strain } from '@/api/types';
+import type { StrainListItem } from '@/api/types';
 import { de } from '@/i18n/de';
 import { fromEuro, integer, rating, ratingCompact } from '@/lib/format';
-import { COLUMNS, ariaSort, type SortKey, type SortState } from '@/lib/sort';
+import { COLUMNS, ariaSort, isSortKey, type SortKey, type SortState } from '@/lib/sort';
+import { PAGE_SIZES, type PageRequest } from '@/lib/url-state';
 import EmptyState from './EmptyState.vue';
+import TablePager from './TablePager.vue';
 import TrendIndicator from './TrendIndicator.vue';
 
 const props = defineProps<{
-  rows: readonly Strain[];
+  rows: readonly StrainListItem[];
   sort: SortState;
+  /** 1-based page. */
+  page: number;
+  size: number;
+  /** Total hits (rowsNumber). */
+  total: number;
   latestAt?: string | null | undefined;
   loading?: boolean | undefined;
   error?: string | null | undefined;
 }>();
 
-const emit = defineEmits<{ sort: [key: SortKey]; retry: [] }>();
+const emit = defineEmits<{ sort: [key: SortKey]; paginate: [request: PageRequest]; retry: [] }>();
 
 const router = useRouter();
 
 function open(id: number): void {
   void router.push({ name: 'strain', params: { id } });
+}
+
+type Pagination = NonNullable<QTableProps['pagination']>;
+
+/** Server-side pagination: q-table shows the rows as they are and reports changes via @request. */
+const pagination = computed<Pagination>({
+  get: () => ({
+    page: props.page,
+    rowsPerPage: props.size,
+    rowsNumber: props.total,
+    sortBy: props.sort.key,
+    descending: props.sort.direction === 'desc',
+  }),
+  // The parent owns the state; it comes back through the props after @request.
+  set: () => {},
+});
+
+function onRequest(request: { pagination: Pagination }): void {
+  const next = request.pagination;
+  const page = next.page ?? props.page;
+  const size = next.rowsPerPage || props.size;
+  if (page !== props.page || size !== props.size) emit('paginate', { page, size });
+  const sortBy = next.sortBy ?? null;
+  if (sortBy !== null && sortBy !== props.sort.key && isSortKey(sortBy)) emit('sort', sortBy);
 }
 
 const tableColumns = computed<NonNullable<QTableProps['columns']>>(() =>
@@ -158,7 +203,7 @@ function indicator(key: SortKey): string {
   return props.sort.direction === 'asc' ? '^' : 'v';
 }
 
-function textCell(row: Strain, key: SortKey): string {
+function textCell(row: StrainListItem, key: SortKey): string {
   switch (key) {
     case 'bezeichnung':
       return row.bezeichnung || '';

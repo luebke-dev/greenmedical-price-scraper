@@ -85,6 +85,14 @@ fn describe_metrics() {
         "1 while a scrape is running on this instance"
     );
     metrics::describe_gauge!("db_pool_connections", "Open connections in the sqlx pool");
+    metrics::describe_counter!(
+        "notifications_sent_total",
+        "Price-alert digest e-mails by result (sent|error)"
+    );
+    metrics::describe_gauge!(
+        "subscriptions_total",
+        "Price-alert subscribers by state (confirmed|unconfirmed)"
+    );
 }
 
 /// Materialise the scrape series with zero values right away.
@@ -104,6 +112,12 @@ fn init_scrape_series() {
     metrics::counter!("scrape_http_retries_total").absolute(0);
     for result in ["scraped", "failed"] {
         metrics::counter!("scrape_reviews_total", "result" => result).absolute(0);
+    }
+    for result in ["sent", "error"] {
+        metrics::counter!("notifications_sent_total", "result" => result).absolute(0);
+    }
+    for state in ["confirmed", "unconfirmed"] {
+        metrics::gauge!("subscriptions_total", "state" => state).set(0.0);
     }
     for reason in ["lock_held", "in_progress"] {
         metrics::counter!("scrape_lock_skipped_total", "reason" => reason).absolute(0);
@@ -147,6 +161,20 @@ mod tests {
             "db_pool_connections",
         ] {
             assert!(has_series(&text, name, &[]), "missing {name}:\n{text}");
+        }
+        for result in ["sent", "error"] {
+            assert!(has_series(
+                &text,
+                "notifications_sent_total",
+                &[&format!("result=\"{result}\"")]
+            ));
+        }
+        for state in ["confirmed", "unconfirmed"] {
+            assert!(has_series(
+                &text,
+                "subscriptions_total",
+                &[&format!("state=\"{state}\"")]
+            ));
         }
         for reason in ["lock_held", "in_progress"] {
             assert!(

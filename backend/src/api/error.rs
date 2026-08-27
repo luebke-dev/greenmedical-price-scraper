@@ -3,12 +3,28 @@
 use axum::Json;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 #[derive(Debug)]
 pub struct ApiError {
     pub status: StatusCode,
     pub code: &'static str,
+    pub message: String,
+}
+
+/// Fehler-Envelope aller Fehlerantworten.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+pub struct ErrorEnvelopeDto {
+    pub error: ErrorDetailDto,
+}
+
+/// `code` ist ein offener String: `not_found` | `bad_request` | `unauthorized` | `conflict` | `no_data` | `internal`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+pub struct ErrorDetailDto {
+    #[schema(example = "not_found")]
+    pub code: String,
+    #[schema(example = "Sorte 42 nicht gefunden")]
     pub message: String,
 }
 
@@ -69,6 +85,15 @@ impl ApiError {
             status: StatusCode::INTERNAL_SERVER_ERROR,
             code: "internal",
             message: "Interner Fehler".into(),
+        }
+    }
+
+    /// `429` when the per-IP rate limit of the subscription endpoints is exhausted.
+    pub fn too_many_requests() -> Self {
+        Self {
+            status: StatusCode::TOO_MANY_REQUESTS,
+            code: "bad_request",
+            message: "Zu viele Anfragen, bitte später erneut versuchen".into(),
         }
     }
 

@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO subscription_rules (subscriber_id, kind, strain_id, threshold)\n           SELECT $1, kind, strain_id, threshold::numeric(8, 2)\n           FROM UNNEST($2::text[], $3::int8[], $4::float8[]) AS r (kind, strain_id, threshold)\n           ON CONFLICT DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "TextArray",
+        "Int8Array",
+        "Float8Array"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "a3a9d86fa80820e6122e5721b51514f29274b654beffb7e4a35b25bb5a85defb"
+}

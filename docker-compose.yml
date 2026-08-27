@@ -1,7 +1,8 @@
 # Local development environment (docker compose / podman-compose).
 #
 #   docker compose up -d                 # PostgreSQL only (backend via `cargo run`, frontend via `pnpm dev`)
-#   docker compose --profile app up -d --build   # additionally build + run backend and frontend containers
+#   docker compose --profile app up -d --build   # additionally build + run backend, frontend and Mailpit containers
+#   docker compose --profile mail up -d          # PostgreSQL + Mailpit only (backend via `cargo run` sends mails to :1025)
 #
 # Variables come from `.env` (copy `.env.example`). Host ports are bound to 127.0.0.1 only.
 # If another PostgreSQL already occupies 5432 on the host, set POSTGRES_PORT in `.env`
@@ -27,6 +28,34 @@ services:
       start_period: 10s
     restart: unless-stopped
 
+  # Mailpit: catches all e-mails the backend sends (price alerts, confirmations).
+  # Web UI on http://localhost:8025, SMTP on 1025 (no auth, no TLS). Started with the `app`
+  # profile or standalone via `--profile mail` / `docker compose up -d mailpit`.
+  mailpit:
+    profiles: [app, mail]
+    image: docker.io/axllent/mailpit:v1.31.0
+    environment:
+      MP_MAX_MESSAGES: "500"
+      MP_SMTP_AUTH_ACCEPT_ANY: "1"
+      MP_SMTP_AUTH_ALLOW_INSECURE: "1"
+    ports:
+      - "127.0.0.1:${MAILPIT_UI_PORT:-8025}:8025"
+      - "127.0.0.1:${MAILPIT_SMTP_PORT:-1025}:1025"
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    restart: unless-stopped
+
   backend:
     profiles: [app]
     build:
@@ -34,6 +63,8 @@ services:
     image: localhost/greenmedical-backend:dev
     depends_on:
       postgres:
+        condition: service_healthy
+      mailpit:
         condition: service_healthy
     environment:
       # Inside the compose network the database is reachable by service name.
@@ -50,6 +81,14 @@ services:
       SCRAPE_CRON: ${SCRAPE_CRON:-0 0 4,10,16,22 * * *}
       SCRAPE_TIMEZONE: ${SCRAPE_TIMEZONE:-Europe/Berlin}
       ADMIN_TOKEN: ${ADMIN_TOKEN:-}
+      # Price alerts: mails go to the Mailpit container (UI http://localhost:8025).
+      PUBLIC_URL: ${PUBLIC_URL:-http://localhost:9000}
+      EMAIL_ENABLED: ${EMAIL_ENABLED:-true}
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+      SMTP_TLS: none
+      EMAIL_FROM: ${EMAIL_FROM:-GreenMedical Livebestand <noreply@localhost>}
+      SUBSCRIPTION_RATE_LIMIT: ${SUBSCRIPTION_RATE_LIMIT:-5/1h}
       INSTANCE_NAME: compose-backend
     ports:
       - "127.0.0.1:${BACKEND_PORT:-8080}:8080"

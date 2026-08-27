@@ -7,6 +7,7 @@ use chrono::{DateTime, Utc};
 use greenmedical_backend::config::Config;
 use greenmedical_backend::db::{offers, pharmacies, runs, strains};
 use greenmedical_backend::domain::{RunStatus, RunTrigger, strain_key};
+use greenmedical_backend::mail::RecordingMailer;
 use greenmedical_backend::scrape::target::make_delivery_target;
 use greenmedical_backend::state::{AppState, SharedState};
 use sqlx::PgPool;
@@ -46,8 +47,23 @@ pub fn test_config(base_url: &str) -> Config {
         "",
         "--log-format",
         "pretty",
+        // E-mail: never SMTP in tests, fixed public URL and rate limit.
+        "--email-enabled",
+        "false",
+        "--public-url",
+        "http://localhost:9000",
+        "--subscription-rate-limit",
+        "5/1h",
     ])
     .expect("valid test config")
+}
+
+/// State with a [`RecordingMailer`] so tests can inspect sent e-mails.
+pub fn test_state_with_mailer(pool: PgPool, config: Config) -> (SharedState, Arc<RecordingMailer>) {
+    let mailer = RecordingMailer::new();
+    let state = AppState::with_mailer(config, pool, CancellationToken::new(), mailer.clone());
+    state.ready.store(true, std::sync::atomic::Ordering::SeqCst);
+    (state, mailer)
 }
 
 pub fn test_state_with(pool: PgPool, config: Config) -> SharedState {
@@ -574,6 +590,8 @@ pub struct SeedOffer {
     pub strain: (&'static str, &'static str),   // (name, bezeichnung)
     pub price: Option<f64>,
     pub thc: &'static str,
+    pub cbd: &'static str,
+    pub genetik: &'static str,
 }
 
 impl SeedOffer {
@@ -587,7 +605,35 @@ impl SeedOffer {
             strain,
             price: Some(price),
             thc: "20%",
+            cbd: "1%",
+            genetik: "Indica",
         }
+    }
+
+    /// An offer without a parsable price (`price_eur` NULL).
+    pub fn unpriced(
+        pharmacy: (&'static str, &'static str),
+        strain: (&'static str, &'static str),
+    ) -> Self {
+        Self {
+            price: None,
+            ..Self::new(pharmacy, strain, 0.0)
+        }
+    }
+
+    pub fn thc(mut self, thc: &'static str) -> Self {
+        self.thc = thc;
+        self
+    }
+
+    pub fn cbd(mut self, cbd: &'static str) -> Self {
+        self.cbd = cbd;
+        self
+    }
+
+    pub fn genetik(mut self, genetik: &'static str) -> Self {
+        self.genetik = genetik;
+        self
     }
 }
 
@@ -623,9 +669,9 @@ pub async fn seed_run(
             bezeichnung_key: strain_key(s.strain.1),
             name: s.strain.0.into(),
             bezeichnung: s.strain.1.into(),
-            genetik: "Indica".into(),
+            genetik: s.genetik.into(),
             thc_label: s.thc.into(),
-            cbd_label: "1%".into(),
+            cbd_label: s.cbd.into(),
         })
         .collect();
     let strain_ids = strains::upsert_many(&mut *tx, &strain_inputs)
@@ -636,13 +682,14 @@ pub async fn seed_run(
         .enumerate()
         .map(|(i, s)| {
             let thc = greenmedical_backend::domain::parse_percent(s.thc);
+            let cbd = greenmedical_backend::domain::parse_percent(s.cbd);
             offers::OfferInsert {
                 pharmacy_id: pharmacy_ids[s.pharmacy.0],
                 strain_id: strain_ids[&(strain_key(s.strain.0), strain_key(s.strain.1))],
                 position: i as i32,
-                genetik: "Indica".into(),
+                genetik: s.genetik.into(),
                 thc_label: s.thc.into(),
-                cbd_label: "1%".into(),
+                cbd_label: s.cbd.into(),
                 price_label: s
                     .price
                     .map(|p| format!("{p:.2} €/g").replace('.', ","))
@@ -651,12 +698,9 @@ pub async fn seed_run(
                 product_url: format!("https://example.test/p/{}", i),
                 price_eur: s.price,
                 thc_pct: thc,
-                cbd_pct: Some(1.0),
+                cbd_pct: cbd,
                 price_per_thc_g: greenmedical_backend::domain::calculate_thc_price(s.price, thc),
-                price_per_cbd_g: greenmedical_backend::domain::calculate_thc_price(
-                    s.price,
-                    Some(1.0),
-                ),
+                price_per_cbd_g: greenmedical_backend::domain::calculate_thc_price(s.price, cbd),
             }
         })
         .collect();
@@ -680,6 +724,19 @@ pub async fn seed_run(
     .unwrap();
     tx.commit().await.unwrap();
     run_id
+}
+
+/// Store a scraped rating directly on `strains` (what the review phase would write).
+pub async fn set_rating(pool: &PgPool, strain_id: i64, value: Option<f64>, count: i32) {
+    sqlx::query(
+        "UPDATE strains SET rating_value = $1, review_count = $2, reviews_scraped_at = now() WHERE id = $3",
+    )
+    .bind(value)
+    .bind(count)
+    .bind(strain_id)
+    .execute(pool)
+    .await
+    .unwrap();
 }
 
 pub fn shared(state: &SharedState) -> SharedState {

@@ -5,8 +5,8 @@
 //! once per `SNAPSHOT_REVALIDATE_INTERVAL` with a single indexed query.
 
 use std::collections::VecDeque;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
 
 use arc_swap::ArcSwapOption;
@@ -16,7 +16,8 @@ use tokio::sync::Mutex;
 
 use crate::db::{offers, runs, strains};
 use crate::domain::{
-    self, MetadataDto, OfferRecord, RunDto, RunStatus, StrainDto, StrainsResponseDto, compute_trend,
+    self, FacetsDto, GenetikFacetDto, MetadataDto, OfferRecord, RangeDto, RunDto, RunStatus,
+    StrainDto, StrainListItemDto, collate, compute_trend,
 };
 
 /// Number of days between the latest run and the trend reference run.
@@ -24,6 +25,84 @@ pub const TREND_REFERENCE_DAYS: i64 = 7;
 
 /// Snapshots of explicitly requested runs (`?run_id=`) kept in memory.
 pub const RUN_CACHE_CAPACITY: usize = 4;
+
+/// Sort keys of `GET /strains` (`sort=` parameter).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StrainSort {
+    Price,
+    PricePerThcGram,
+    Thc,
+    Cbd,
+    PharmacyCount,
+    Rating,
+    Name,
+    Bezeichnung,
+    Genetik,
+}
+
+impl StrainSort {
+    pub const ALL: [StrainSort; 9] = [
+        StrainSort::Price,
+        StrainSort::PricePerThcGram,
+        StrainSort::Thc,
+        StrainSort::Cbd,
+        StrainSort::PharmacyCount,
+        StrainSort::Rating,
+        StrainSort::Name,
+        StrainSort::Bezeichnung,
+        StrainSort::Genetik,
+    ];
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            StrainSort::Price => "price",
+            StrainSort::PricePerThcGram => "price_per_thc_gram",
+            StrainSort::Thc => "thc",
+            StrainSort::Cbd => "cbd",
+            StrainSort::PharmacyCount => "pharmacy_count",
+            StrainSort::Rating => "rating",
+            StrainSort::Name => "name",
+            StrainSort::Bezeichnung => "bezeichnung",
+            StrainSort::Genetik => "genetik",
+        }
+    }
+
+    fn index(self) -> usize {
+        StrainSort::ALL
+            .iter()
+            .position(|s| *s == self)
+            .expect("listed in ALL")
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SortDir {
+    #[default]
+    Asc,
+    Desc,
+}
+
+impl SortDir {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            SortDir::Asc => "asc",
+            SortDir::Desc => "desc",
+        }
+    }
+}
+
+/// Per-strain, precomputed keys for filtering and sorting (same index as `Snapshot::strains`).
+#[derive(Debug, Clone)]
+pub struct StrainKeys {
+    /// Lowercased `genetik` for the `genetik=` filter.
+    pub genetik_lower: String,
+    /// Collation keys (`collate::fold`) of the text sort columns.
+    pub name_key: String,
+    pub bezeichnung_key: String,
+    pub genetik_key: String,
+}
 
 /// Everything the read endpoints need for one run.
 #[derive(Debug)]
@@ -34,12 +113,18 @@ pub struct Snapshot {
     pub reference_run: Option<RunDto>,
     pub offers: Vec<OfferRecord>,
     pub strains: Vec<StrainDto>,
+    /// `strains` without `offers`/`search`, same order.
+    pub list_items: Vec<StrainListItemDto>,
+    pub keys: Vec<StrainKeys>,
+    pub facets: FacetsDto,
     pub metadata: MetadataDto,
-    pub etag: String,
+    /// `run-<id>[-r<ms>]`; the `/strains` ETag appends a hash of the query.
+    pub etag_base: String,
     pub metadata_json: Bytes,
-    pub strains_json: Bytes,
     pub export_json: Bytes,
     pub csv: Bytes,
+    /// Lazily built index vectors per (sort, dir), see `sorted_indices`.
+    sorted: [[OnceLock<Vec<usize>>; 2]; 9],
 }
 
 impl Snapshot {
@@ -77,32 +162,138 @@ impl Snapshot {
 
         let generated_at = run.finished_at.unwrap_or(run.started_at);
         let metadata = domain::build_metadata(&offers, &strains, generated_at, run.clone());
-        let response = StrainsResponseDto {
-            run: run.clone(),
-            reference_run: reference_run.clone(),
-            strains,
-        };
-        let strains_json = Bytes::from(serde_json::to_vec(&response).expect("serialisable"));
-        let export_json = Bytes::from(serde_json::to_vec(&response.strains).expect("serialisable"));
+        let export_json = Bytes::from(serde_json::to_vec(&strains).expect("serialisable"));
         let metadata_json = Bytes::from(serde_json::to_vec(&metadata).expect("serialisable"));
         let csv = Bytes::from(domain::export::to_csv(&offers));
 
+        let list_items = strains.iter().map(StrainListItemDto::from).collect();
+        let keys = strains
+            .iter()
+            .map(|s| StrainKeys {
+                genetik_lower: s.genetik.to_lowercase(),
+                name_key: collate::fold(&s.name),
+                bezeichnung_key: collate::fold(&s.bezeichnung),
+                genetik_key: collate::fold(&s.genetik),
+            })
+            .collect();
+        let facets = build_facets(&strains);
+
         Ok(Self {
-            etag: match reviews_version {
-                Some(version) => format!("\"run-{}-r{}\"", run.id, version.timestamp_millis()),
-                None => format!("\"run-{}\"", run.id),
+            etag_base: match reviews_version {
+                Some(version) => format!("run-{}-r{}", run.id, version.timestamp_millis()),
+                None => format!("run-{}", run.id),
             },
             run,
             reviews_version,
             reference_run,
             offers,
-            strains: response.strains,
+            strains,
+            list_items,
+            keys,
+            facets,
             metadata,
             metadata_json,
-            strains_json,
             export_json,
             csv,
+            sorted: Default::default(),
         })
+    }
+
+    /// Indices into `strains` ordered by (`sort`, `dir`), tie-break `id` asc;
+    /// numeric nulls last in both directions. Built once per snapshot and key.
+    pub fn sorted_indices(&self, sort: StrainSort, dir: SortDir) -> &[usize] {
+        self.sorted[sort.index()][(dir == SortDir::Desc) as usize].get_or_init(|| {
+            let mut idx: Vec<usize> = (0..self.strains.len()).collect();
+            idx.sort_by(|&a, &b| self.compare(sort, dir, a, b));
+            idx
+        })
+    }
+
+    fn compare(&self, sort: StrainSort, dir: SortDir, a: usize, b: usize) -> std::cmp::Ordering {
+        use std::cmp::Ordering;
+        let (sa, sb) = (&self.strains[a], &self.strains[b]);
+        let numeric = |va: Option<f64>, vb: Option<f64>| match (va, vb) {
+            (Some(x), Some(y)) => {
+                let ord = x.total_cmp(&y);
+                if dir == SortDir::Desc {
+                    ord.reverse()
+                } else {
+                    ord
+                }
+            }
+            (Some(_), None) => Ordering::Less,
+            (None, Some(_)) => Ordering::Greater,
+            (None, None) => Ordering::Equal,
+        };
+        let text = |ka: &str, kb: &str| {
+            let ord = collate::compare(ka, kb);
+            if dir == SortDir::Desc {
+                ord.reverse()
+            } else {
+                ord
+            }
+        };
+        let (ka, kb) = (&self.keys[a], &self.keys[b]);
+        let primary = match sort {
+            StrainSort::Price => numeric(sa.sort.price, sb.sort.price),
+            StrainSort::PricePerThcGram => {
+                numeric(sa.sort.price_per_thc_gram, sb.sort.price_per_thc_gram)
+            }
+            StrainSort::Thc => numeric(sa.sort.thc, sb.sort.thc),
+            StrainSort::Cbd => numeric(sa.sort.cbd, sb.sort.cbd),
+            StrainSort::PharmacyCount => numeric(
+                Some(sa.pharmacy_count as f64),
+                Some(sb.pharmacy_count as f64),
+            ),
+            StrainSort::Rating => numeric(sa.sort.rating, sb.sort.rating),
+            StrainSort::Name => text(&ka.name_key, &kb.name_key),
+            StrainSort::Bezeichnung => text(&ka.bezeichnung_key, &kb.bezeichnung_key),
+            StrainSort::Genetik => text(&ka.genetik_key, &kb.genetik_key),
+        };
+        primary.then_with(|| sa.id.cmp(&sb.id))
+    }
+}
+
+fn range(values: impl Iterator<Item = Option<f64>>) -> Option<RangeDto> {
+    values
+        .flatten()
+        .fold(None, |acc: Option<RangeDto>, v| match acc {
+            None => Some(RangeDto { min: v, max: v }),
+            Some(r) => Some(RangeDto {
+                min: r.min.min(v),
+                max: r.max.max(v),
+            }),
+        })
+}
+
+/// Facets over all strains of the run (independent of filters).
+pub fn build_facets(strains: &[StrainDto]) -> FacetsDto {
+    let mut counts: std::collections::HashMap<&str, i64> = std::collections::HashMap::new();
+    for s in strains {
+        if !s.genetik.is_empty() {
+            *counts.entry(s.genetik.as_str()).or_default() += 1;
+        }
+    }
+    let mut genetik: Vec<(String, GenetikFacetDto)> = counts
+        .into_iter()
+        .map(|(value, count)| {
+            (
+                collate::fold(value),
+                GenetikFacetDto {
+                    value: value.to_owned(),
+                    count,
+                },
+            )
+        })
+        .collect();
+    genetik
+        .sort_by(|(ka, a), (kb, b)| collate::compare(ka, kb).then_with(|| a.value.cmp(&b.value)));
+    FacetsDto {
+        genetik: genetik.into_iter().map(|(_, f)| f).collect(),
+        price: range(strains.iter().map(|s| s.sort.price)),
+        thc: range(strains.iter().map(|s| s.sort.thc)),
+        cbd: range(strains.iter().map(|s| s.sort.cbd)),
+        rating: range(strains.iter().map(|s| s.sort.rating)),
     }
 }
 

@@ -2,7 +2,7 @@
 {{- if $np.enabled }}
 # ---------------------------------------------------------------------------
 # Backend: reachable from the frontend (API) and from monitoring (metrics);
-# may talk to DNS, HTTPS on the internet (greenmedical.health) and the database.
+# may talk to DNS, HTTPS on the internet (greenmedical.health), the database and (if enabled) SMTP.
 # ---------------------------------------------------------------------------
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -83,6 +83,33 @@ spec:
           {{- end }}
       ports:
         - port: {{ $np.dbPort }}
+          protocol: TCP
+    {{- end }}
+    {{- if $.Values.email.enabled }}
+    {{- /* SMTP: in-cluster pods and/or CIDRs; fallback = same scope as externalEgress (relay on the internet). */}}
+    - to:
+        {{- if $np.smtp.podSelector }}
+        - podSelector:
+            {{- toYaml $np.smtp.podSelector | nindent 12 }}
+          {{- with $np.smtp.namespaceSelector }}
+          namespaceSelector:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+        {{- end }}
+        {{- range $np.smtp.cidrs }}
+        - ipBlock:
+            cidr: {{ . }}
+        {{- end }}
+        {{- if and (empty $np.smtp.podSelector) (empty $np.smtp.cidrs) }}
+        - ipBlock:
+            cidr: {{ $np.externalEgress.cidr }}
+            {{- with $np.externalEgress.except }}
+            except:
+              {{- toYaml . | nindent 14 }}
+            {{- end }}
+        {{- end }}
+      ports:
+        - port: {{ $.Values.email.smtp.port }}
           protocol: TCP
     {{- end }}
     {{- with $np.backend.extraEgress }}

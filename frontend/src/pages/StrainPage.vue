@@ -55,6 +55,13 @@
         <p v-if="!detail.in_latest_run" class="notice" role="status">
           {{ de.strain.notInLatestRun }}
         </p>
+        <div class="facts-actions">
+          <router-link
+            class="back-link alert-button"
+            :to="{ name: 'subscribe', query: { strain_id: String(detail.id) } }"
+            >{{ de.subscribe.strainButton }}</router-link
+          >
+        </div>
       </section>
 
       <section class="history" :aria-label="de.history.heading">
@@ -98,14 +105,8 @@
         <div class="section-head">
           <h3>{{ de.offerHistory.heading }}</h3>
         </div>
-        <div class="table-wrap" :aria-busy="offerHistoryLoading ? 'true' : 'false'">
-          <EmptyState v-if="offerHistoryError" :message="offerHistoryError" tone="error" />
-          <OfferHistoryTable
-            v-else-if="offerHistory && (offerHistory.pharmacies?.length ?? 0) > 0"
-            :history="offerHistory"
-          />
-          <EmptyState v-else-if="offerHistoryLoading" :message="de.history.loading" />
-          <EmptyState v-else :message="de.offerHistory.empty" />
+        <div class="table-wrap">
+          <OfferHistoryTable :strain-id="strainId" :preset="preset" />
         </div>
       </section>
     </template>
@@ -215,14 +216,6 @@ const {
   loading: historyLoading,
   error: historyError,
 } = useHistoryQuery(strainId, preset, pharmacies);
-
-// The offer history always needs the per-pharmacy series, independent of the chart toggle.
-const withPharmacies = ref(true);
-const {
-  history: offerHistory,
-  loading: offerHistoryLoading,
-  error: offerHistoryError,
-} = useHistoryQuery(strainId, preset, withPharmacies);
 
 const series = computed(() =>
   history.value
