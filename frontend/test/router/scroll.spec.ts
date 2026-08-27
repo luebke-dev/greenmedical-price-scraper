@@ -19,7 +19,7 @@ describe('scrollBehavior (pure)', () => {
 
   beforeAll(async () => {
     index = await visit({ name: 'index' });
-    filteredIndex = await visit({ name: 'index', query: { sort: 'name', genetik: 'indica' } });
+    filteredIndex = await visit({ name: 'index', query: { sort: 'name', genetics: 'indica' } });
     strain = await visit({ name: 'strain', params: { id: 7 } });
   });
 
@@ -53,7 +53,7 @@ describe('scrollBehavior (router integration)', () => {
     // What useStrainFilters does on every filter/sort/search change.
     await router.replace({ query: { sort: 'name' } });
     await flushPromises();
-    await router.replace({ query: { sort: 'name', dir: 'desc', genetik: 'indica', q: 'og' } });
+    await router.replace({ query: { sort: 'name', dir: 'desc', genetics: 'indica', q: 'og' } });
     await flushPromises();
     await router.push({ query: {} });
     await flushPromises();

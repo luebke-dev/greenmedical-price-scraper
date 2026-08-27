@@ -43,7 +43,7 @@ export function isRuleKind(value: unknown): value is RuleKind {
 export interface StrainOption {
   id: number;
   name: string;
-  bezeichnung: string;
+  designation: string;
 }
 
 /** One editable row of the rule editor. */
@@ -67,14 +67,14 @@ export function makeDraft(overrides: Partial<Omit<RuleDraft, 'key'>> = {}): Rule
   };
 }
 
-/** Editor rows from the rules of a loaded subscription (name only, no bezeichnung). */
+/** Editor rows from the rules of a loaded subscription (name only, no designation). */
 export function draftsFromRules(rules: readonly Rule[]): RuleDraft[] {
   return rules.map((rule) =>
     makeDraft({
       kind: rule.kind,
       strain:
         rule.strain_id !== undefined
-          ? { id: rule.strain_id, name: rule.strain_name ?? '', bezeichnung: '' }
+          ? { id: rule.strain_id, name: rule.strain_name ?? '', designation: '' }
           : null,
       threshold: rule.threshold ?? null,
     }),

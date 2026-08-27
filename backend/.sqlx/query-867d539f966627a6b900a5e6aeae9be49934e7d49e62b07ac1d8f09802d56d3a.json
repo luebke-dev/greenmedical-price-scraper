@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT p.id, p.external_id, p.provider, p.name, p.plz, p.city, p.address, p.url, p.first_seen_at, p.last_seen_at,\n                  (SELECT COUNT(*) FROM offers o WHERE o.pharmacy_id = p.id AND o.run_id = $1) AS \"offer_count_latest!\"\n           FROM pharmacies p ORDER BY p.name, p.id",
+  "query": "SELECT p.id, p.external_id, p.provider, p.name, p.postal_code, p.city, p.address, p.url, p.first_seen_at, p.last_seen_at,\n                  (SELECT COUNT(*) FROM offers o WHERE o.pharmacy_id = p.id AND o.run_id = $1) AS \"offer_count_latest!\"\n           FROM pharmacies p ORDER BY p.name, p.id",
   "describe": {
     "columns": [
       {
@@ -49,12 +49,12 @@
       },
       {
         "ordinal": 4,
-        "name": "plz",
+        "name": "postal_code",
         "type_info": "Text",
         "origin": {
           "Table": {
             "table": "pharmacies",
-            "name": "plz"
+            "name": "postal_code"
           }
         }
       },
@@ -139,5 +139,5 @@
       null
     ]
   },
-  "hash": "34fb6636dbe736c47d2501cef8bdbf7387204a14770e111f2b89e7f24401002a"
+  "hash": "867d539f966627a6b900a5e6aeae9be49934e7d49e62b07ac1d8f09802d56d3a"
 }

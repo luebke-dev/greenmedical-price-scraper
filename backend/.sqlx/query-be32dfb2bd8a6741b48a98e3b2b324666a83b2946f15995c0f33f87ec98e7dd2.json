@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT o.strain_id, s.name, s.bezeichnung,\n                  MIN(o.price_eur)::float8 AS \"min_price?: f64\",\n                  MAX(o.thc_pct)::float8 AS \"thc_value?: f64\",\n                  (ARRAY_AGG(p.name ORDER BY o.price_eur ASC NULLS LAST, o.id))[1] AS \"pharmacy!\"\n           FROM offers o JOIN strains s ON s.id = o.strain_id JOIN pharmacies p ON p.id = o.pharmacy_id\n           WHERE o.run_id = $1\n           GROUP BY o.strain_id, s.name, s.bezeichnung\n           ORDER BY o.strain_id",
+  "query": "SELECT o.strain_id, s.name, s.designation,\n                  MIN(o.price_eur)::float8 AS \"min_price?: f64\",\n                  MAX(o.thc_pct)::float8 AS \"thc_value?: f64\",\n                  (ARRAY_AGG(p.name ORDER BY o.price_eur ASC NULLS LAST, o.id))[1] AS \"pharmacy!\"\n           FROM offers o JOIN strains s ON s.id = o.strain_id JOIN pharmacies p ON p.id = o.pharmacy_id\n           WHERE o.run_id = $1\n           GROUP BY o.strain_id, s.name, s.designation\n           ORDER BY o.strain_id",
   "describe": {
     "columns": [
       {
@@ -27,12 +27,12 @@
       },
       {
         "ordinal": 2,
-        "name": "bezeichnung",
+        "name": "designation",
         "type_info": "Text",
         "origin": {
           "Table": {
             "table": "strains",
-            "name": "bezeichnung"
+            "name": "designation"
           }
         }
       },
@@ -69,5 +69,5 @@
       null
     ]
   },
-  "hash": "40e9aa24e90a340a8387975fbb9b3923736783868917651d5f2e39485f4c7069"
+  "hash": "be32dfb2bd8a6741b48a98e3b2b324666a83b2946f15995c0f33f87ec98e7dd2"
 }

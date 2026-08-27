@@ -41,22 +41,22 @@ static SEL_AVAILABILITY: LazyLock<Selector> =
 pub struct PharmacyRow {
     pub name: String,
     pub url: String,
-    pub plz: String,
-    pub stadt: String,
-    pub adresse: String,
+    pub postal_code: String,
+    pub city: String,
+    pub address: String,
 }
 
 /// A product tile, before pharmacy fields are attached.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Product {
     pub name: String,
-    pub bezeichnung: String,
-    pub genetik: String,
+    pub designation: String,
+    pub genetics: String,
     pub thc: String,
     pub cbd: String,
-    pub preis_pro_gramm: String,
-    pub verfuegbarkeit: String,
-    pub produkt_url: String,
+    pub price_per_gram: String,
+    pub availability: String,
+    pub product_url: String,
 }
 
 /// BeautifulSoup `get_text(strip=True)`: every text node stripped and concatenated.
@@ -101,9 +101,9 @@ pub fn parse_pharmacies(html: &str, base_url: &Url) -> Vec<PharmacyRow> {
         pharmacies.push(PharmacyRow {
             name: text_strip(link),
             url,
-            plz: text_strip(cells[1]),
-            stadt: text_strip(cells[2]),
-            adresse: text_strip(cells[3]),
+            postal_code: text_strip(cells[1]),
+            city: text_strip(cells[2]),
+            address: text_strip(cells[3]),
         });
     }
     pharmacies
@@ -175,14 +175,14 @@ pub fn extract_product(tile: ElementRef<'_>, base_url: &Url) -> Product {
 
     let thc = extract_badge_value(tile, &SEL_BADGE_THC);
     let cbd = extract_badge_value(tile, &SEL_BADGE_CBD);
-    let genetik = tile
+    let genetics = tile
         .select(&SEL_STRAIN)
         .next()
         .map(text_strip)
         .unwrap_or_default();
 
-    // "Bezeichnung" label div, then the next sibling div with class "bold".
-    let mut bezeichnung = String::new();
+    // GreenMedical's "Bezeichnung" label div, then the next sibling div with class "bold".
+    let mut designation = String::new();
     for div in tile.select(&SEL_UPPERCASE_DIV) {
         if text_strip(div).to_lowercase().contains("bezeichnung") {
             let next_bold = div.next_siblings().filter_map(ElementRef::wrap).find(|el| {
@@ -190,18 +190,18 @@ pub fn extract_product(tile: ElementRef<'_>, base_url: &Url) -> Product {
                     && el.value().has_class("bold", CaseSensitivity::CaseSensitive)
             });
             if let Some(bold) = next_bold {
-                bezeichnung = text_strip(bold);
+                designation = text_strip(bold);
             }
             break;
         }
     }
 
-    let preis_pro_gramm = tile
+    let price_per_gram = tile
         .select(&SEL_PRICE)
         .next()
         .map(text_strip)
         .unwrap_or_default();
-    let verfuegbarkeit = tile
+    let availability = tile
         .select(&SEL_AVAILABILITY)
         .next()
         .map(text_strip)
@@ -209,13 +209,13 @@ pub fn extract_product(tile: ElementRef<'_>, base_url: &Url) -> Product {
 
     Product {
         name,
-        bezeichnung,
-        genetik,
+        designation,
+        genetics,
         thc,
         cbd,
-        preis_pro_gramm,
-        verfuegbarkeit,
-        produkt_url: extract_product_url(tile, h2, base_url),
+        price_per_gram,
+        availability,
+        product_url: extract_product_url(tile, h2, base_url),
     }
 }
 
@@ -302,13 +302,13 @@ mod tests {
             product,
             Product {
                 name: "Test Blüte 20/1".into(),
-                bezeichnung: "EMK".into(),
-                genetik: "Indica".into(),
+                designation: "EMK".into(),
+                genetics: "Indica".into(),
                 thc: "20%".into(),
                 cbd: "1%".into(),
-                preis_pro_gramm: "9,50 €".into(),
-                verfuegbarkeit: "verfügbar".into(),
-                produkt_url: "https://greenmedical.health/de/cannabis/flowers/test-bluete".into(),
+                price_per_gram: "9,50 €".into(),
+                availability: "verfügbar".into(),
+                product_url: "https://greenmedical.health/de/cannabis/flowers/test-bluete".into(),
             }
         );
     }
@@ -427,16 +427,16 @@ mod tests {
                 PharmacyRow {
                     name: "Apo A".into(),
                     url: "https://greenmedical.health/de/cannabis/pharmacy/a".into(),
-                    plz: "10115".into(),
-                    stadt: "Berlin".into(),
-                    adresse: "Str. 1".into(),
+                    postal_code: "10115".into(),
+                    city: "Berlin".into(),
+                    address: "Str. 1".into(),
                 },
                 PharmacyRow {
                     name: "Apo B".into(),
                     url: "https://other.test/b".into(),
-                    plz: "20095".into(),
-                    stadt: "Hamburg".into(),
-                    adresse: "Str.\u{a0}2".into(),
+                    postal_code: "20095".into(),
+                    city: "Hamburg".into(),
+                    address: "Str.\u{a0}2".into(),
                 },
             ]
         );
@@ -454,6 +454,6 @@ mod tests {
         let names: Vec<_> = page.products.iter().map(|p| p.name.as_str()).collect();
         assert_eq!(names, ["Sorte A", "Sorte B"]);
         assert_eq!(page.pagination, Some((1, 2)));
-        assert_eq!(page.products[0].preis_pro_gramm, "9,50 €");
+        assert_eq!(page.products[0].price_per_gram, "9,50 €");
     }
 }

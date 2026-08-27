@@ -4,12 +4,12 @@ import { de } from '@/i18n/de';
 
 export type SortKey =
   | 'name'
-  | 'bezeichnung'
+  | 'designation'
   | 'price'
   | 'price_per_thc_gram'
   | 'thc'
   | 'cbd'
-  | 'genetik'
+  | 'genetics'
   | 'pharmacy_count'
   | 'rating';
 
@@ -33,7 +33,7 @@ export interface ColumnDef {
 /** The 9 table columns, in display order (the 8 of site/app.js plus „Bewertung“). */
 export const COLUMNS: readonly ColumnDef[] = [
   { key: 'name', label: de.table.columns.name, type: 'text', width: '18%' },
-  { key: 'bezeichnung', label: de.table.columns.bezeichnung, type: 'text', width: '17%' },
+  { key: 'designation', label: de.table.columns.designation, type: 'text', width: '17%' },
   { key: 'price', label: de.table.columns.price, type: 'number', className: 'price', width: '11%' },
   {
     key: 'price_per_thc_gram',
@@ -44,7 +44,7 @@ export const COLUMNS: readonly ColumnDef[] = [
   },
   { key: 'thc', label: de.table.columns.thc, type: 'number', width: '7%' },
   { key: 'cbd', label: de.table.columns.cbd, type: 'number', width: '7%' },
-  { key: 'genetik', label: de.table.columns.genetik, type: 'text', width: '11%' },
+  { key: 'genetics', label: de.table.columns.genetics, type: 'text', width: '11%' },
   { key: 'pharmacy_count', label: de.table.columns.pharmacy_count, type: 'number', width: '8%' },
   {
     key: 'rating',

@@ -17,11 +17,11 @@
     <FilterPanel
       :id="FILTER_PANEL_ID"
       :open="filtersOpen"
-      :genetik="filters.genetik.value"
-      :selected-genetik="filters.state.genetik"
+      :genetics="filters.genetics.value"
+      :selected-genetics="filters.state.genetics"
       :bounds="filters.bounds.value"
       :ranges="filters.state.ranges"
-      @toggle-genetik="filters.toggleGenetik"
+      @toggle-genetics="filters.toggleGenetics"
       @update-range="filters.setRange"
     />
 

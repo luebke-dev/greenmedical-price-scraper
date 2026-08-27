@@ -13,7 +13,7 @@
       <section class="facts" :aria-label="de.strain.facts">
         <div class="facts-title">
           <h2 class="facts-name">{{ detail.name || '—' }}</h2>
-          <div v-if="detail.bezeichnung" class="facts-sub">{{ detail.bezeichnung }}</div>
+          <div v-if="detail.designation" class="facts-sub">{{ detail.designation }}</div>
         </div>
         <dl class="facts-grid">
           <div class="fact">
@@ -28,8 +28,8 @@
             <dd class="price">{{ euro(detail.min_price_per_thc_gram, '€/g THC') || '–' }}</dd>
           </div>
           <div class="fact">
-            <dt>{{ de.strain.genetik }}</dt>
-            <dd>{{ detail.genetik || '–' }}</dd>
+            <dt>{{ de.strain.genetics }}</dt>
+            <dd>{{ detail.genetics || '–' }}</dd>
           </div>
           <div class="fact">
             <dt>{{ de.strain.thc }}</dt>

@@ -95,7 +95,7 @@ describe('IndexPage', () => {
     ]);
     await wrapper.find('.chip[data-key="indica"]').trigger('click');
     await flushPromises();
-    expect(lastParams()).toMatchObject({ q: 'kush', genetik: ['indica'], offset: 0 });
+    expect(lastParams()).toMatchObject({ q: 'kush', genetics: ['indica'], offset: 0 });
 
     await wrapper.find('.toolbar button.clear-button:not(.toggle-filters)').trigger('click');
     await flushPromises();

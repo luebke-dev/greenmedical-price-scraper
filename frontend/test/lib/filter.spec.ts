@@ -8,7 +8,7 @@ import {
   clampRange,
   floorToStep,
   fullRanges,
-  genetikFromFacets,
+  geneticsFromFacets,
   isFullRange,
   rangeConfig,
   roundToStep,
@@ -98,9 +98,9 @@ describe('bounds from facets', () => {
   });
 });
 
-describe('genetik from facets', () => {
+describe('genetics from facets', () => {
   it('keeps the server order, lowercases the key and carries the count', () => {
-    expect(genetikFromFacets(makeFacets())).toEqual([
+    expect(geneticsFromFacets(makeFacets())).toEqual([
       { key: 'hybrid', label: 'Hybrid', count: 3 },
       { key: 'indica', label: 'Indica', count: 5 },
       { key: 'sativa', label: 'Sativa', count: 2 },
@@ -109,9 +109,9 @@ describe('genetik from facets', () => {
 
   it('dedupes case variants and returns nothing below two options', () => {
     expect(
-      genetikFromFacets(
+      geneticsFromFacets(
         makeFacets({
-          genetik: [
+          genetics: [
             { value: 'Indica', count: 1 },
             { value: 'INDICA', count: 1 },
             { value: '', count: 9 },
@@ -119,7 +119,7 @@ describe('genetik from facets', () => {
         }),
       ),
     ).toEqual([]);
-    expect(genetikFromFacets(null)).toEqual([]);
+    expect(geneticsFromFacets(null)).toEqual([]);
   });
 });
 
@@ -127,7 +127,7 @@ describe('buildStrainsParams', () => {
   const bounds = boundsFromFacets(makeFacets());
   const base: StrainsQueryState = {
     query: '',
-    genetik: [],
+    genetics: [],
     ranges: fullRanges(bounds),
     sort: { key: 'price', direction: 'asc' },
     page: 1,
@@ -173,18 +173,18 @@ describe('buildStrainsParams', () => {
     expect(buildStrainsParams(state, {})).toMatchObject({ price_min: 6, price_max: 8 });
   });
 
-  it('maps query, genetik, sort and page/size', () => {
+  it('maps query, genetics, sort and page/size', () => {
     const state: StrainsQueryState = {
       ...base,
       query: '  kush ',
-      genetik: ['indica', 'sativa'],
+      genetics: ['indica', 'sativa'],
       sort: { key: 'rating', direction: 'desc' },
       page: 3,
       size: 25,
     };
     expect(buildStrainsParams(state, bounds)).toEqual({
       q: 'kush',
-      genetik: ['indica', 'sativa'],
+      genetics: ['indica', 'sativa'],
       sort: 'rating',
       dir: 'desc',
       limit: 25,

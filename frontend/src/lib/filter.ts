@@ -1,4 +1,4 @@
-// Range/genetik filter helpers and the GET /strains query builder. Filtering and sorting happen
+// Range/genetics filter helpers and the GET /strains query builder. Filtering and sorting happen
 // on the server; this module only shapes the state into parameters and the facets into bounds.
 
 import type { StrainsParams } from '@/api/endpoints';
@@ -117,22 +117,22 @@ export function clampRange(value: RangeValue, bounds: RangeBounds): RangeValue {
   return { lo, hi };
 }
 
-export function genetikKey(label: string | null | undefined): string {
+export function geneticsKey(label: string | null | undefined): string {
   return (label ?? '').toLowerCase();
 }
 
-export interface GenetikOption {
+export interface GeneticsOption {
   key: string;
   label: string;
   count?: number | undefined;
 }
 
 /** Chip options from the facets (already alphabetical, de). Empty when fewer than 2. */
-export function genetikFromFacets(facets: Facets | null | undefined): GenetikOption[] {
-  const options: GenetikOption[] = [];
+export function geneticsFromFacets(facets: Facets | null | undefined): GeneticsOption[] {
+  const options: GeneticsOption[] = [];
   const seen = new Set<string>();
-  for (const item of facets?.genetik ?? []) {
-    const key = genetikKey(item.value);
+  for (const item of facets?.genetics ?? []) {
+    const key = geneticsKey(item.value);
     if (key === '' || seen.has(key)) continue;
     seen.add(key);
     options.push({ key, label: item.value, count: item.count });
@@ -142,8 +142,8 @@ export function genetikFromFacets(facets: Facets | null | undefined): GenetikOpt
 
 export interface StrainsQueryState {
   query: string;
-  /** Lowercased genetik keys. */
-  genetik: readonly string[];
+  /** Lowercased genetics keys. */
+  genetics: readonly string[];
   ranges: RangeState;
   sort: SortState;
   /** 1-based page. */
@@ -160,7 +160,7 @@ export function buildStrainsParams(state: StrainsQueryState, bounds: BoundsState
   const params: StrainsParams = {};
   const q = state.query.trim();
   if (q) params.q = q;
-  if (state.genetik.length > 0) params.genetik = [...state.genetik];
+  if (state.genetics.length > 0) params.genetics = [...state.genetics];
 
   for (const config of RANGE_CONFIGS) {
     const value = state.ranges[config.key];

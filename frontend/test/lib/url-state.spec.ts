@@ -25,7 +25,7 @@ describe('url-state', () => {
   it('round-trips a full state', () => {
     const state: FilterState = {
       query: 'kush',
-      genetik: ['indica', 'sativa'],
+      genetics: ['indica', 'sativa'],
       ranges: { price: { lo: 6, hi: 9.9 }, thc: { lo: 18, hi: 31 }, cbd: { lo: 1, hi: 12 } },
       sort: { key: 'thc', direction: 'desc' },
       page: 3,
@@ -34,7 +34,7 @@ describe('url-state', () => {
     const query = toQuery(state, bounds);
     expect(query).toEqual({
       q: 'kush',
-      genetik: ['indica', 'sativa'],
+      genetics: ['indica', 'sativa'],
       preis: '6-9.9',
       cbd: '1-12',
       sort: 'thc',
@@ -99,19 +99,19 @@ describe('url-state', () => {
     ).toEqual({ preis: '6-7' });
   });
 
-  it('accepts genetik as string or array, lowercases and dedupes', () => {
-    expect(fromQuery({ genetik: 'Indica' }, { bounds }).genetik).toEqual(['indica']);
+  it('accepts genetics as string or array, lowercases and dedupes', () => {
+    expect(fromQuery({ genetics: 'Indica' }, { bounds }).genetics).toEqual(['indica']);
     expect(
-      fromQuery({ genetik: ['Indica', 'sativa', 'INDICA', null, ''] }, { bounds }).genetik,
+      fromQuery({ genetics: ['Indica', 'sativa', 'INDICA', null, ''] }, { bounds }).genetics,
     ).toEqual(['indica', 'sativa']);
   });
 
-  it('drops unknown genetik keys when the known set is given', () => {
+  it('drops unknown genetics keys when the known set is given', () => {
     const state = fromQuery(
-      { genetik: ['indica', 'ruderalis'] },
-      { bounds, genetikKeys: new Set(['indica']) },
+      { genetics: ['indica', 'ruderalis'] },
+      { bounds, geneticsKeys: new Set(['indica']) },
     );
-    expect(state.genetik).toEqual(['indica']);
+    expect(state.genetics).toEqual(['indica']);
   });
 
   it('takes the first value of repeated scalar params and ignores nulls', () => {
@@ -149,8 +149,8 @@ describe('url-state', () => {
   });
 
   it('serializes queries deterministically', () => {
-    expect(serializeQuery({ sort: 'thc', genetik: ['b', 'a'], q: 'x' })).toBe(
-      'genetik=b&genetik=a&q=x&sort=thc',
+    expect(serializeQuery({ sort: 'thc', genetics: ['b', 'a'], q: 'x' })).toBe(
+      'genetics=b&genetics=a&q=x&sort=thc',
     );
     expect(serializeQuery({})).toBe('');
   });

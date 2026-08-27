@@ -11,8 +11,8 @@ function rows() {
     makeListItem({
       id: 7,
       name: 'OG Kush',
-      bezeichnung: 'Cannamedical CM 24/1',
-      genetik: 'Hybrid Sativa Dominant',
+      designation: 'Cannamedical CM 24/1',
+      genetics: 'Hybrid Sativa Dominant',
       thc: '24%',
       cbd: '1%',
       price: 6.49,
@@ -22,15 +22,15 @@ function rows() {
       reviewCount: 124,
       offers: [
         makeOffer({
-          apotheke: 'Grüne Blüte',
-          apotheke_stadt: 'Markkleeberg',
-          preis_pro_gramm: '6,49 €/g',
+          pharmacy: 'Grüne Blüte',
+          pharmacy_city: 'Markkleeberg',
+          price_per_gram: '6,49 €/g',
         }),
         makeOffer({
-          apotheke: 'Apo Zwei',
-          apotheke_stadt: 'Leipzig',
-          preis_pro_gramm: '7,49 €/g',
-          verfuegbarkeit: 'NEU',
+          pharmacy: 'Apo Zwei',
+          pharmacy_city: 'Leipzig',
+          price_per_gram: '7,49 €/g',
+          availability: 'NEU',
         }),
       ],
     }),

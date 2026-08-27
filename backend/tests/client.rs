@@ -140,9 +140,9 @@ fn pharmacy() -> PharmacyRow {
     PharmacyRow {
         name: "Adler Apotheke".into(),
         url: "https://example.test/adler".into(),
-        plz: "10115".into(),
-        stadt: "Berlin".into(),
-        adresse: "Str. 1".into(),
+        postal_code: "10115".into(),
+        city: "Berlin".into(),
+        address: "Str. 1".into(),
     }
 }
 
@@ -181,12 +181,12 @@ async fn walks_all_pages_and_injects_delivery_target() {
     for offer in &offers {
         assert_eq!(offer.pharmacy.name, "Adler Apotheke");
         assert!(
-            offer.product.produkt_url.contains("deliveryTarget=TOKEN"),
+            offer.product.product_url.contains("deliveryTarget=TOKEN"),
             "{}",
-            offer.product.produkt_url
+            offer.product.product_url
         );
         assert!(
-            !offer.product.produkt_url.contains('#'),
+            !offer.product.product_url.contains('#'),
             "fragment stripped"
         );
     }
@@ -218,9 +218,9 @@ async fn follows_session_redirect_with_the_pharmacy_cookie() {
         &PharmacyRow {
             name: pharmacy.name.clone(),
             url: format!("{}/de/cannabis/pharmacy/{}", site.base_url(), pharmacy.slug),
-            plz: pharmacy.plz.clone(),
-            stadt: pharmacy.city.clone(),
-            adresse: pharmacy.address.clone(),
+            postal_code: pharmacy.postal_code.clone(),
+            city: pharmacy.city.clone(),
+            address: pharmacy.address.clone(),
         },
         pharmacy.uuid.as_deref().unwrap(),
         &pharmacy.delivery_target(),

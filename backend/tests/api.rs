@@ -220,8 +220,8 @@ async fn strains_have_etag_and_support_304(pool: PgPool) {
     let (status, detail) = get_json(&app, &format!("/api/v1/strains/{}", og["id"])).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(detail["offers"].as_array().unwrap().len(), 2);
-    assert_eq!(detail["offers"][0]["apotheke"], "Asavita"); // cheapest first
-    assert_eq!(detail["offers"][0]["preis_eur_pro_gramm"], 5.99);
+    assert_eq!(detail["offers"][0]["pharmacy"], "Asavita"); // cheapest first
+    assert_eq!(detail["offers"][0]["price_eur_per_gram"], 5.99);
     assert!(detail["offers"][0]["offer_id"].as_i64().unwrap() > 0);
     assert!(detail["offers"][0]["pharmacy_id"].as_i64().unwrap() > 0);
     assert!(detail["search"].as_str().unwrap().contains("asavita"));
@@ -437,7 +437,13 @@ async fn trend_is_computed_against_run_eight_days_ago(pool: PgPool) {
 
 #[sqlx::test(migrations = "./migrations")]
 async fn history_by_run_and_by_day(pool: PgPool) {
-    let now = Utc::now();
+    // Anchor away from midnight so the six-hour offset remains in the same
+    // Europe/Berlin calendar day regardless of when the test runs.
+    let now = Utc::now()
+        .date_naive()
+        .and_hms_opt(12, 0, 0)
+        .expect("valid noon")
+        .and_utc();
     let day1 = now - Duration::days(2);
     let r1 = seed_run(
         &pool,

@@ -4,7 +4,7 @@ import {
   boundsFromFacets,
   buildStrainsParams,
   fullRanges,
-  genetikFromFacets,
+  geneticsFromFacets,
   type RangeKey,
   type RangeValue,
 } from '@/lib/filter';
@@ -28,12 +28,12 @@ function isEmptyQuery(query: LocationQuery): boolean {
 
 /**
  * Filter/sort/page state for the strain table, mirrored into the URL query
- * (?q&genetik&preis&thc&cbd&sort&dir&page&size) via router.replace and turned into
+ * (?q&genetics&preis&thc&cbd&sort&dir&page&size) via router.replace and turned into
  * GET /strains requests (catalog.loadPage). The search text is debounced; every filter,
  * search or sort change goes back to page 1.
  *
- * Slider bounds and genetik chips come from the facets of the last response. Before the first
- * response a deep link is sent as given (ranges unclamped, genetik unchecked) and reconciled
+ * Slider bounds and genetics chips come from the facets of the last response. Before the first
+ * response a deep link is sent as given (ranges unclamped, genetics unchecked) and reconciled
  * once the facets arrive.
  *
  * The overview page is kept alive, so the URL is only synchronised while the overview route is
@@ -46,8 +46,8 @@ export function useStrainFilters() {
   const catalog = useCatalogStore();
 
   const bounds = computed(() => boundsFromFacets(catalog.facets));
-  const genetik = computed(() => genetikFromFacets(catalog.facets));
-  const genetikKeys = computed(() => new Set(genetik.value.map((option) => option.key)));
+  const genetics = computed(() => geneticsFromFacets(catalog.facets));
+  const geneticsKeys = computed(() => new Set(genetics.value.map((option) => option.key)));
 
   const state = reactive<FilterState>(defaultFilterState());
   /** Raw text bound to the search input; flows into state.query after the debounce. */
@@ -57,7 +57,7 @@ export function useStrainFilters() {
   const hasFacets = (): boolean => catalog.facets !== null;
 
   /**
-   * Parse options shared by every URL → state conversion. Unknown genetik keys are only dropped
+   * Parse options shared by every URL → state conversion. Unknown genetics keys are only dropped
    * and ranges only clamped once the facets exist – before that every key is unknown and a deep
    * link would lose its filter.
    */
@@ -65,14 +65,14 @@ export function useStrainFilters() {
     const known = hasFacets();
     return {
       bounds: bounds.value,
-      genetikKeys: known ? genetikKeys.value : undefined,
+      geneticsKeys: known ? geneticsKeys.value : undefined,
       passThroughRanges: !known,
     };
   }
 
   function assign(next: FilterState): void {
     state.query = next.query;
-    state.genetik = next.genetik;
+    state.genetics = next.genetics;
     state.ranges = next.ranges;
     state.sort = next.sort;
     state.page = next.page;
@@ -98,7 +98,7 @@ export function useStrainFilters() {
     searchInput.value = next.query;
   }
 
-  /** Re-derives the state from itself, clamping ranges/genetik to the current facets. */
+  /** Re-derives the state from itself, clamping ranges/genetics to the current facets. */
   function rederive(): void {
     assign(fromQuery(currentQuery(), parseOptions()));
   }
@@ -116,7 +116,7 @@ export function useStrainFilters() {
   let boundsChangedWhileAway = false;
   // Compared by value: every response carries a fresh facets object, but only a real change
   // (new run) may re-read the URL – a pending router.replace would otherwise be lost.
-  const facetsKey = computed(() => JSON.stringify([bounds.value, [...genetikKeys.value]]));
+  const facetsKey = computed(() => JSON.stringify([bounds.value, [...geneticsKeys.value]]));
   watch(
     facetsKey,
     () => {
@@ -181,15 +181,15 @@ export function useStrainFilters() {
     timer = null;
     searchInput.value = '';
     state.query = '';
-    state.genetik = [];
+    state.genetics = [];
     state.ranges = fullRanges(bounds.value);
     state.page = 1;
   }
 
-  function toggleGenetik(key: string): void {
-    state.genetik = state.genetik.includes(key)
-      ? state.genetik.filter((item) => item !== key)
-      : [...state.genetik, key];
+  function toggleGenetics(key: string): void {
+    state.genetics = state.genetics.includes(key)
+      ? state.genetics.filter((item) => item !== key)
+      : [...state.genetics, key];
     state.page = 1;
   }
 
@@ -219,12 +219,12 @@ export function useStrainFilters() {
     state,
     searchInput,
     bounds,
-    genetik,
+    genetics,
     params,
     rows: computed(() => catalog.strains),
     count: computed(() => catalog.total),
     reset,
-    toggleGenetik,
+    toggleGenetics,
     setRange,
     setSort,
     setPage,

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT o.id AS offer_id, o.pharmacy_id, o.strain_id,\n                  p.provider, p.name AS apotheke, p.plz AS apotheke_plz, p.city AS apotheke_stadt,\n                  s.name, s.bezeichnung,\n                  o.genetik, o.thc_label, o.cbd_label, o.price_label, o.availability, o.product_url,\n                  o.price_eur::float8 AS \"price_eur?: f64\", o.price_per_thc_g::float8 AS \"price_per_thc_g?: f64\",\n                  o.price_per_cbd_g::float8 AS \"price_per_cbd_g?: f64\",\n                  o.thc_pct::float8 AS \"thc_pct?: f64\", o.cbd_pct::float8 AS \"cbd_pct?: f64\"\n           FROM offers o\n           JOIN pharmacies p ON p.id = o.pharmacy_id\n           JOIN strains s ON s.id = o.strain_id\n           WHERE o.run_id = $1\n           ORDER BY o.position, o.id",
+  "query": "SELECT o.id AS offer_id, o.pharmacy_id, o.strain_id,\n                  p.provider, p.name AS pharmacy, p.postal_code AS pharmacy_postal_code, p.city AS pharmacy_city,\n                  s.name, s.designation,\n                  o.genetics, o.thc_label, o.cbd_label, o.price_label, o.availability, o.product_url,\n                  o.price_eur::float8 AS \"price_eur?: f64\", o.price_per_thc_g::float8 AS \"price_per_thc_g?: f64\",\n                  o.price_per_cbd_g::float8 AS \"price_per_cbd_g?: f64\",\n                  o.thc_pct::float8 AS \"thc_pct?: f64\", o.cbd_pct::float8 AS \"cbd_pct?: f64\"\n           FROM offers o\n           JOIN pharmacies p ON p.id = o.pharmacy_id\n           JOIN strains s ON s.id = o.strain_id\n           WHERE o.run_id = $1\n           ORDER BY o.position, o.id",
   "describe": {
     "columns": [
       {
@@ -49,7 +49,7 @@
       },
       {
         "ordinal": 4,
-        "name": "apotheke",
+        "name": "pharmacy",
         "type_info": "Text",
         "origin": {
           "Table": {
@@ -60,18 +60,18 @@
       },
       {
         "ordinal": 5,
-        "name": "apotheke_plz",
+        "name": "pharmacy_postal_code",
         "type_info": "Text",
         "origin": {
           "Table": {
             "table": "pharmacies",
-            "name": "plz"
+            "name": "postal_code"
           }
         }
       },
       {
         "ordinal": 6,
-        "name": "apotheke_stadt",
+        "name": "pharmacy_city",
         "type_info": "Text",
         "origin": {
           "Table": {
@@ -93,23 +93,23 @@
       },
       {
         "ordinal": 8,
-        "name": "bezeichnung",
+        "name": "designation",
         "type_info": "Text",
         "origin": {
           "Table": {
             "table": "strains",
-            "name": "bezeichnung"
+            "name": "designation"
           }
         }
       },
       {
         "ordinal": 9,
-        "name": "genetik",
+        "name": "genetics",
         "type_info": "Text",
         "origin": {
           "Table": {
             "table": "offers",
-            "name": "genetik"
+            "name": "genetics"
           }
         }
       },
@@ -227,5 +227,5 @@
       null
     ]
   },
-  "hash": "49fd00e595b3a719af0626ebc827305d29374313f80186d8c9178f4ab396cf28"
+  "hash": "7c223e5a1f090d993049586942807d624a4920f9425df04ce6a1e9a244cc5aeb"
 }

@@ -50,7 +50,7 @@ describe('SubscribePage', () => {
 
   it('prefills "wieder verfügbar" and "Preis unter" for ?strain_id', async () => {
     strainMock.mockResolvedValue({
-      ...makeStrain({ id: 7, name: 'OG Kush', bezeichnung: 'OGK 22/1', price: 6.49 }),
+      ...makeStrain({ id: 7, name: 'OG Kush', designation: 'OGK 22/1', price: 6.49 }),
       first_seen_at: '2026-01-01T00:00:00Z',
       last_seen_at: '2026-08-27T20:00:00Z',
       in_latest_run: true,

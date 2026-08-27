@@ -144,11 +144,11 @@ fn pharmacy_row(base: &Url, vendor: &Vendor) -> PharmacyRow {
     PharmacyRow {
         name: vendor.name.clone(),
         url: url.to_string(),
-        plz: address
+        postal_code: address
             .and_then(|a| a.postal_code.clone())
             .unwrap_or_default(),
-        stadt: address.and_then(|a| a.city.clone()).unwrap_or_default(),
-        adresse: street,
+        city: address.and_then(|a| a.city.clone()).unwrap_or_default(),
+        address: street,
     }
 }
 
@@ -187,17 +187,17 @@ fn convert_products(base: &Url, vendor: &Vendor, products: Vec<AnsayProduct>) ->
                 pharmacy_uuid: format!("ansay:{}", vendor.id),
                 product: Product {
                     name: product.name.clone(),
-                    bezeichnung: product.kind.clone().unwrap_or_default(),
-                    genetik: product
+                    designation: product.kind.clone().unwrap_or_default(),
+                    genetics: product
                         .genetics
                         .as_deref()
                         .unwrap_or_default()
                         .replace('-', " "),
                     thc: percent_label(product.thc),
                     cbd: percent_label(product.cbd),
-                    preis_pro_gramm: decimal_label(offer.price),
-                    verfuegbarkeit: "Auf Lager".into(),
-                    produkt_url: product_url(base, &vendor.id, &product),
+                    price_per_gram: decimal_label(offer.price),
+                    availability: "Auf Lager".into(),
+                    product_url: product_url(base, &vendor.id, &product),
                 },
             })
         })
@@ -343,11 +343,11 @@ mod tests {
             products.products,
         );
         assert_eq!(offers.len(), 1);
-        assert_eq!(offers[0].product.preis_pro_gramm, "3,63 €/g");
+        assert_eq!(offers[0].product.price_per_gram, "3,63 €/g");
         assert!(
             offers[0]
                 .product
-                .produkt_url
+                .product_url
                 .contains("deliveryMethod=shipping")
         );
     }

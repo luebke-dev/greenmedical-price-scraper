@@ -1,4 +1,4 @@
-// Filter state ⇄ URL query (?q&genetik&preis&thc&cbd&sort&dir&page&size). Defaults are omitted.
+// Filter state ⇄ URL query (?q&genetics&preis&thc&cbd&sort&dir&page&size). Defaults are omitted.
 
 import {
   RANGE_CONFIGS,
@@ -19,8 +19,8 @@ export const DEFAULT_PAGE_SIZE = 50;
 
 export interface FilterState {
   query: string;
-  /** Lowercased genetik keys. */
-  genetik: string[];
+  /** Lowercased genetics keys. */
+  genetics: string[];
   ranges: RangeState;
   sort: SortState;
   /** 1-based page. */
@@ -59,7 +59,7 @@ const RANGE_PARAM: Readonly<Record<RangeKey, string>> = {
 export function defaultFilterState(bounds: BoundsState = {}): FilterState {
   return {
     query: '',
-    genetik: [],
+    genetics: [],
     ranges: fullRanges(bounds),
     sort: { ...DEFAULT_SORT },
     page: 1,
@@ -99,8 +99,8 @@ function all(value: string | null | (string | null)[] | undefined): string[] {
 
 export interface FromQueryOptions {
   bounds: BoundsState;
-  /** When given, unknown genetik keys are dropped. */
-  genetikKeys?: ReadonlySet<string> | undefined;
+  /** When given, unknown genetics keys are dropped. */
+  geneticsKeys?: ReadonlySet<string> | undefined;
   /**
    * Keep ranges whose bounds are unknown (deep link before the facets arrived). They are sent to
    * the API as given and clamped once the facets are known.
@@ -114,10 +114,10 @@ export function fromQuery(query: QueryInput, options: FromQueryOptions): FilterS
   const q = first(query.q);
   if (q) state.query = q;
 
-  const genetik = all(query.genetik)
+  const genetics = all(query.genetics)
     .map((item) => item.trim().toLowerCase())
-    .filter((item) => item !== '' && (!options.genetikKeys || options.genetikKeys.has(item)));
-  state.genetik = [...new Set(genetik)];
+    .filter((item) => item !== '' && (!options.geneticsKeys || options.geneticsKeys.has(item)));
+  state.genetics = [...new Set(genetics)];
 
   for (const config of RANGE_CONFIGS) {
     const bounds = options.bounds[config.key];
@@ -145,7 +145,7 @@ export function toQuery(state: FilterState, bounds: BoundsState): QueryOutput {
   const query: QueryOutput = {};
   const q = state.query.trim();
   if (q) query.q = q;
-  if (state.genetik.length > 0) query.genetik = [...state.genetik];
+  if (state.genetics.length > 0) query.genetics = [...state.genetics];
 
   for (const config of RANGE_CONFIGS) {
     const range = bounds[config.key];

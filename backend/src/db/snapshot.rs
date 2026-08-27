@@ -16,7 +16,7 @@ use tokio::sync::Mutex;
 
 use crate::db::{offers, runs, strains};
 use crate::domain::{
-    self, FacetsDto, GenetikFacetDto, MetadataDto, OfferRecord, RangeDto, RunDto, RunStatus,
+    self, FacetsDto, GeneticsFacetDto, MetadataDto, OfferRecord, RangeDto, RunDto, RunStatus,
     StrainDto, StrainListItemDto, collate, compute_trend,
 };
 
@@ -37,8 +37,8 @@ pub enum StrainSort {
     PharmacyCount,
     Rating,
     Name,
-    Bezeichnung,
-    Genetik,
+    Designation,
+    Genetics,
 }
 
 impl StrainSort {
@@ -50,8 +50,8 @@ impl StrainSort {
         StrainSort::PharmacyCount,
         StrainSort::Rating,
         StrainSort::Name,
-        StrainSort::Bezeichnung,
-        StrainSort::Genetik,
+        StrainSort::Designation,
+        StrainSort::Genetics,
     ];
 
     pub fn as_str(self) -> &'static str {
@@ -63,8 +63,8 @@ impl StrainSort {
             StrainSort::PharmacyCount => "pharmacy_count",
             StrainSort::Rating => "rating",
             StrainSort::Name => "name",
-            StrainSort::Bezeichnung => "bezeichnung",
-            StrainSort::Genetik => "genetik",
+            StrainSort::Designation => "designation",
+            StrainSort::Genetics => "genetics",
         }
     }
 
@@ -96,12 +96,12 @@ impl SortDir {
 /// Per-strain, precomputed keys for filtering and sorting (same index as `Snapshot::strains`).
 #[derive(Debug, Clone)]
 pub struct StrainKeys {
-    /// Lowercased `genetik` for the `genetik=` filter.
-    pub genetik_lower: String,
+    /// Lowercased `genetics` for the `genetics=` filter.
+    pub genetics_lower: String,
     /// Collation keys (`collate::fold`) of the text sort columns.
     pub name_key: String,
-    pub bezeichnung_key: String,
-    pub genetik_key: String,
+    pub designation_key: String,
+    pub genetics_key: String,
 }
 
 /// Everything the read endpoints need for one run.
@@ -169,10 +169,10 @@ impl Snapshot {
         let keys = strains
             .iter()
             .map(|s| StrainKeys {
-                genetik_lower: s.genetik.to_lowercase(),
+                genetics_lower: s.genetics.to_lowercase(),
                 name_key: collate::fold(&s.name),
-                bezeichnung_key: collate::fold(&s.bezeichnung),
-                genetik_key: collate::fold(&s.genetik),
+                designation_key: collate::fold(&s.designation),
+                genetics_key: collate::fold(&s.genetics),
             })
             .collect();
         let facets = build_facets(&strains);
@@ -245,8 +245,8 @@ impl Snapshot {
             ),
             StrainSort::Rating => numeric(sa.sort.rating, sb.sort.rating),
             StrainSort::Name => text(&ka.name_key, &kb.name_key),
-            StrainSort::Bezeichnung => text(&ka.bezeichnung_key, &kb.bezeichnung_key),
-            StrainSort::Genetik => text(&ka.genetik_key, &kb.genetik_key),
+            StrainSort::Designation => text(&ka.designation_key, &kb.designation_key),
+            StrainSort::Genetics => text(&ka.genetics_key, &kb.genetics_key),
         };
         primary.then_with(|| sa.id.cmp(&sb.id))
     }
@@ -268,26 +268,26 @@ fn range(values: impl Iterator<Item = Option<f64>>) -> Option<RangeDto> {
 pub fn build_facets(strains: &[StrainDto]) -> FacetsDto {
     let mut counts: std::collections::HashMap<&str, i64> = std::collections::HashMap::new();
     for s in strains {
-        if !s.genetik.is_empty() {
-            *counts.entry(s.genetik.as_str()).or_default() += 1;
+        if !s.genetics.is_empty() {
+            *counts.entry(s.genetics.as_str()).or_default() += 1;
         }
     }
-    let mut genetik: Vec<(String, GenetikFacetDto)> = counts
+    let mut genetics: Vec<(String, GeneticsFacetDto)> = counts
         .into_iter()
         .map(|(value, count)| {
             (
                 collate::fold(value),
-                GenetikFacetDto {
+                GeneticsFacetDto {
                     value: value.to_owned(),
                     count,
                 },
             )
         })
         .collect();
-    genetik
+    genetics
         .sort_by(|(ka, a), (kb, b)| collate::compare(ka, kb).then_with(|| a.value.cmp(&b.value)));
     FacetsDto {
-        genetik: genetik.into_iter().map(|(_, f)| f).collect(),
+        genetics: genetics.into_iter().map(|(_, f)| f).collect(),
         price: range(strains.iter().map(|s| s.sort.price)),
         thc: range(strains.iter().map(|s| s.sort.thc)),
         cbd: range(strains.iter().map(|s| s.sort.cbd)),

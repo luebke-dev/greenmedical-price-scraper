@@ -47,7 +47,7 @@ fn ids(body: &Value) -> Vec<i64> {
         .collect()
 }
 
-/// Five strains: prices 5/7/6(+6.5)/8/null, one without THC value and genetik.
+/// Five strains: prices 5/7/6(+6.5)/8/null, one without THC value and genetics.
 async fn seed(pool: &PgPool) -> Router {
     seed_run(
         pool,
@@ -56,23 +56,23 @@ async fn seed(pool: &PgPool) -> Router {
         &[
             SeedOffer::new(APO_A, ("Äpfel", "AAA"), 5.0)
                 .thc("20%")
-                .genetik("Sativa"),
+                .genetics("Sativa"),
             SeedOffer::new(APO_A, ("apfel", "BBB"), 7.0)
                 .thc("25%")
                 .cbd("0,5%")
-                .genetik("Indica"),
+                .genetics("Indica"),
             SeedOffer::new(APO_A, ("Zebra", "ZZZ"), 6.0)
                 .thc("18%")
-                .genetik("Hybrid"),
+                .genetics("Hybrid"),
             SeedOffer::new(APO_B, ("Zebra", "ZZZ"), 6.5)
                 .thc("18%")
-                .genetik("Hybrid"),
+                .genetics("Hybrid"),
             SeedOffer::new(APO_B, ("Sorte 9", "S9"), 8.0)
                 .thc("20%")
-                .genetik("Sativa"),
+                .genetics("Sativa"),
             SeedOffer::unpriced(APO_A, ("Sorte 10", "S10"))
                 .thc("")
-                .genetik(""),
+                .genetics(""),
         ],
     )
     .await;
@@ -110,8 +110,8 @@ async fn defaults_price_asc_nulls_last_limit_50(pool: PgPool) {
         for key in [
             "id",
             "name",
-            "bezeichnung",
-            "genetik",
+            "designation",
+            "genetics",
             "thc",
             "cbd",
             "thc_value",
@@ -173,12 +173,12 @@ async fn filters(pool: PgPool) {
     assert_eq!(body["total"], 2, "search text includes pharmacies");
     assert_eq!(names(&body), ["Zebra", "Sorte 9"]);
 
-    let (_, _, body) = get(&app, "/api/v1/strains?genetik=SATIVA,%20hybrid").await;
+    let (_, _, body) = get(&app, "/api/v1/strains?genetics=SATIVA,%20hybrid").await;
     assert_eq!(names(&body), ["Äpfel", "Zebra", "Sorte 9"]);
-    let (_, _, body) = get(&app, "/api/v1/strains?genetik=indica").await;
+    let (_, _, body) = get(&app, "/api/v1/strains?genetics=indica").await;
     assert_eq!(names(&body), ["apfel"]);
-    let (_, _, body) = get(&app, "/api/v1/strains?genetik=,").await;
-    assert_eq!(body["total"], 5, "empty genetik list is ignored");
+    let (_, _, body) = get(&app, "/api/v1/strains?genetics=,").await;
+    assert_eq!(body["total"], 5, "empty genetics list is ignored");
 
     // Ranges are inclusive; strains without a value pass only without bounds.
     let (_, _, body) = get(&app, "/api/v1/strains?price_max=6").await;
@@ -201,11 +201,11 @@ async fn filters(pool: PgPool) {
     let (_, _, body) = get(&app, "/api/v1/strains?rating_min=0").await;
     assert_eq!(names(&body), ["Äpfel", "Zebra"], "unrated strains excluded");
 
-    let (_, _, body) = get(&app, "/api/v1/strains?genetik=sativa&price_min=6&q=apo").await;
+    let (_, _, body) = get(&app, "/api/v1/strains?genetics=sativa&price_min=6&q=apo").await;
     assert_eq!(names(&body), ["Sorte 9"]);
     assert_eq!(body["total"], 1);
     assert_eq!(
-        body["facets"]["genetik"].as_array().unwrap().len(),
+        body["facets"]["genetics"].as_array().unwrap().len(),
         3,
         "facets ignore filters"
     );
@@ -290,21 +290,21 @@ async fn sorting(pool: PgPool) {
     assert_eq!(&names(&body)[..2], ["Äpfel", "Zebra"]);
     assert!(body["strains"][4]["sort"]["rating"].is_null(), "nulls last");
 
-    let (_, _, body) = get(&app, "/api/v1/strains?sort=bezeichnung").await;
+    let (_, _, body) = get(&app, "/api/v1/strains?sort=designation").await;
     assert_eq!(
         names(&body),
         ["Äpfel", "apfel", "Sorte 9", "Sorte 10", "Zebra"]
     );
-    let (_, _, body) = get(&app, "/api/v1/strains?sort=genetik&dir=desc").await;
+    let (_, _, body) = get(&app, "/api/v1/strains?sort=genetics&dir=desc").await;
     assert_eq!(
         names(&body),
         ["Äpfel", "Sorte 9", "apfel", "Zebra", "Sorte 10"]
     );
-    let (_, _, body) = get(&app, "/api/v1/strains?sort=genetik").await;
+    let (_, _, body) = get(&app, "/api/v1/strains?sort=genetics").await;
     assert_eq!(
         names(&body)[0],
         "Sorte 10",
-        "empty genetik sorts first ascending"
+        "empty genetics sorts first ascending"
     );
 }
 
@@ -313,7 +313,7 @@ async fn facets(pool: PgPool) {
     let app = seed(&pool).await;
     let (_, _, body) = get(&app, "/api/v1/strains?limit=1").await;
     assert_eq!(
-        body["facets"]["genetik"],
+        body["facets"]["genetics"],
         serde_json::json!([
             { "value": "Hybrid", "count": 1 },
             { "value": "Indica", "count": 1 },
@@ -347,13 +347,13 @@ async fn facets_are_null_without_values(pool: PgPool) {
         &[SeedOffer::unpriced(APO_A, ("Nur Name", "X"))
             .thc("")
             .cbd("")
-            .genetik("")],
+            .genetics("")],
     )
     .await;
     let app = build_router(test_state(pool, "http://127.0.0.1:1"));
     let (_, _, body) = get(&app, "/api/v1/strains").await;
     assert_eq!(body["total"], 1);
-    assert_eq!(body["facets"]["genetik"], serde_json::json!([]));
+    assert_eq!(body["facets"]["genetics"], serde_json::json!([]));
     assert!(body["facets"]["price"].is_null());
     assert!(body["facets"]["thc"].is_null());
     assert!(body["facets"]["cbd"].is_null());
@@ -375,13 +375,13 @@ async fn etag_varies_with_query_and_supports_304(pool: PgPool) {
     let (_, headers, _) = get(&app, "/api/v1/strains?sort=name").await;
     let name_etag = headers[header::ETAG].to_str().unwrap().to_owned();
     assert_ne!(name_etag, default_etag);
-    let (_, headers, _) = get(&app, "/api/v1/strains?genetik=Sativa,Indica").await;
-    let genetik_etag = headers[header::ETAG].to_str().unwrap().to_owned();
-    let (_, headers, _) = get(&app, "/api/v1/strains?genetik=indica,SATIVA").await;
+    let (_, headers, _) = get(&app, "/api/v1/strains?genetics=Sativa,Indica").await;
+    let genetics_etag = headers[header::ETAG].to_str().unwrap().to_owned();
+    let (_, headers, _) = get(&app, "/api/v1/strains?genetics=indica,SATIVA").await;
     assert_eq!(
         headers[header::ETAG],
-        genetik_etag,
-        "normalised genetik set"
+        genetics_etag,
+        "normalised genetics set"
     );
     // Ratings were scraped: the ETag carries the reviews version.
     assert!(default_etag.contains("-r"), "{default_etag}");

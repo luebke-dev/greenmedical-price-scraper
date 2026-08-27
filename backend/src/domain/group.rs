@@ -5,9 +5,9 @@ use std::collections::{BTreeMap, HashSet};
 use super::model::{OfferDto, OfferRecord, SortDto, StrainDto};
 use super::text::strain_key;
 
-/// Grouping identity of an offer: `(strain_key(name), strain_key(bezeichnung))`.
+/// Grouping identity of an offer: `(strain_key(name), strain_key(designation))`.
 pub fn group_key(offer: &OfferRecord) -> (String, String) {
-    (strain_key(&offer.name), strain_key(&offer.bezeichnung))
+    (strain_key(&offer.name), strain_key(&offer.designation))
 }
 
 fn first_nonempty<'a>(mut values: impl Iterator<Item = &'a str>) -> String {
@@ -28,7 +28,7 @@ fn min_of(values: impl Iterator<Item = Option<f64>>) -> Option<f64> {
     })
 }
 
-/// Deduplicate offers into one record per strain (name + Bezeichnung).
+/// Deduplicate offers into one record per strain (name + Designation).
 ///
 /// Groups are ordered by their key; each strain lists its offers cheapest
 /// first with unpriced offers last (stable within ties). Display fields take
@@ -46,8 +46,8 @@ pub fn group_by_strain(offers: &[OfferRecord]) -> Vec<StrainDto> {
             members_sorted.sort_by(|a, b| {
                 let key = |o: &OfferRecord| {
                     (
-                        o.preis_eur_pro_gramm.is_none(),
-                        o.preis_eur_pro_gramm.unwrap_or(0.0),
+                        o.price_eur_per_gram.is_none(),
+                        o.price_eur_per_gram.unwrap_or(0.0),
                     )
                 };
                 let (an, av) = key(a);
@@ -55,12 +55,12 @@ pub fn group_by_strain(offers: &[OfferRecord]) -> Vec<StrainDto> {
                 an.cmp(&bn).then_with(|| av.total_cmp(&bv))
             });
 
-            let min_price = min_of(members.iter().map(|o| o.preis_eur_pro_gramm));
-            let min_thc_price = min_of(members.iter().map(|o| o.preis_eur_pro_gramm_thc));
+            let min_price = min_of(members.iter().map(|o| o.price_eur_per_gram));
+            let min_thc_price = min_of(members.iter().map(|o| o.price_eur_per_thc_gram));
 
             let name = first_nonempty(members.iter().map(|o| o.name.as_str()));
-            let bezeichnung = first_nonempty(members.iter().map(|o| o.bezeichnung.as_str()));
-            let genetik = first_nonempty(members.iter().map(|o| o.genetik.as_str()));
+            let designation = first_nonempty(members.iter().map(|o| o.designation.as_str()));
+            let genetics = first_nonempty(members.iter().map(|o| o.genetics.as_str()));
             let thc = first_nonempty(members.iter().map(|o| o.thc.as_str()));
             let cbd = first_nonempty(members.iter().map(|o| o.cbd.as_str()));
 
@@ -70,14 +70,14 @@ pub fn group_by_strain(offers: &[OfferRecord]) -> Vec<StrainDto> {
                     offer_id: o.offer_id,
                     pharmacy_id: o.pharmacy_id,
                     provider: o.provider,
-                    apotheke: o.apotheke.clone(),
-                    apotheke_plz: o.apotheke_plz.clone(),
-                    apotheke_stadt: o.apotheke_stadt.clone(),
-                    preis_pro_gramm: o.preis_pro_gramm.clone(),
-                    preis_eur_pro_gramm: o.preis_eur_pro_gramm,
-                    preis_eur_pro_gramm_thc: o.preis_eur_pro_gramm_thc,
-                    verfuegbarkeit: o.verfuegbarkeit.clone(),
-                    produkt_url: o.produkt_url.clone(),
+                    pharmacy: o.pharmacy.clone(),
+                    pharmacy_postal_code: o.pharmacy_postal_code.clone(),
+                    pharmacy_city: o.pharmacy_city.clone(),
+                    price_per_gram: o.price_per_gram.clone(),
+                    price_eur_per_gram: o.price_eur_per_gram,
+                    price_eur_per_thc_gram: o.price_eur_per_thc_gram,
+                    availability: o.availability.clone(),
+                    product_url: o.product_url.clone(),
                 })
                 .collect();
 
@@ -85,11 +85,11 @@ pub fn group_by_strain(offers: &[OfferRecord]) -> Vec<StrainDto> {
                 .iter()
                 .flat_map(|o| {
                     [
-                        o.apotheke.as_str(),
-                        o.apotheke_plz.as_str(),
-                        o.apotheke_stadt.as_str(),
-                        o.preis_pro_gramm.as_str(),
-                        o.verfuegbarkeit.as_str(),
+                        o.pharmacy.as_str(),
+                        o.pharmacy_postal_code.as_str(),
+                        o.pharmacy_city.as_str(),
+                        o.price_per_gram.as_str(),
+                        o.availability.as_str(),
                     ]
                 })
                 .collect::<Vec<_>>()
@@ -100,8 +100,8 @@ pub fn group_by_strain(offers: &[OfferRecord]) -> Vec<StrainDto> {
             };
             let search = [
                 name.as_str(),
-                bezeichnung.as_str(),
-                genetik.as_str(),
+                designation.as_str(),
+                genetics.as_str(),
                 thc.as_str(),
                 cbd.as_str(),
                 offer_search.as_str(),
@@ -114,16 +114,16 @@ pub fn group_by_strain(offers: &[OfferRecord]) -> Vec<StrainDto> {
             let cbd_value = first_not_none(members.iter().map(|o| o.cbd_value));
             let pharmacy_count = members
                 .iter()
-                .filter(|o| !o.apotheke.is_empty())
-                .map(|o| o.apotheke.as_str())
+                .filter(|o| !o.pharmacy.is_empty())
+                .map(|o| o.pharmacy.as_str())
                 .collect::<HashSet<_>>()
                 .len() as i64;
 
             StrainDto {
                 id: members[0].strain_id,
                 name,
-                bezeichnung,
-                genetik,
+                designation,
+                genetics,
                 thc,
                 cbd,
                 thc_value,
@@ -176,22 +176,22 @@ pub(crate) mod test_support {
             offers.push(OfferRecord {
                 offer_id: index as i64 + 1,
                 pharmacy_id: 0,
-                provider: crate::domain::Provider::Greenmedical,
+                provider: crate::domain::Provider::GreenMedical,
                 strain_id: 0,
-                apotheke: clean_text(field(0)),
-                apotheke_plz: clean_text(field(1)),
-                apotheke_stadt: clean_text(field(2)),
+                pharmacy: clean_text(field(0)),
+                pharmacy_postal_code: clean_text(field(1)),
+                pharmacy_city: clean_text(field(2)),
                 name: clean_text(field(3)),
-                bezeichnung: clean_text(field(4)),
-                genetik: clean_text(field(5)),
+                designation: clean_text(field(4)),
+                genetics: clean_text(field(5)),
                 thc,
                 cbd,
-                preis_pro_gramm: price_label,
-                verfuegbarkeit: clean_text(field(9)),
-                produkt_url: field(10).unwrap_or_default().trim().to_owned(),
-                preis_eur_pro_gramm: price,
-                preis_eur_pro_gramm_thc: calculate_thc_price(price, thc_value),
-                preis_eur_pro_gramm_cbd: calculate_thc_price(price, cbd_value),
+                price_per_gram: price_label,
+                availability: clean_text(field(9)),
+                product_url: field(10).unwrap_or_default().trim().to_owned(),
+                price_eur_per_gram: price,
+                price_eur_per_thc_gram: calculate_thc_price(price, thc_value),
+                price_eur_per_cbd_gram: calculate_thc_price(price, cbd_value),
                 thc_value,
                 cbd_value,
             });
@@ -219,7 +219,7 @@ Apo C,50667,Köln,Sorte Y,XYZ,Sativa,18%,1%,"7,00 €",verfügbar"#,
         assert_eq!(x.pharmacy_count, 2);
         assert_eq!(x.offers.len(), 2);
         // cheapest offer first
-        let names: Vec<_> = x.offers.iter().map(|o| o.apotheke.as_str()).collect();
+        let names: Vec<_> = x.offers.iter().map(|o| o.pharmacy.as_str()).collect();
         assert_eq!(names, ["Apo B", "Apo A"]);
         assert_eq!(x.min_price, Some(8.0));
         // 8.00 / (20/100) = 40.00 €/g THC
@@ -259,8 +259,8 @@ Apo C,3,D,Alpha,A1,Sativa,10%,1%,"9,00 €",neu"#,
         assert_eq!(strains[0].name, "Alpha");
         assert_eq!(strains[1].name, "Zeta");
         let zeta = &strains[1];
-        assert_eq!(zeta.offers[0].apotheke, "Apo B");
-        assert_eq!(zeta.offers[1].preis_eur_pro_gramm, None);
+        assert_eq!(zeta.offers[0].pharmacy, "Apo B");
+        assert_eq!(zeta.offers[1].price_eur_per_gram, None);
         assert_eq!(zeta.min_price, Some(5.0));
     }
 
@@ -274,8 +274,8 @@ Apo C,3,D,Alpha,A1,Sativa,10%,1%,"9,00 €",neu"#,
         let expected: BTreeSet<String> = [
             "id",
             "name",
-            "bezeichnung",
-            "genetik",
+            "designation",
+            "genetics",
             "thc",
             "cbd",
             "min_price",
@@ -303,14 +303,14 @@ Apo C,3,D,Alpha,A1,Sativa,10%,1%,"9,00 €",neu"#,
             .cloned()
             .collect();
         let expected_offer: BTreeSet<String> = [
-            "apotheke",
-            "apotheke_plz",
-            "apotheke_stadt",
-            "preis_pro_gramm",
-            "preis_eur_pro_gramm",
-            "preis_eur_pro_gramm_thc",
-            "verfuegbarkeit",
-            "produkt_url",
+            "pharmacy",
+            "pharmacy_postal_code",
+            "pharmacy_city",
+            "price_per_gram",
+            "price_eur_per_gram",
+            "price_eur_per_thc_gram",
+            "availability",
+            "product_url",
             "offer_id",
             "pharmacy_id",
             "provider",
@@ -336,7 +336,7 @@ Apo C,3,D,Alpha,A1,Sativa,10%,1%,"9,00 €",neu"#,
         );
         let strains = group_by_strain(&offers);
         assert_eq!(
-            strains[0].offers[0].produkt_url,
+            strains[0].offers[0].product_url,
             "https://greenmedical.health/p?deliveryTarget=T"
         );
     }

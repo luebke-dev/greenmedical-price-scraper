@@ -8,17 +8,17 @@
     <div v-if="!loading && entry" class="metric-meta">
       <div v-if="entry.name" class="meta-name">{{ entry.name }}</div>
       <div v-if="facts">{{ facts }}</div>
-      <div v-if="entry.apotheke">{{ entry.apotheke }}</div>
+      <div v-if="entry.pharmacy">{{ entry.pharmacy }}</div>
     </div>
     <a
       v-if="hasLink && entry"
       class="card-link"
-      :href="withoutFragment(entry.produkt_url)"
+      :href="withoutFragment(entry.product_url)"
       target="_blank"
       rel="noopener"
       :aria-label="de.metrics.openAt(entry.name)"
       :title="de.offers.buyHint"
-      @click.prevent="openProduct(entry.produkt_url)"
+      @click.prevent="openProduct(entry.product_url)"
     ></a>
     <router-link
       v-if="!loading && entry && entry.strain_id"
@@ -45,12 +45,12 @@ const props = defineProps<{
   loading?: boolean | undefined;
 }>();
 
-const hasLink = computed(() => !props.loading && Boolean(props.entry?.produkt_url));
+const hasLink = computed(() => !props.loading && Boolean(props.entry?.product_url));
 
 const facts = computed(() => {
   const entry = props.entry;
   if (!entry) return '';
-  return [entry.genetik, entry.thc && `THC ${entry.thc}`, entry.cbd && `CBD ${entry.cbd}`]
+  return [entry.genetics, entry.thc && `THC ${entry.thc}`, entry.cbd && `CBD ${entry.cbd}`]
     .filter(Boolean)
     .join(' · ');
 });

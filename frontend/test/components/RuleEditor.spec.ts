@@ -115,7 +115,7 @@ describe('RuleEditor', () => {
 
   it('queries strains by name for the autocomplete (limit 10, sorted by name)', async () => {
     strainsMock.mockResolvedValue(
-      makeStrainsPage([makeListItem({ id: 9, name: 'OG Kush', bezeichnung: 'OGK 22/1' })]),
+      makeStrainsPage([makeListItem({ id: 9, name: 'OG Kush', designation: 'OGK 22/1' })]),
     );
     const wrapper = mountEditor([makeDraft({ kind: 'strain_available' })]);
     const select = wrapper.findComponent({ name: 'QSelect' });
@@ -131,15 +131,15 @@ describe('RuleEditor', () => {
       { q: 'og', limit: 10, sort: 'name' },
       expect.any(AbortSignal),
     );
-    expect(select.props('options')).toEqual([{ id: 9, name: 'OG Kush', bezeichnung: 'OGK 22/1' }]);
+    expect(select.props('options')).toEqual([{ id: 9, name: 'OG Kush', designation: 'OGK 22/1' }]);
     expect(abort).not.toHaveBeenCalled();
 
-    select.vm.$emit('update:modelValue', { id: 9, name: 'OG Kush', bezeichnung: 'OGK 22/1' });
+    select.vm.$emit('update:modelValue', { id: 9, name: 'OG Kush', designation: 'OGK 22/1' });
     await flushPromises();
     expect(wrapper.props('modelValue')[0]!.strain).toEqual({
       id: 9,
       name: 'OG Kush',
-      bezeichnung: 'OGK 22/1',
+      designation: 'OGK 22/1',
     });
     expect(wrapper.find('.rule-field-strain .field-hint').text()).toBe('OGK 22/1');
   });

@@ -95,8 +95,8 @@ pub fn ascii_slug(value: &str) -> String {
 #[derive(Debug, Clone)]
 pub struct MockTile {
     pub name: String,
-    pub bezeichnung: String,
-    pub genetik: String,
+    pub designation: String,
+    pub genetics: String,
     pub thc: String,
     pub cbd: String,
     pub price: String,
@@ -105,16 +105,16 @@ pub struct MockTile {
 }
 
 impl MockTile {
-    pub fn new(name: &str, bezeichnung: &str, price: &str) -> Self {
+    pub fn new(name: &str, designation: &str, price: &str) -> Self {
         Self {
             name: name.into(),
-            bezeichnung: bezeichnung.into(),
-            genetik: "Indica".into(),
+            designation: designation.into(),
+            genetics: "Indica".into(),
             thc: "20%".into(),
             cbd: "1%".into(),
             price: price.into(),
             availability: "Auf Lager".into(),
-            slug: format!("{}-{}", ascii_slug(bezeichnung), ascii_slug(name)),
+            slug: format!("{}-{}", ascii_slug(designation), ascii_slug(name)),
         }
     }
 
@@ -128,8 +128,8 @@ impl MockTile {
         self
     }
 
-    pub fn genetik(mut self, genetik: &str) -> Self {
-        self.genetik = genetik.into();
+    pub fn genetics(mut self, genetics: &str) -> Self {
+        self.genetics = genetics.into();
         self
     }
 
@@ -155,7 +155,7 @@ impl MockTile {
   <div class="flowerTileBadges">
     <div class="flowerTileBadge flowerTileBadgeThc">THC <span class="bold">{thc}</span></div>
     <div class="flowerTileBadge flowerTileBadgeCbd">CBD <span class="bold">{cbd}</span></div>
-    <div class="flowerTileBadge flowerTileBadgeStrain text-uppercase text-truncate">{genetik}</div>
+    <div class="flowerTileBadge flowerTileBadgeStrain text-uppercase text-truncate">{genetics}</div>
   </div>
   <div class="productGridTileTitleWrapper">
     <h2 class="bold text-truncate" title="{name}">{name}</h2>
@@ -168,11 +168,11 @@ impl MockTile {
   </div>
   <a class="productGridTileStretchedLink" href="/de/cannabis/flower/{slug}"></a>
 </article>"#,
-            bez = self.bezeichnung,
+            bez = self.designation,
             avail = self.availability,
             thc = self.thc,
             cbd = self.cbd,
-            genetik = self.genetik,
+            genetics = self.genetics,
             name = self.name,
             price = price,
             slug = self.slug,
@@ -183,7 +183,7 @@ impl MockTile {
 #[derive(Debug, Clone)]
 pub struct MockPharmacy {
     pub name: String,
-    pub plz: String,
+    pub postal_code: String,
     pub city: String,
     pub address: String,
     pub slug: String,
@@ -199,7 +199,7 @@ impl MockPharmacy {
     pub fn new(name: &str, uuid: &str, pages: Vec<Vec<MockTile>>) -> Self {
         Self {
             name: name.into(),
-            plz: "10115".into(),
+            postal_code: "10115".into(),
             city: "Berlin".into(),
             address: "Teststraße 1".into(),
             slug: ascii_slug(name),
@@ -210,8 +210,8 @@ impl MockPharmacy {
         }
     }
 
-    pub fn city(mut self, plz: &str, city: &str) -> Self {
-        self.plz = plz.into();
+    pub fn city(mut self, postal_code: &str, city: &str) -> Self {
+        self.postal_code = postal_code.into();
         self.city = city.into();
         self
     }
@@ -321,7 +321,7 @@ impl MockSite {
             .map(|p| {
                 format!(
                     "<tr><td><a href=/de/cannabis/pharmacy/{}>{}</a></td><td>{}</td><td>{}</td><td>{}</td><td></td><td></td></tr>",
-                    p.slug, p.name, p.plz, p.city, p.address
+                    p.slug, p.name, p.postal_code, p.city, p.address
                 )
             })
             .collect();
@@ -477,7 +477,7 @@ pub fn default_site() -> Vec<MockPharmacy> {
                     MockTile::new("Bunatic", "Luana 27/1 Donny B", "5,49 €/g").thc("27%"),
                     MockTile::new("OG Kush", "Cannamedical CM 24/1", "6,49 €/g")
                         .thc("24%")
-                        .genetik("Hybrid Sativa Dominant"),
+                        .genetics("Hybrid Sativa Dominant"),
                 ],
                 vec![
                     MockTile::new("Cosmic Cream", "Pedanios 31/1 COS-CA", "6,29 €/g")
@@ -594,11 +594,11 @@ pub fn product_page_html(
 #[derive(Debug, Clone)]
 pub struct SeedOffer {
     pub pharmacy: (&'static str, &'static str), // (external_id, name)
-    pub strain: (&'static str, &'static str),   // (name, bezeichnung)
+    pub strain: (&'static str, &'static str),   // (name, designation)
     pub price: Option<f64>,
     pub thc: &'static str,
     pub cbd: &'static str,
-    pub genetik: &'static str,
+    pub genetics: &'static str,
 }
 
 impl SeedOffer {
@@ -613,7 +613,7 @@ impl SeedOffer {
             price: Some(price),
             thc: "20%",
             cbd: "1%",
-            genetik: "Indica",
+            genetics: "Indica",
         }
     }
 
@@ -638,8 +638,8 @@ impl SeedOffer {
         self
     }
 
-    pub fn genetik(mut self, genetik: &'static str) -> Self {
-        self.genetik = genetik;
+    pub fn genetics(mut self, genetics: &'static str) -> Self {
+        self.genetics = genetics;
         self
     }
 }
@@ -659,9 +659,9 @@ pub async fn seed_run(
         .iter()
         .map(|s| pharmacies::PharmacyInput {
             external_id: s.pharmacy.0.into(),
-            provider: greenmedical_backend::domain::Provider::Greenmedical,
+            provider: greenmedical_backend::domain::Provider::GreenMedical,
             name: s.pharmacy.1.into(),
-            plz: "10115".into(),
+            postal_code: "10115".into(),
             city: "Berlin".into(),
             address: "Teststraße 1".into(),
             url: format!("https://example.test/{}", s.pharmacy.0),
@@ -674,10 +674,10 @@ pub async fn seed_run(
         .iter()
         .map(|s| strains::StrainInput {
             name_key: strain_key(s.strain.0),
-            bezeichnung_key: strain_key(s.strain.1),
+            designation_key: strain_key(s.strain.1),
             name: s.strain.0.into(),
-            bezeichnung: s.strain.1.into(),
-            genetik: s.genetik.into(),
+            designation: s.strain.1.into(),
+            genetics: s.genetics.into(),
             thc_label: s.thc.into(),
             cbd_label: s.cbd.into(),
         })
@@ -695,7 +695,7 @@ pub async fn seed_run(
                 pharmacy_id: pharmacy_ids[s.pharmacy.0],
                 strain_id: strain_ids[&(strain_key(s.strain.0), strain_key(s.strain.1))],
                 position: i as i32,
-                genetik: s.genetik.into(),
+                genetics: s.genetics.into(),
                 thc_label: s.thc.into(),
                 cbd_label: s.cbd.into(),
                 price_label: s

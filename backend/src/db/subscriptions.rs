@@ -278,7 +278,7 @@ pub async fn rules_of_confirmed<'e>(exec: impl PgExecutor<'e>) -> sqlx::Result<V
 pub struct StrainState {
     pub strain_id: i64,
     pub name: String,
-    pub bezeichnung: String,
+    pub designation: String,
     /// Cheapest parsed price of the run (`None` when no offer has a price).
     pub min_price: Option<f64>,
     /// Highest parsed THC value among the run's offers.
@@ -293,13 +293,13 @@ pub async fn strain_states<'e>(
     run_id: i64,
 ) -> sqlx::Result<Vec<StrainState>> {
     let rows = sqlx::query!(
-        r#"SELECT o.strain_id, s.name, s.bezeichnung,
+        r#"SELECT o.strain_id, s.name, s.designation,
                   MIN(o.price_eur)::float8 AS "min_price?: f64",
                   MAX(o.thc_pct)::float8 AS "thc_value?: f64",
                   (ARRAY_AGG(p.name ORDER BY o.price_eur ASC NULLS LAST, o.id))[1] AS "pharmacy!"
            FROM offers o JOIN strains s ON s.id = o.strain_id JOIN pharmacies p ON p.id = o.pharmacy_id
            WHERE o.run_id = $1
-           GROUP BY o.strain_id, s.name, s.bezeichnung
+           GROUP BY o.strain_id, s.name, s.designation
            ORDER BY o.strain_id"#,
         run_id
     )
@@ -310,7 +310,7 @@ pub async fn strain_states<'e>(
         .map(|r| StrainState {
             strain_id: r.strain_id,
             name: r.name,
-            bezeichnung: r.bezeichnung,
+            designation: r.designation,
             min_price: r.min_price.map(crate::domain::round2),
             thc_value: r.thc_value,
             pharmacy: r.pharmacy,

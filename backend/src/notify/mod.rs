@@ -23,7 +23,7 @@ pub struct Event {
     pub kind: RuleKind,
     pub strain_id: i64,
     pub strain_name: String,
-    pub bezeichnung: String,
+    pub designation: String,
     /// `min_price` in the evaluated run.
     pub price: Option<f64>,
     /// `min_price` in the previous run (`None` when not listed or unpriced).
@@ -70,7 +70,7 @@ impl RunDiff {
             kind,
             strain_id: state.strain_id,
             strain_name: state.name.clone(),
-            bezeichnung: state.bezeichnung.clone(),
+            designation: state.designation.clone(),
             price: state.min_price,
             previous_price: self
                 .previous
@@ -359,7 +359,7 @@ mod tests {
         StrainState {
             strain_id: id,
             name: format!("Sorte {id}"),
-            bezeichnung: String::new(),
+            designation: String::new(),
             min_price: price,
             thc_value: thc,
             pharmacy: "Apo".into(),

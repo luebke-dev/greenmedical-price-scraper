@@ -1,11 +1,11 @@
 <template>
   <section v-show="open" :id="id" class="filters" :aria-label="de.filters.heading">
-    <GenetikChips
-      v-if="genetik.length >= 2"
-      :id="`${id}-genetik`"
-      :options="genetik"
-      :selected="selectedGenetik"
-      @toggle="(key) => emit('toggleGenetik', key)"
+    <GeneticsChips
+      v-if="genetics.length >= 2"
+      :id="`${id}-genetics`"
+      :options="genetics"
+      :selected="selectedGenetics"
+      @toggle="(key) => emit('toggleGenetics', key)"
     />
     <template v-for="config in RANGE_CONFIGS" :key="config.key">
       <RangeFilter
@@ -24,25 +24,25 @@ import { de } from '@/i18n/de';
 import {
   RANGE_CONFIGS,
   type BoundsState,
-  type GenetikOption,
+  type GeneticsOption,
   type RangeKey,
   type RangeState,
   type RangeValue,
 } from '@/lib/filter';
-import GenetikChips from './GenetikChips.vue';
+import GeneticsChips from './GeneticsChips.vue';
 import RangeFilter from './RangeFilter.vue';
 
 defineProps<{
   id: string;
   open: boolean;
-  genetik: readonly GenetikOption[];
-  selectedGenetik: readonly string[];
+  genetics: readonly GeneticsOption[];
+  selectedGenetics: readonly string[];
   bounds: BoundsState;
   ranges: RangeState;
 }>();
 
 const emit = defineEmits<{
-  toggleGenetik: [key: string];
+  toggleGenetics: [key: string];
   updateRange: [key: RangeKey, value: RangeValue];
 }>();
 </script>

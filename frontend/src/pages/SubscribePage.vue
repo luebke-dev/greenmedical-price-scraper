@@ -132,7 +132,7 @@ async function prefill(id: number): Promise<void> {
   try {
     const detail = await getStrain(id, signal);
     if (signal.aborted) return;
-    const strain = { id: detail.id, name: detail.name, bezeichnung: detail.bezeichnung };
+    const strain = { id: detail.id, name: detail.name, designation: detail.designation };
     drafts.value = [
       makeDraft({ kind: 'strain_available', strain }),
       makeDraft({ kind: 'strain_price_below', strain, threshold: detail.min_price ?? null }),

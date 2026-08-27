@@ -15,7 +15,7 @@ pub struct OfferInsert {
     pub pharmacy_id: i64,
     pub strain_id: i64,
     pub position: i32,
-    pub genetik: String,
+    pub genetics: String,
     pub thc_label: String,
     pub cbd_label: String,
     pub price_label: String,
@@ -44,7 +44,7 @@ pub async fn insert_many<'e>(
     let pharmacy_ids: Vec<i64> = offers.iter().map(|o| o.pharmacy_id).collect();
     let strain_ids: Vec<i64> = offers.iter().map(|o| o.strain_id).collect();
     let positions: Vec<i32> = offers.iter().map(|o| o.position).collect();
-    let genetiks: Vec<&str> = offers.iter().map(|o| o.genetik.as_str()).collect();
+    let genetics_values: Vec<&str> = offers.iter().map(|o| o.genetics.as_str()).collect();
     let thc_labels: Vec<&str> = offers.iter().map(|o| o.thc_label.as_str()).collect();
     let cbd_labels: Vec<&str> = offers.iter().map(|o| o.cbd_label.as_str()).collect();
     let price_labels: Vec<&str> = offers.iter().map(|o| o.price_label.as_str()).collect();
@@ -63,21 +63,21 @@ pub async fn insert_many<'e>(
         .collect();
 
     let result = sqlx::query!(
-        r#"INSERT INTO offers (run_id, pharmacy_id, strain_id, position, genetik, thc_label, cbd_label, price_label,
+        r#"INSERT INTO offers (run_id, pharmacy_id, strain_id, position, genetics, thc_label, cbd_label, price_label,
                                availability, product_url, price_eur, thc_pct, cbd_pct, price_per_thc_g, price_per_cbd_g)
-           SELECT $1, u.pharmacy_id, u.strain_id, u.position, u.genetik, u.thc_label, u.cbd_label, u.price_label,
+           SELECT $1, u.pharmacy_id, u.strain_id, u.position, u.genetics, u.thc_label, u.cbd_label, u.price_label,
                   u.availability, u.product_url,
                   NULLIF(u.price_eur, 'NaN'::float8), NULLIF(u.thc_pct, 'NaN'::float8), NULLIF(u.cbd_pct, 'NaN'::float8),
                   NULLIF(u.price_per_thc_g, 'NaN'::float8), NULLIF(u.price_per_cbd_g, 'NaN'::float8)
            FROM UNNEST($2::bigint[], $3::bigint[], $4::int[], $5::text[], $6::text[], $7::text[], $8::text[],
                        $9::text[], $10::text[], $11::float8[], $12::float8[], $13::float8[], $14::float8[], $15::float8[])
-                AS u(pharmacy_id, strain_id, position, genetik, thc_label, cbd_label, price_label,
+                AS u(pharmacy_id, strain_id, position, genetics, thc_label, cbd_label, price_label,
                      availability, product_url, price_eur, thc_pct, cbd_pct, price_per_thc_g, price_per_cbd_g)"#,
         run_id,
         &pharmacy_ids,
         &strain_ids,
         &positions,
-        &genetiks as &[&str],
+        &genetics_values as &[&str],
         &thc_labels as &[&str],
         &cbd_labels as &[&str],
         &price_labels as &[&str],
@@ -98,9 +98,9 @@ pub async fn insert_many<'e>(
 pub async fn for_run<'e>(exec: impl PgExecutor<'e>, run_id: i64) -> sqlx::Result<Vec<OfferRecord>> {
     let rows = sqlx::query!(
         r#"SELECT o.id AS offer_id, o.pharmacy_id, o.strain_id,
-                  p.provider, p.name AS apotheke, p.plz AS apotheke_plz, p.city AS apotheke_stadt,
-                  s.name, s.bezeichnung,
-                  o.genetik, o.thc_label, o.cbd_label, o.price_label, o.availability, o.product_url,
+                  p.provider, p.name AS pharmacy, p.postal_code AS pharmacy_postal_code, p.city AS pharmacy_city,
+                  s.name, s.designation,
+                  o.genetics, o.thc_label, o.cbd_label, o.price_label, o.availability, o.product_url,
                   o.price_eur::float8 AS "price_eur?: f64", o.price_per_thc_g::float8 AS "price_per_thc_g?: f64",
                   o.price_per_cbd_g::float8 AS "price_per_cbd_g?: f64",
                   o.thc_pct::float8 AS "thc_pct?: f64", o.cbd_pct::float8 AS "cbd_pct?: f64"
@@ -120,23 +120,23 @@ pub async fn for_run<'e>(exec: impl PgExecutor<'e>, run_id: i64) -> sqlx::Result
             pharmacy_id: r.pharmacy_id,
             provider: match r.provider.as_str() {
                 "ansay" => crate::domain::Provider::Ansay,
-                _ => crate::domain::Provider::Greenmedical,
+                _ => crate::domain::Provider::GreenMedical,
             },
             strain_id: r.strain_id,
-            apotheke: r.apotheke,
-            apotheke_plz: r.apotheke_plz,
-            apotheke_stadt: r.apotheke_stadt,
+            pharmacy: r.pharmacy,
+            pharmacy_postal_code: r.pharmacy_postal_code,
+            pharmacy_city: r.pharmacy_city,
             name: r.name,
-            bezeichnung: r.bezeichnung,
-            genetik: r.genetik,
+            designation: r.designation,
+            genetics: r.genetics,
             thc: r.thc_label,
             cbd: r.cbd_label,
-            preis_pro_gramm: r.price_label,
-            verfuegbarkeit: r.availability,
-            produkt_url: r.product_url,
-            preis_eur_pro_gramm: r.price_eur,
-            preis_eur_pro_gramm_thc: r.price_per_thc_g,
-            preis_eur_pro_gramm_cbd: r.price_per_cbd_g,
+            price_per_gram: r.price_label,
+            availability: r.availability,
+            product_url: r.product_url,
+            price_eur_per_gram: r.price_eur,
+            price_eur_per_thc_gram: r.price_per_thc_g,
+            price_eur_per_cbd_gram: r.price_per_cbd_g,
             thc_value: r.thc_pct,
             cbd_value: r.cbd_pct,
         })

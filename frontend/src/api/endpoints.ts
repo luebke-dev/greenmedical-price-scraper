@@ -32,13 +32,13 @@ export type StrainsSortKey =
   | 'pharmacy_count'
   | 'rating'
   | 'name'
-  | 'bezeichnung'
-  | 'genetik';
+  | 'designation'
+  | 'genetics';
 
 export interface StrainsParams {
   q?: string | undefined;
-  /** Lowercased genetik values; joined with commas. */
-  genetik?: readonly string[] | undefined;
+  /** Lowercased genetics values; joined with commas. */
+  genetics?: readonly string[] | undefined;
   price_min?: number | undefined;
   price_max?: number | undefined;
   thc_min?: number | undefined;
@@ -63,10 +63,10 @@ export function queryNumber(value: number | undefined): string | undefined {
 /** Query for GET /strains; parameters at their defaults are omitted. */
 export function strainsQuery(params: StrainsParams): Record<string, string | undefined> {
   const q = params.q?.trim();
-  const genetik = params.genetik?.filter((item) => item !== '');
+  const genetics = params.genetics?.filter((item) => item !== '');
   return {
     q: q ? q : undefined,
-    genetik: genetik && genetik.length > 0 ? genetik.join(',') : undefined,
+    genetics: genetics && genetics.length > 0 ? genetics.join(',') : undefined,
     price_min: queryNumber(params.price_min),
     price_max: queryNumber(params.price_max),
     thc_min: queryNumber(params.thc_min),

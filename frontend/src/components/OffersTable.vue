@@ -18,18 +18,18 @@
         <td class="empty" colspan="7">{{ de.offers.empty }}</td>
       </tr>
       <tr v-for="offer in offers" :key="offer.offer_id">
-        <td>{{ offer.apotheke || '' }}</td>
+        <td>{{ offer.pharmacy || '' }}</td>
         <td>
           <span class="provider-badge">{{ de.offers.providers[offer.provider] }}</span>
         </td>
-        <td>{{ offer.apotheke_stadt || '' }}</td>
-        <td class="price">{{ offer.preis_pro_gramm || euro(offer.preis_eur_pro_gramm, '€/g') }}</td>
-        <td class="price">{{ euro(offer.preis_eur_pro_gramm_thc, '€/g THC') }}</td>
+        <td>{{ offer.pharmacy_city || '' }}</td>
+        <td class="price">{{ offer.price_per_gram || euro(offer.price_eur_per_gram, '€/g') }}</td>
+        <td class="price">{{ euro(offer.price_eur_per_thc_gram, '€/g THC') }}</td>
         <td>
-          <StatusBadge v-if="offer.verfuegbarkeit" :value="offer.verfuegbarkeit" />
+          <StatusBadge v-if="offer.availability" :value="offer.availability" />
         </td>
         <td class="buy-cell">
-          <BuyLink v-if="offer.produkt_url" :url="offer.produkt_url" :pharmacy="offer.apotheke" />
+          <BuyLink v-if="offer.product_url" :url="offer.product_url" :pharmacy="offer.pharmacy" />
         </td>
       </tr>
     </tbody>

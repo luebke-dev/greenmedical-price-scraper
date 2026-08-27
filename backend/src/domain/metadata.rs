@@ -12,11 +12,11 @@ fn highlight(offer: &OfferRecord, price: Option<f64>) -> HighlightDto {
     HighlightDto {
         price,
         name: offer.name.clone(),
-        apotheke: offer.apotheke.clone(),
-        genetik: offer.genetik.clone(),
+        pharmacy: offer.pharmacy.clone(),
+        genetics: offer.genetics.clone(),
         thc: offer.thc.clone(),
         cbd: offer.cbd.clone(),
-        produkt_url: offer.produkt_url.clone(),
+        product_url: offer.product_url.clone(),
         strain_id: offer.strain_id,
         pharmacy_id: offer.pharmacy_id,
         rating_value: None,
@@ -46,11 +46,11 @@ pub fn best_rated(strains: &[StrainDto]) -> Option<HighlightDto> {
             HighlightDto {
                 price: strain.min_price,
                 name: strain.name.clone(),
-                apotheke: offer.map(|o| o.apotheke.clone()).unwrap_or_default(),
-                genetik: strain.genetik.clone(),
+                pharmacy: offer.map(|o| o.pharmacy.clone()).unwrap_or_default(),
+                genetics: strain.genetics.clone(),
                 thc: strain.thc.clone(),
                 cbd: strain.cbd.clone(),
-                produkt_url: offer.map(|o| o.produkt_url.clone()).unwrap_or_default(),
+                product_url: offer.map(|o| o.product_url.clone()).unwrap_or_default(),
                 strain_id: strain.id,
                 pharmacy_id: offer.map(|o| o.pharmacy_id).unwrap_or_default(),
                 rating_value: Some(Some(value)),
@@ -83,7 +83,7 @@ pub fn highest(
     value_fn: impl Fn(&OfferRecord) -> Option<f64>,
 ) -> Option<HighlightDto> {
     let rank = |offer: &OfferRecord, value: f64| {
-        (value, -offer.preis_eur_pro_gramm.unwrap_or(f64::INFINITY))
+        (value, -offer.price_eur_per_gram.unwrap_or(f64::INFINITY))
     };
     let mut best: Option<((f64, f64), &OfferRecord)> = None;
     for offer in offers {
@@ -101,7 +101,7 @@ pub fn highest(
             best = Some((candidate, offer));
         }
     }
-    best.map(|(_, offer)| highlight(offer, offer.preis_eur_pro_gramm))
+    best.map(|(_, offer)| highlight(offer, offer.price_eur_per_gram))
 }
 
 /// Reward strains high in THC *and* CBD via the product of the two values.
@@ -118,10 +118,10 @@ pub fn build_metadata(
 ) -> MetadataDto {
     let pharmacies: HashSet<&str> = offers
         .iter()
-        .filter(|o| !o.apotheke.is_empty())
-        .map(|o| o.apotheke.as_str())
+        .filter(|o| !o.pharmacy.is_empty())
+        .map(|o| o.pharmacy.as_str())
         .collect();
-    let cheapest_gram = cheapest(offers, |o| o.preis_eur_pro_gramm);
+    let cheapest_gram = cheapest(offers, |o| o.price_eur_per_gram);
 
     MetadataDto {
         generated_at,
@@ -131,8 +131,8 @@ pub fn build_metadata(
         strain_count: strains.len() as i64,
         lowest_price: cheapest_gram.as_ref().and_then(|h| h.price),
         cheapest_gram,
-        cheapest_thc_gram: cheapest(offers, |o| o.preis_eur_pro_gramm_thc),
-        cheapest_cbd_gram: cheapest(offers, |o| o.preis_eur_pro_gramm_cbd),
+        cheapest_thc_gram: cheapest(offers, |o| o.price_eur_per_thc_gram),
+        cheapest_cbd_gram: cheapest(offers, |o| o.price_eur_per_cbd_gram),
         highest_thc: highest(offers, |o| o.thc_value),
         highest_cbd: highest(offers, |o| o.cbd_value),
         highest_thc_cbd: highest(offers, combined_cannabinoids),
@@ -214,7 +214,7 @@ Apo B,20095,Hamburg,Sorte X,EMK,Indica,20%,1%,"8,00 €",neu"#,
     fn cheapest_per_gram_carries_name_and_pharmacy() {
         let entry = highlights().cheapest_gram.unwrap();
         assert_eq!(
-            (entry.price, entry.name.as_str(), entry.apotheke.as_str()),
+            (entry.price, entry.name.as_str(), entry.pharmacy.as_str()),
             (Some(6.0), "Sorte Z", "Apo C")
         );
     }
@@ -224,7 +224,7 @@ Apo B,20095,Hamburg,Sorte X,EMK,Indica,20%,1%,"8,00 €",neu"#,
         // 9.00 / 0.30 = 30.00 €/g THC is cheapest
         let entry = highlights().cheapest_thc_gram.unwrap();
         assert_eq!(
-            (entry.price, entry.name.as_str(), entry.apotheke.as_str()),
+            (entry.price, entry.name.as_str(), entry.pharmacy.as_str()),
             (Some(30.0), "Sorte Y", "Apo B")
         );
     }
@@ -234,7 +234,7 @@ Apo B,20095,Hamburg,Sorte X,EMK,Indica,20%,1%,"8,00 €",neu"#,
         // 6.00 / 0.08 = 75.00 €/g CBD is cheapest
         let entry = highlights().cheapest_cbd_gram.unwrap();
         assert_eq!(
-            (entry.price, entry.name.as_str(), entry.apotheke.as_str()),
+            (entry.price, entry.name.as_str(), entry.pharmacy.as_str()),
             (Some(75.0), "Sorte Z", "Apo C")
         );
     }
@@ -245,7 +245,7 @@ Apo B,20095,Hamburg,Sorte X,EMK,Indica,20%,1%,"8,00 €",neu"#,
         assert_eq!(
             (
                 entry.name.as_str(),
-                entry.apotheke.as_str(),
+                entry.pharmacy.as_str(),
                 entry.thc.as_str()
             ),
             ("Sorte Y", "Apo B", "30%")
@@ -258,7 +258,7 @@ Apo B,20095,Hamburg,Sorte X,EMK,Indica,20%,1%,"8,00 €",neu"#,
         assert_eq!(
             (
                 entry.name.as_str(),
-                entry.apotheke.as_str(),
+                entry.pharmacy.as_str(),
                 entry.cbd.as_str()
             ),
             ("Sorte Z", "Apo C", "8%")
@@ -304,7 +304,7 @@ Apo C,3,D,Sorte Z,ABC,Indica,20%,1%,kein Preis,neu"#,
             metadata
                 .cheapest_gram
                 .unwrap()
-                .produkt_url
+                .product_url
                 .ends_with("deliveryTarget=T")
         );
     }
@@ -342,7 +342,7 @@ Apo D,4,E,Sorte Z,ABC,Indica,20%,1%,"6,00 €",neu"#,
         let best = best_rated(&strains).unwrap();
         assert_eq!(best.name, "Sorte X");
         assert_eq!(best.price, Some(7.0), "price = strain min_price");
-        assert_eq!(best.apotheke, "Apo B", "pharmacy of the cheapest offer");
+        assert_eq!(best.pharmacy, "Apo B", "pharmacy of the cheapest offer");
         assert_eq!(best.pharmacy_id, strains[0].offers[0].pharmacy_id);
         // A rating without value (0 reviews) never qualifies.
         rated(&mut strains[0], None, 0);
@@ -397,11 +397,11 @@ Apo D,4,E,Sorte Z,ABC,Indica,20%,1%,"6,00 €",neu"#,
         let expected_highlight: BTreeSet<String> = [
             "price",
             "name",
-            "apotheke",
-            "genetik",
+            "pharmacy",
+            "genetics",
             "thc",
             "cbd",
-            "produkt_url",
+            "product_url",
             "strain_id",
             "pharmacy_id",
         ]

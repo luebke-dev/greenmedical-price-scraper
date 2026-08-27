@@ -12,7 +12,7 @@ use super::error::{ErrorDetailDto, ErrorEnvelopeDto};
 use super::handlers::{self, HealthzDto, ReadyzDto, ScrapeAcceptedDto};
 use super::subscriptions;
 use crate::domain::{
-    ConfirmDto, FacetsDto, GenetikFacetDto, HighlightDto, HistoryBucket, HistoryDto,
+    ConfirmDto, FacetsDto, GeneticsFacetDto, HighlightDto, HistoryBucket, HistoryDto,
     HistoryPointDto, MetadataDto, OfferDto, OfferHistoryMode, OfferHistoryPageDto,
     OfferHistoryRowDto, OfferHistoryRows, OfferPhaseRowDto, PharmacyDto, PharmacySeriesDto,
     PharmacySeriesPointDto, Provider, RangeDto, RatingDistributionDto, RatingDto,
@@ -86,7 +86,7 @@ impl Modify for Security {
         ErrorEnvelopeDto, ErrorDetailDto, HealthzDto, ReadyzDto, ScrapeAcceptedDto,
         RunStatus, RunTrigger, Provider, RunDto, RunErrorDto, RunDetailDto, RunsResponseDto,
         OfferDto, SortDto, RatingDto, TrendDirection, TrendDto, StrainDto, StrainDetailDto,
-        StrainListItemDto, GenetikFacetDto, RangeDto, FacetsDto, StrainsPageDto,
+        StrainListItemDto, GeneticsFacetDto, RangeDto, FacetsDto, StrainsPageDto,
         HighlightDto, ScheduleDto, MetadataDto,
         HistoryBucket, HistoryPointDto, PharmacySeriesPointDto, PharmacySeriesDto, HistoryDto,
         OfferHistoryMode, OfferHistoryRowDto, OfferPhaseRowDto, OfferHistoryRows, OfferHistoryPageDto,
@@ -241,7 +241,7 @@ mod tests {
             .collect();
         for name in [
             "q",
-            "genetik",
+            "genetics",
             "price_min",
             "price_max",
             "thc_min",

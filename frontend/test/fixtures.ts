@@ -49,14 +49,14 @@ export function makeOffer(overrides: Partial<Offer> = {}): Offer {
     offer_id: id,
     pharmacy_id: 1,
     provider: 'greenmedical',
-    apotheke: 'Grüne Blüte',
-    apotheke_plz: '04416',
-    apotheke_stadt: 'Markkleeberg',
-    preis_pro_gramm: '5,49 €/g',
-    preis_eur_pro_gramm: 5.49,
-    preis_eur_pro_gramm_thc: 20.33,
-    verfuegbarkeit: 'Auf Lager',
-    produkt_url: `https://greenmedical.health/de/cannabis/flower/${id}`,
+    pharmacy: 'Grüne Blüte',
+    pharmacy_postal_code: '04416',
+    pharmacy_city: 'Markkleeberg',
+    price_per_gram: '5,49 €/g',
+    price_eur_per_gram: 5.49,
+    price_eur_per_thc_gram: 20.33,
+    availability: 'Auf Lager',
+    product_url: `https://greenmedical.health/de/cannabis/flower/${id}`,
     ...overrides,
   };
 }
@@ -90,7 +90,7 @@ export function makeStrain(input: StrainInput = {}): Strain {
     thcPrice = 20.33,
     thcValue = 27,
     cbdValue = 1,
-    offers = [makeOffer({ preis_eur_pro_gramm: price, preis_eur_pro_gramm_thc: thcPrice })],
+    offers = [makeOffer({ price_eur_per_gram: price, price_eur_per_thc_gram: thcPrice })],
     ratingValue,
     reviewCount,
     ...rest
@@ -101,22 +101,22 @@ export function makeStrain(input: StrainInput = {}): Strain {
       : { value: ratingValue ?? null, count: reviewCount ?? 0, scraped_at: LATEST_AT };
   const id = rest.id ?? 1;
   const name = rest.name ?? `Sorte ${id}`;
-  const bezeichnung = rest.bezeichnung ?? `Bezeichnung ${id}`;
-  const genetik = rest.genetik ?? 'Indica';
+  const designation = rest.designation ?? `Designation ${id}`;
+  const genetics = rest.genetics ?? 'Indica';
   const thc = rest.thc ?? '27%';
   const cbd = rest.cbd ?? '1%';
   return {
     id,
     name,
-    bezeichnung,
-    genetik,
+    designation,
+    genetics,
     thc,
     cbd,
     thc_value: thcValue,
     cbd_value: cbdValue,
     min_price: price,
     min_price_per_thc_gram: thcPrice,
-    pharmacy_count: new Set(offers.map((offer) => offer.apotheke)).size,
+    pharmacy_count: new Set(offers.map((offer) => offer.pharmacy)).size,
     offers,
     sort: {
       price,
@@ -127,11 +127,11 @@ export function makeStrain(input: StrainInput = {}): Strain {
     },
     search: [
       name,
-      bezeichnung,
-      genetik,
+      designation,
+      genetics,
       thc,
       cbd,
-      offers.map((o) => `${o.apotheke} ${o.apotheke_stadt}`).join(' '),
+      offers.map((o) => `${o.pharmacy} ${o.pharmacy_city}`).join(' '),
     ]
       .join(' ')
       .toLowerCase(),
@@ -152,7 +152,7 @@ export function makeListItem(input: StrainInput = {}): StrainListItem {
 
 export function makeFacets(overrides: Partial<Facets> = {}): Facets {
   return {
-    genetik: [
+    genetics: [
       { value: 'Hybrid', count: 3 },
       { value: 'Indica', count: 5 },
       { value: 'Sativa', count: 2 },
@@ -233,11 +233,11 @@ export function makeMetadata(overrides: Partial<Metadata> = {}): Metadata {
   const highlight = {
     price: 5.49,
     name: 'Bunatic',
-    apotheke: 'Grüne Blüte',
-    genetik: 'Indica',
+    pharmacy: 'Grüne Blüte',
+    genetics: 'Indica',
     thc: '27%',
     cbd: '1%',
-    produkt_url: 'https://greenmedical.health/de/cannabis/flower/bunatic',
+    product_url: 'https://greenmedical.health/de/cannabis/flower/bunatic',
     strain_id: 7,
     pharmacy_id: 1,
   };

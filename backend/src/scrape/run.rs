@@ -137,9 +137,9 @@ async fn persist(
                 external_id: o.pharmacy_uuid.clone(),
                 provider: o.provider,
                 name: clean_text(Some(&o.pharmacy.name)),
-                plz: clean_text(Some(&o.pharmacy.plz)),
-                city: clean_text(Some(&o.pharmacy.stadt)),
-                address: clean_text(Some(&o.pharmacy.adresse)),
+                postal_code: clean_text(Some(&o.pharmacy.postal_code)),
+                city: clean_text(Some(&o.pharmacy.city)),
+                address: clean_text(Some(&o.pharmacy.address)),
                 url: o.pharmacy.url.trim().to_owned(),
             })
             .collect();
@@ -150,17 +150,17 @@ async fn persist(
         let mut strain_index: HashMap<(String, String), usize> = HashMap::new();
         for offer in &scrape.offers {
             let name = clean_text(Some(&offer.product.name));
-            let bezeichnung = clean_text(Some(&offer.product.bezeichnung));
-            let key = (strain_key(&name), strain_key(&bezeichnung));
-            let genetik = clean_text(Some(&offer.product.genetik));
+            let designation = clean_text(Some(&offer.product.designation));
+            let key = (strain_key(&name), strain_key(&designation));
+            let genetics = clean_text(Some(&offer.product.genetics));
             let thc = clean_text(Some(&offer.product.thc));
             let cbd = clean_text(Some(&offer.product.cbd));
             match strain_index.get(&key) {
                 Some(&i) => {
                     let entry = &mut strain_inputs[i];
                     first_nonempty(&mut entry.name, &name);
-                    first_nonempty(&mut entry.bezeichnung, &bezeichnung);
-                    first_nonempty(&mut entry.genetik, &genetik);
+                    first_nonempty(&mut entry.designation, &designation);
+                    first_nonempty(&mut entry.genetics, &genetics);
                     first_nonempty(&mut entry.thc_label, &thc);
                     first_nonempty(&mut entry.cbd_label, &cbd);
                 }
@@ -168,10 +168,10 @@ async fn persist(
                     strain_index.insert(key.clone(), strain_inputs.len());
                     strain_inputs.push(strains::StrainInput {
                         name_key: key.0,
-                        bezeichnung_key: key.1,
+                        designation_key: key.1,
                         name,
-                        bezeichnung,
-                        genetik,
+                        designation,
+                        genetics,
                         thc_label: thc,
                         cbd_label: cbd,
                     });
@@ -183,9 +183,9 @@ async fn persist(
         let mut inserts = Vec::with_capacity(scrape.offers.len());
         for (position, offer) in scrape.offers.iter().enumerate() {
             let name = clean_text(Some(&offer.product.name));
-            let bezeichnung = clean_text(Some(&offer.product.bezeichnung));
-            let key = (strain_key(&name), strain_key(&bezeichnung));
-            let price_label = clean_text(Some(&offer.product.preis_pro_gramm));
+            let designation = clean_text(Some(&offer.product.designation));
+            let key = (strain_key(&name), strain_key(&designation));
+            let price_label = clean_text(Some(&offer.product.price_per_gram));
             let thc_label = clean_text(Some(&offer.product.thc));
             let cbd_label = clean_text(Some(&offer.product.cbd));
             let price = parse_decimal(&price_label);
@@ -197,12 +197,12 @@ async fn persist(
                     .expect("pharmacy upserted"),
                 strain_id: *strain_ids.get(&key).expect("strain upserted"),
                 position: position as i32,
-                genetik: clean_text(Some(&offer.product.genetik)),
+                genetics: clean_text(Some(&offer.product.genetics)),
                 thc_label,
                 cbd_label,
                 price_label,
-                availability: clean_text(Some(&offer.product.verfuegbarkeit)),
-                product_url: offer.product.produkt_url.trim().to_owned(),
+                availability: clean_text(Some(&offer.product.availability)),
+                product_url: offer.product.product_url.trim().to_owned(),
                 price_eur: price,
                 thc_pct,
                 cbd_pct,
@@ -272,7 +272,7 @@ pub struct ReviewsOutcome {
     pub failed: u32,
 }
 
-/// `produkt_url` without query and fragment (the product page itself).
+/// `product_url` without query and fragment (the product page itself).
 pub fn product_page_url(product_url: &str) -> Result<Url, url::ParseError> {
     let mut url = Url::parse(product_url.trim())?;
     url.set_query(None);
@@ -556,13 +556,13 @@ mod tests {
 
     fn offer() -> ScrapedOffer {
         ScrapedOffer {
-            provider: crate::domain::Provider::Greenmedical,
+            provider: crate::domain::Provider::GreenMedical,
             pharmacy: PharmacyRow {
                 name: "Apo".into(),
                 url: "https://x".into(),
-                plz: "1".into(),
-                stadt: "B".into(),
-                adresse: "S".into(),
+                postal_code: "1".into(),
+                city: "B".into(),
+                address: "S".into(),
             },
             pharmacy_uuid: "u".into(),
             product: Product::default(),

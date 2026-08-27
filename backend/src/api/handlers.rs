@@ -239,8 +239,8 @@ pub async fn strain_detail(
             StrainDto {
                 id: row.id,
                 name: row.name.clone(),
-                bezeichnung: row.bezeichnung.clone(),
-                genetik: row.genetik.clone(),
+                designation: row.designation.clone(),
+                genetics: row.genetics.clone(),
                 thc: row.thc_label.clone(),
                 cbd: row.cbd_label.clone(),
                 thc_value: domain::parse_percent(&row.thc_label),
@@ -258,8 +258,8 @@ pub async fn strain_detail(
                 },
                 search: [
                     row.name.as_str(),
-                    row.bezeichnung.as_str(),
-                    row.genetik.as_str(),
+                    row.designation.as_str(),
+                    row.genetics.as_str(),
                     row.thc_label.as_str(),
                     row.cbd_label.as_str(),
                 ]
@@ -632,7 +632,7 @@ async fn export_snapshot(
 /// CSV-Export
 ///
 /// Alle Angebote des Laufs in Scrape-Reihenfolge mit den 11 Spalten des ursprünglichen Scrapers
-/// (`apotheke, apotheke_plz, apotheke_stadt, name, bezeichnung, genetik, thc, cbd, preis_pro_gramm, verfuegbarkeit, produkt_url`).
+/// (`pharmacy, pharmacy_postal_code, pharmacy_city, name, designation, genetics, thc, cbd, price_per_gram, availability, product_url`).
 #[utoipa::path(get, path = "/api/v1/export.csv", tag = "export",
     params(ExportQuery),
     responses(

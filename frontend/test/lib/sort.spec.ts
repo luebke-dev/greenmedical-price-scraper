@@ -5,12 +5,12 @@ describe('columns', () => {
   it('defines the 9 columns of the table in order', () => {
     expect(COLUMNS.map((c) => c.key)).toEqual([
       'name',
-      'bezeichnung',
+      'designation',
       'price',
       'price_per_thc_gram',
       'thc',
       'cbd',
-      'genetik',
+      'genetics',
       'pharmacy_count',
       'rating',
     ]);

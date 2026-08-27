@@ -41,7 +41,7 @@ describe('ruleSummary', () => {
   it('summarises editor drafts', () => {
     const draft = makeDraft({
       kind: 'strain_price_below',
-      strain: { id: 1, name: 'Gelato', bezeichnung: '' },
+      strain: { id: 1, name: 'Gelato', designation: '' },
       threshold: 7.25,
     });
     expect(draftSummary(draft)).toBe('Preis von Gelato fällt unter 7,25 €/g');
@@ -50,7 +50,7 @@ describe('ruleSummary', () => {
 
 describe('drafts', () => {
   it('converts drafts to rule inputs and drops unused fields', () => {
-    const strain = { id: 3, name: 'X', bezeichnung: '' };
+    const strain = { id: 3, name: 'X', designation: '' };
     expect(toRuleInput(makeDraft({ kind: 'new_strain', strain, threshold: 5 }))).toEqual({
       kind: 'new_strain',
     });
@@ -75,7 +75,7 @@ describe('drafts', () => {
   });
 
   it('validates required fields and duplicates', () => {
-    const strain = { id: 3, name: 'X', bezeichnung: '' };
+    const strain = { id: 3, name: 'X', designation: '' };
     const missingStrain = makeDraft({ kind: 'strain_available' });
     const badThreshold = makeDraft({ kind: 'any_price_below', threshold: 0 });
     const a = makeDraft({ kind: 'strain_price_below', strain, threshold: 5 });

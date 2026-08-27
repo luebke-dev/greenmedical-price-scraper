@@ -61,7 +61,7 @@ export const de = {
   },
   filters: {
     heading: 'Bereichsfilter',
-    genetik: 'Genetik',
+    genetics: 'Genetik',
     price: 'Preis',
     thc: 'THC',
     cbd: 'CBD',
@@ -72,12 +72,12 @@ export const de = {
     heading: 'Preistabelle',
     columns: {
       name: 'Sorte',
-      bezeichnung: 'Bezeichnung',
+      designation: 'Bezeichnung',
       price: 'ab €/g',
       price_per_thc_gram: 'ab €/g THC',
       thc: 'THC',
       cbd: 'CBD',
-      genetik: 'Genetik',
+      genetics: 'Genetik',
       pharmacy_count: 'Apotheken',
       rating: 'Bewertung',
     },
@@ -159,7 +159,7 @@ export const de = {
   strain: {
     back: '← Zur Übersicht',
     facts: 'Sortendaten',
-    genetik: 'Genetik',
+    genetics: 'Genetik',
     thc: 'THC',
     cbd: 'CBD',
     price: 'ab €/g',

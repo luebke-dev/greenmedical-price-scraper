@@ -12,17 +12,17 @@ describe('strainsQuery', () => {
     expect(compact(strainsQuery({}))).toEqual({});
     expect(
       compact(
-        strainsQuery({ q: '  ', genetik: [], sort: 'price', dir: 'asc', limit: 50, offset: 0 }),
+        strainsQuery({ q: '  ', genetics: [], sort: 'price', dir: 'asc', limit: 50, offset: 0 }),
       ),
     ).toEqual({});
   });
 
-  it('joins genetik with commas and rounds numbers to two decimals', () => {
+  it('joins genetics with commas and rounds numbers to two decimals', () => {
     expect(
       compact(
         strainsQuery({
           q: ' og kush ',
-          genetik: ['indica', 'hybrid sativa dominant'],
+          genetics: ['indica', 'hybrid sativa dominant'],
           price_min: 5.4,
           price_max: 12.345,
           thc_min: 18,
@@ -36,7 +36,7 @@ describe('strainsQuery', () => {
       ),
     ).toEqual({
       q: 'og kush',
-      genetik: 'indica,hybrid sativa dominant',
+      genetics: 'indica,hybrid sativa dominant',
       price_min: '5.4',
       price_max: '12.35',
       thc_min: '18',
@@ -66,9 +66,9 @@ describe('fetching', () => {
 
   it('getStrains builds the URL per contract', async () => {
     const fetchMock = stubFetch({ strains: [] });
-    await getStrains({ genetik: ['indica'], price_min: 6, sort: 'thc', dir: 'desc', offset: 100 });
+    await getStrains({ genetics: ['indica'], price_min: 6, sort: 'thc', dir: 'desc', offset: 100 });
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      '/api/v1/strains?genetik=indica&price_min=6&sort=thc&dir=desc&offset=100',
+      '/api/v1/strains?genetics=indica&price_min=6&sort=thc&dir=desc&offset=100',
     );
   });
 

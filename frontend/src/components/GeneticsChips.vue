@@ -1,7 +1,7 @@
 <template>
-  <div class="filter filter-genetik">
+  <div class="filter filter-genetics">
     <div class="filter-head">
-      <span class="filter-label" :id="`${id}-label`">{{ de.filters.genetik }}</span>
+      <span class="filter-label" :id="`${id}-label`">{{ de.filters.genetics }}</span>
     </div>
     <div class="chips" role="group" :aria-labelledby="`${id}-label`">
       <q-chip
@@ -23,11 +23,11 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { de } from '@/i18n/de';
-import type { GenetikOption } from '@/lib/filter';
+import type { GeneticsOption } from '@/lib/filter';
 
 const props = defineProps<{
   id: string;
-  options: readonly GenetikOption[];
+  options: readonly GeneticsOption[];
   selected: readonly string[];
 }>();
 

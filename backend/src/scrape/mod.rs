@@ -102,11 +102,11 @@ pub async fn scrape_flowers_for_pharmacy(
             break;
         }
         for mut product in parsed.products {
-            if !product.produkt_url.is_empty() {
-                product.produkt_url = with_delivery_target(&product.produkt_url, delivery_target);
+            if !product.product_url.is_empty() {
+                product.product_url = with_delivery_target(&product.product_url, delivery_target);
             }
             products.push(ScrapedOffer {
-                provider: Provider::Greenmedical,
+                provider: Provider::GreenMedical,
                 pharmacy: pharmacy.clone(),
                 pharmacy_uuid: pharmacy_uuid.to_owned(),
                 product,

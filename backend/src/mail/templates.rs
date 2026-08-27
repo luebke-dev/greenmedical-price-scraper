@@ -110,8 +110,8 @@ pub fn rule_heading(kind: RuleKind, threshold: Option<f64>, strain_name: Option<
 /// One event line without the link: „OG Kush (CM 24/1) – 5,49 €/g (vorher 6,49 €/g), THC 24 %, Apotheke X“.
 fn event_details(event: &Event) -> String {
     let mut line = event.strain_name.clone();
-    if !event.bezeichnung.is_empty() {
-        let _ = write!(line, " ({})", event.bezeichnung);
+    if !event.designation.is_empty() {
+        let _ = write!(line, " ({})", event.designation);
     }
     let mut facts: Vec<String> = Vec::new();
     match event.price {
@@ -261,7 +261,7 @@ mod tests {
             kind,
             strain_id: 7,
             strain_name: "OG Kush".into(),
-            bezeichnung: "CM 24/1".into(),
+            designation: "CM 24/1".into(),
             price,
             previous_price: previous,
             thc_value: Some(24.0),

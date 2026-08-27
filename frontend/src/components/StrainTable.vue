@@ -205,10 +205,10 @@ function indicator(key: SortKey): string {
 
 function textCell(row: StrainListItem, key: SortKey): string {
   switch (key) {
-    case 'bezeichnung':
-      return row.bezeichnung || '';
-    case 'genetik':
-      return row.genetik || '';
+    case 'designation':
+      return row.designation || '';
+    case 'genetics':
+      return row.genetics || '';
     case 'thc':
       return row.thc || '';
     case 'cbd':

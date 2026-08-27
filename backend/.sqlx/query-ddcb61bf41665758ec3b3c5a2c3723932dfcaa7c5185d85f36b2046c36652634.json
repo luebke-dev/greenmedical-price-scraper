@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, name, bezeichnung, genetik, thc_label, cbd_label, first_seen_at, last_seen_at,\n                  product_uuid, rating_value::float8 AS \"rating_value?: f64\", review_count, reviews_scraped_at\n           FROM strains WHERE id = $1",
+  "query": "SELECT id, name, designation, genetics, thc_label, cbd_label, first_seen_at, last_seen_at,\n                  product_uuid, rating_value::float8 AS \"rating_value?: f64\", review_count, reviews_scraped_at\n           FROM strains WHERE id = $1",
   "describe": {
     "columns": [
       {
@@ -27,23 +27,23 @@
       },
       {
         "ordinal": 2,
-        "name": "bezeichnung",
+        "name": "designation",
         "type_info": "Text",
         "origin": {
           "Table": {
             "table": "strains",
-            "name": "bezeichnung"
+            "name": "designation"
           }
         }
       },
       {
         "ordinal": 3,
-        "name": "genetik",
+        "name": "genetics",
         "type_info": "Text",
         "origin": {
           "Table": {
             "table": "strains",
-            "name": "genetik"
+            "name": "genetics"
           }
         }
       },
@@ -151,5 +151,5 @@
       true
     ]
   },
-  "hash": "01a89dedbc39176b0e353f8b44ad3800cd386e45b5b1cff572357bf8a87da3cb"
+  "hash": "ddcb61bf41665758ec3b3c5a2c3723932dfcaa7c5185d85f36b2046c36652634"
 }

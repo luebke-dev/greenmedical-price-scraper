@@ -56,7 +56,7 @@ Backend (Rust), Frontend (Quasar) und Helm-Chart müssen sich exakt daran halten
 
 ## HTTP-API
 
-Basis `/api/v1`. JSON UTF-8. Zeitstempel RFC 3339 UTC (`2026-08-27T08:00:03Z`; ausgegebene Zeitstempel können Sekundenbruchteile enthalten, z. B. `2026-08-27T08:00:03.123456Z` – Clients müssen beides parsen). Zahlen sind JSON-Numbers (nie formatierte Strings), außer den verbatim gescrapten Labels (`thc`, `cbd`, `preis_pro_gramm`).
+Basis `/api/v1`. JSON UTF-8. Zeitstempel RFC 3339 UTC (`2026-08-27T08:00:03Z`; ausgegebene Zeitstempel können Sekundenbruchteile enthalten, z. B. `2026-08-27T08:00:03.123456Z` – Clients müssen beides parsen). Zahlen sind JSON-Numbers (nie formatierte Strings), außer den verbatim gescrapten Labels (`thc`, `cbd`, `price_per_gram`).
 
 Fehler: `{"error":{"code":"not_found|bad_request|unauthorized|conflict|no_data|internal","message":"…"}}` mit passendem Status.
 Zwei Statuscodes ohne eigenen Code: `405 Method Not Allowed` (bekannter Pfad, falsche Methode) trägt `bad_request`,
@@ -87,14 +87,14 @@ export interface Offer {
   offer_id: number;
   pharmacy_id: number;
   provider: 'greenmedical' | 'ansay';
-  apotheke: string;
-  apotheke_plz: string;
-  apotheke_stadt: string;
-  preis_pro_gramm: string;               // verbatim, z.B. "5,49 €/g"
-  preis_eur_pro_gramm: number | null;
-  preis_eur_pro_gramm_thc: number | null;
-  verfuegbarkeit: string;                // "Auf Lager" | "NEU" | …
-  produkt_url: string;
+  pharmacy: string;
+  pharmacy_postal_code: string;
+  pharmacy_city: string;
+  price_per_gram: string;               // verbatim, z.B. "5,49 €/g"
+  price_eur_per_gram: number | null;
+  price_eur_per_thc_gram: number | null;
+  availability: string;                // "Auf Lager" | "NEU" | …
+  product_url: string;
 }
 
 export interface Trend {
@@ -109,8 +109,8 @@ export interface Trend {
 export interface Strain {
   id: number;                             // stabile DB-ID
   name: string;
-  bezeichnung: string;
-  genetik: string;
+  designation: string;
+  genetics: string;
   thc: string;                            // verbatim "27%", "<1%"
   cbd: string;
   thc_value: number | null;               // geparst ("<1%" → 0.99)
@@ -134,11 +134,11 @@ export interface StrainDetail extends Strain {
 export interface Highlight {
   price: number | null;
   name: string;
-  apotheke: string;
-  genetik: string;
+  pharmacy: string;
+  genetics: string;
   thc: string;
   cbd: string;
-  produkt_url: string;
+  product_url: string;
   strain_id: number;
   pharmacy_id: number;
 }
@@ -189,7 +189,7 @@ export interface History {
 }
 
 export interface Pharmacy {
-  id: number; external_id: string; provider: 'greenmedical' | 'ansay'; name: string; plz: string; city: string; address: string; url: string;
+  id: number; external_id: string; provider: 'greenmedical' | 'ansay'; name: string; postal_code: string; city: string; address: string; url: string;
   first_seen_at: string; last_seen_at: string; offer_count_latest: number;
 }
 export interface RunsResponse { runs: Run[]; total: number; }
@@ -208,7 +208,7 @@ export interface RunDetail extends Run { errors: RunError[]; }
 | `GET /api/v1/runs?limit=50&offset=0&status=` | `RunsResponse` neueste zuerst, `limit` ≤ 500 |
 | `GET /api/v1/runs/{id}` | `RunDetail` |
 | `GET /api/v1/pharmacies` | `{"pharmacies": Pharmacy[]}` |
-| `GET /api/v1/export.csv?run_id=` | `text/csv; charset=utf-8`, `Content-Disposition: attachment; filename="greenmedical_flowers.csv"`; Spalten exakt: `apotheke,apotheke_plz,apotheke_stadt,name,bezeichnung,genetik,thc,cbd,preis_pro_gramm,verfuegbarkeit,produkt_url`; Reihenfolge = Scrape-Reihenfolge |
+| `GET /api/v1/export.csv?run_id=` | `text/csv; charset=utf-8`, `Content-Disposition: attachment; filename="greenmedical_flowers.csv"`; Spalten exakt: `pharmacy,pharmacy_postal_code,pharmacy_city,name,designation,genetics,thc,cbd,price_per_gram,availability,product_url`; Reihenfolge = Scrape-Reihenfolge |
 | `GET /api/v1/export.json?run_id=` | **bare Array** `Strain[]`, `Content-Disposition: attachment; filename="flowers.json"` |
 | `POST /api/v1/admin/scrape` | `Authorization: Bearer <ADMIN_TOKEN>`; `202 {"run_id":n,"status":"running"}`; `409 conflict` (`message` „scrape_in_progress“ oder „scrape_locked_elsewhere“); `401 unauthorized`; `404` wenn `ADMIN_TOKEN` leer |
 
@@ -217,8 +217,8 @@ export interface RunDetail extends Run { errors: RunError[]; }
 ## Semantik (Port aus `build_site.py` / `scraper.py`, in Git-Historie: `git show HEAD:build_site.py`)
 
 - `parse_decimal("5,49 €/g") = 5.49` (erste Zahl, `,`→`.`, nbsp normalisiert); `parse_percent("<1%") = 0.99`, `"<0%"` → `0`; `price_per_thc = round2(price / (thc/100))`, `None` wenn thc ≤ 0.
-- Sorten-Gruppierung: Key `(lower(clean_text(name)), lower(clean_text(bezeichnung)))`; Gruppenreihenfolge nach Key; Anzeige-Felder = erster nicht-leerer Wert der Mitglieder; Offers nach `(preis is null, preis)`.
-- `search` = lowercased Join aus name, bezeichnung, genetik, thc, cbd, je Offer (apotheke, plz, stadt, preis_pro_gramm, verfuegbarkeit) und `"{min_thc_price:.2f} €/g thc"`.
+- Sorten-Gruppierung: Key `(lower(clean_text(name)), lower(clean_text(designation)))`; Gruppenreihenfolge nach Key; Anzeige-Felder = erster nicht-leerer Wert der Mitglieder; Offers nach `(preis is null, preis)`.
+- `search` = lowercased Join aus name, designation, genetics, thc, cbd, je Offer (pharmacy, postal_code, city, price_per_gram, availability) und `"{min_thc_price:.2f} €/g thc"`.
 - Highlights: `cheapest_*` = min über Offers; `highest_*` = max, Tie-Break günstigster Preis (null = +∞).
 - Trend: Referenz-Run = neuester usable Run mit `started_at <= latest.started_at - 7d`; `null` wenn keiner, oder Sorte/Preis dort fehlt.
 
@@ -232,7 +232,7 @@ export interface RunDetail extends Run { errors: RunError[]; }
 
 ## Erweiterung: Bewertungen (Reviews) pro Sorte
 
-Quelle: Produktseite (`produkt_url` ohne Query/Fragment). Serverseitig gerendert:
+Quelle: Produktseite (`product_url` ohne Query/Fragment). Serverseitig gerendert:
 - JSON-LD `"aggregateRating":{"ratingValue":"4.3","reviewCount":"124"}` (fehlt bei 0 Bewertungen),
 - Header `.pdpReviewsHeaderRating .ratingStars` mit `<span>4.3</span> <span>(124)</span>`,
 - je Bewertung `div.pdpReview`: `.pdpReviewName span` (Autor, z. B. „Carlos S."), `.pdpReviewRating .ratingStars i.fullStar|halfStar|emptyStar` (Sterne zählen), `.pdpReviewDate` („25.08.2026"), `.pdpReviewContent p` (Text), optionaler Badge-Text „Verifizierter Kauf",
@@ -287,7 +287,7 @@ export interface ReviewsResponse {
 
 ### Implementierungsentscheidungen (Backend)
 - Phase 2 startet, **nachdem** der Lauf abgeschlossen ist (`status`/`finished_at` gesetzt, Angebote committet): der Lauf ist während des Bewertungs-Scrapes bereits der „latest usable Run“, und `SCRAPE_STALE_RUN_AFTER` kann einen langen Bewertungsdurchlauf nicht als hängenden Lauf markieren. In-Process-Gate und Advisory-Lock bleiben bis zum Ende von Phase 2 gehalten; Phase 2 ändert nie den `status`, nur `reviews_scraped`/`reviews_failed`. Bei `status = failed` oder Shutdown entfällt Phase 2 (`reviews_*` bleiben `null`).
-- Auswahl: Sorten des Laufs mit `reviews_scraped_at IS NULL OR < now() − REVIEWS_MAX_AGE`, älteste zuerst, begrenzt durch `REVIEWS_MAX_PER_RUN`. Geladen wird die erste `produkt_url` der Sorte im Lauf ohne Query/Fragment.
+- Auswahl: Sorten des Laufs mit `reviews_scraped_at IS NULL OR < now() − REVIEWS_MAX_AGE`, älteste zuerst, begrenzt durch `REVIEWS_MAX_PER_RUN`. Geladen wird die erste `product_url` der Sorte im Lauf ohne Query/Fragment.
 - `scrape-once --reviews-only` nimmt denselben Gate/Lock, ignoriert `REVIEWS_MAX_AGE`, beachtet `REVIEWS_MAX_PER_RUN` und **überschreibt** `reviews_scraped`/`reviews_failed` des neuesten usable Runs; Snapshots erhalten dessen `run_id`.
 - Fingerprint = hex-SHA-256 von `author|reviewed_on|rating|content` mit `reviewed_on` als ISO-Datum (leer wenn fehlt) und `rating` mit einer Nachkommastelle; `verified` ist nicht Teil des Fingerprints und wird beim Upsert aktualisiert (`last_seen_at = now()`).
 - `rating_value` ist `null` bei `review_count = 0`, auch wenn die Seite einen Wert zeigt. `product_uuid` wird nur überschrieben, wenn die Seite eine UUID liefert.
@@ -309,12 +309,12 @@ letzten Laufs, nicht per SQL). Die Liste enthält **keine `offers` und kein `sea
 | Parameter | Default | Semantik |
 |---|---|---|
 | `q` | – | Volltext: lowercased Substring-Match auf dem bisherigen `search`-Text |
-| `genetik` | – | kommagetrennt, case-insensitiv; Sorte muss eine der Werte haben |
+| `genetics` | – | kommagetrennt, case-insensitiv; Sorte muss eine der Werte haben |
 | `price_min`, `price_max` | – | inkl. Grenzen auf `sort.price`; Sorten ohne Wert nur wenn **beide** fehlen |
 | `thc_min`, `thc_max` | – | dito auf `sort.thc` |
 | `cbd_min`, `cbd_max` | – | dito auf `sort.cbd` |
 | `rating_min` | – | `sort.rating >= rating_min`; ohne Wert nur wenn Parameter fehlt |
-| `sort` | `price` | `price \| price_per_thc_gram \| thc \| cbd \| pharmacy_count \| rating \| name \| bezeichnung \| genetik` |
+| `sort` | `price` | `price \| price_per_thc_gram \| thc \| cbd \| pharmacy_count \| rating \| name \| designation \| genetics` |
 | `dir` | `asc` | `asc \| desc`; numerische Nulls **immer zuletzt**; Text mit deutscher, case-insensitiver, numerischer Sortierung (wie `Intl.Collator('de', {numeric:true, sensitivity:'base'})` – im Backend z. B. via `icu_collator`/eigene Normalisierung); Tie-Break `id asc` |
 | `limit` | `50` | 1–500, sonst `400 bad_request` |
 | `offset` | `0` | ≥ 0 |
@@ -325,7 +325,7 @@ Ungültige `sort`/`dir` → `400 bad_request`. Unbekannte Parameter werden ignor
 ```ts
 export interface StrainListItem extends Omit<Strain, 'offers' | 'search'> {}
 export interface Facets {
-  genetik: { value: string; count: number }[];          // über ALLE Sorten des Laufs, alphabetisch (de), leerer Wert weggelassen
+  genetics: { value: string; count: number }[];          // über ALLE Sorten des Laufs, alphabetisch (de), leerer Wert weggelassen
   price: { min: number; max: number } | null;           // Rohgrenzen (ungerundet) über alle Sorten mit Wert
   thc:   { min: number; max: number } | null;
   cbd:   { min: number; max: number } | null;
@@ -345,10 +345,10 @@ Festlegungen der Backend-Implementierung (Auflösung von Unklarheiten):
 - Kollation: eigene Normalisierung (Kleinschreibung, NFKD ohne kombinierende Zeichen, `ß` → `ss`, Ziffernfolgen numerisch);
   `Äpfel` und `apfel` sind gleichrangig und werden per `id asc` getrennt. Bei `dir=desc` wird nur der Primärschlüssel umgekehrt, der
   Tie-Break bleibt `id asc`.
-- Ein leerer Text-Sortierschlüssel (z. B. `genetik=""`) ist kein Null, sondern der kleinste Wert (steht bei `asc` vorn, bei `desc` hinten).
-- `q` wird getrimmt und lowercased; leere Werte (`q=`, `genetik=,`) gelten als nicht gesetzt. Nicht-endliche Zahlen (`NaN`, `inf`) → `400`.
+- Ein leerer Text-Sortierschlüssel (z. B. `genetics=""`) ist kein Null, sondern der kleinste Wert (steht bei `asc` vorn, bei `desc` hinten).
+- `q` wird getrimmt und lowercased; leere Werte (`q=`, `genetics=,`) gelten als nicht gesetzt. Nicht-endliche Zahlen (`NaN`, `inf`) → `400`.
 - Hash: 64-Bit FNV-1a (hex) über `key=value&…` der effektiven Parameter in Schlüsselreihenfolge inkl. Defaults
-  (`dir`, `limit`, `offset`, `sort`); `genetik` als sortierte, lowercased Menge.
+  (`dir`, `limit`, `offset`, `sort`); `genetics` als sortierte, lowercased Menge.
 
 ### Frontend
 - q-table mit `server`-Pagination (`v-model:pagination`, `@request`), Seitengrößen 25/50/100 (Default 50), Seitenwechsel oben/unten.

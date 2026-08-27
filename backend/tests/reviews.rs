@@ -122,7 +122,7 @@ async fn phase_two_stores_ratings_snapshots_and_reviews(pool: PgPool) {
     assert_eq!(metadata["best_rated"]["rating_value"], 4.3);
     assert_eq!(metadata["best_rated"]["review_count"], 124);
     assert_eq!(metadata["best_rated"]["price"], 5.49);
-    assert_eq!(metadata["best_rated"]["apotheke"], "Grüne Blüte");
+    assert_eq!(metadata["best_rated"]["pharmacy"], "Grüne Blüte");
     assert!(metadata["cheapest_gram"].get("rating_value").is_none());
 
     // Strain detail carries the rating too.
@@ -506,7 +506,7 @@ async fn strains_and_metadata_expose_ratings_with_best_rated_threshold(pool: PgP
     let (_, metadata) = get_json(&app, "/api/v1/metadata").await;
     assert_eq!(metadata["best_rated"]["strain_id"], strain_x);
     assert_eq!(metadata["best_rated"]["price"], 8.0);
-    assert_eq!(metadata["best_rated"]["apotheke"], "Apo B");
+    assert_eq!(metadata["best_rated"]["pharmacy"], "Apo B");
     assert_eq!(metadata["best_rated"]["review_count"], 6);
 
     // Reaching the threshold flips best_rated. Only mark the cache stale (as the

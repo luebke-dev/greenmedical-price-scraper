@@ -6,17 +6,17 @@ use utoipa::ToSchema;
 
 /// The 11 CSV columns of the original scraper, in order.
 pub const CSV_FIELDNAMES: [&str; 11] = [
-    "apotheke",
-    "apotheke_plz",
-    "apotheke_stadt",
+    "pharmacy",
+    "pharmacy_postal_code",
+    "pharmacy_city",
     "name",
-    "bezeichnung",
-    "genetik",
+    "designation",
+    "genetics",
     "thc",
     "cbd",
-    "preis_pro_gramm",
-    "verfuegbarkeit",
-    "produkt_url",
+    "price_per_gram",
+    "availability",
+    "product_url",
 ];
 
 /// Source URL reported in metadata.
@@ -27,14 +27,14 @@ pub const SOURCE_URL: &str =
 #[serde(rename_all = "lowercase")]
 pub enum Provider {
     #[default]
-    Greenmedical,
+    GreenMedical,
     Ansay,
 }
 
 impl Provider {
     pub fn as_str(self) -> &'static str {
         match self {
-            Self::Greenmedical => "greenmedical",
+            Self::GreenMedical => "greenmedical",
             Self::Ansay => "ansay",
         }
     }
@@ -142,20 +142,20 @@ pub struct OfferRecord {
     pub pharmacy_id: i64,
     pub provider: Provider,
     pub strain_id: i64,
-    pub apotheke: String,
-    pub apotheke_plz: String,
-    pub apotheke_stadt: String,
+    pub pharmacy: String,
+    pub pharmacy_postal_code: String,
+    pub pharmacy_city: String,
     pub name: String,
-    pub bezeichnung: String,
-    pub genetik: String,
+    pub designation: String,
+    pub genetics: String,
     pub thc: String,
     pub cbd: String,
-    pub preis_pro_gramm: String,
-    pub verfuegbarkeit: String,
-    pub produkt_url: String,
-    pub preis_eur_pro_gramm: Option<f64>,
-    pub preis_eur_pro_gramm_thc: Option<f64>,
-    pub preis_eur_pro_gramm_cbd: Option<f64>,
+    pub price_per_gram: String,
+    pub availability: String,
+    pub product_url: String,
+    pub price_eur_per_gram: Option<f64>,
+    pub price_eur_per_thc_gram: Option<f64>,
+    pub price_eur_per_cbd_gram: Option<f64>,
     pub thc_value: Option<f64>,
     pub cbd_value: Option<f64>,
 }
@@ -165,14 +165,14 @@ pub struct OfferDto {
     pub offer_id: i64,
     pub pharmacy_id: i64,
     pub provider: Provider,
-    pub apotheke: String,
-    pub apotheke_plz: String,
-    pub apotheke_stadt: String,
-    pub preis_pro_gramm: String,
-    pub preis_eur_pro_gramm: Option<f64>,
-    pub preis_eur_pro_gramm_thc: Option<f64>,
-    pub verfuegbarkeit: String,
-    pub produkt_url: String,
+    pub pharmacy: String,
+    pub pharmacy_postal_code: String,
+    pub pharmacy_city: String,
+    pub price_per_gram: String,
+    pub price_eur_per_gram: Option<f64>,
+    pub price_eur_per_thc_gram: Option<f64>,
+    pub availability: String,
+    pub product_url: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
@@ -216,8 +216,8 @@ pub struct TrendDto {
 pub struct StrainDto {
     pub id: i64,
     pub name: String,
-    pub bezeichnung: String,
-    pub genetik: String,
+    pub designation: String,
+    pub genetics: String,
     pub thc: String,
     pub cbd: String,
     pub thc_value: Option<f64>,
@@ -249,11 +249,11 @@ pub struct StrainDetailDto {
 pub struct HighlightDto {
     pub price: Option<f64>,
     pub name: String,
-    pub apotheke: String,
-    pub genetik: String,
+    pub pharmacy: String,
+    pub genetics: String,
     pub thc: String,
     pub cbd: String,
-    pub produkt_url: String,
+    pub product_url: String,
     pub strain_id: i64,
     pub pharmacy_id: i64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -371,8 +371,8 @@ pub struct ReviewsResponseDto {
 pub struct StrainListItemDto {
     pub id: i64,
     pub name: String,
-    pub bezeichnung: String,
-    pub genetik: String,
+    pub designation: String,
+    pub genetics: String,
     pub thc: String,
     pub cbd: String,
     pub thc_value: Option<f64>,
@@ -391,8 +391,8 @@ impl From<&StrainDto> for StrainListItemDto {
         Self {
             id: s.id,
             name: s.name.clone(),
-            bezeichnung: s.bezeichnung.clone(),
-            genetik: s.genetik.clone(),
+            designation: s.designation.clone(),
+            genetics: s.genetics.clone(),
             thc: s.thc.clone(),
             cbd: s.cbd.clone(),
             thc_value: s.thc_value,
@@ -409,7 +409,7 @@ impl From<&StrainDto> for StrainListItemDto {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
-pub struct GenetikFacetDto {
+pub struct GeneticsFacetDto {
     pub value: String,
     pub count: i64,
 }
@@ -423,7 +423,7 @@ pub struct RangeDto {
 /// `Facets` in the contract: computed over all strains of the run, independent of filters.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
 pub struct FacetsDto {
-    pub genetik: Vec<GenetikFacetDto>,
+    pub genetics: Vec<GeneticsFacetDto>,
     pub price: Option<RangeDto>,
     pub thc: Option<RangeDto>,
     pub cbd: Option<RangeDto>,
@@ -506,7 +506,7 @@ pub struct PharmacyDto {
     pub external_id: String,
     pub provider: Provider,
     pub name: String,
-    pub plz: String,
+    pub postal_code: String,
     pub city: String,
     pub address: String,
     pub url: String,

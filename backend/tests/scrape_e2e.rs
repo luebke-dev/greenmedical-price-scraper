@@ -33,10 +33,10 @@ async fn pharmacy_selection_survives_the_session_redirect(pool: PgPool) {
     );
     let per_pharmacy: Vec<Vec<&str>> = ["Grüne Blüte", "Asavita"]
         .iter()
-        .map(|apotheke| {
+        .map(|pharmacy| {
             stored
                 .iter()
-                .filter(|o| o.apotheke == *apotheke)
+                .filter(|o| o.pharmacy == *pharmacy)
                 .map(|o| o.name.as_str())
                 .collect()
         })
@@ -170,18 +170,18 @@ async fn successful_run_stores_offers_pharmacies_and_strains(pool: PgPool) {
     // Scrape order is preserved.
     let names: Vec<_> = stored.iter().map(|o| o.name.as_str()).collect();
     assert_eq!(names, ["Bunatic", "OG Kush", "Cosmic Cream", "OG Kush"]);
-    assert_eq!(stored[0].apotheke, "Grüne Blüte");
-    assert_eq!(stored[0].apotheke_plz, "04416");
-    assert_eq!(stored[0].apotheke_stadt, "Markkleeberg");
-    assert_eq!(stored[0].preis_pro_gramm, "5,49 €/g");
-    assert_eq!(stored[0].preis_eur_pro_gramm, Some(5.49));
+    assert_eq!(stored[0].pharmacy, "Grüne Blüte");
+    assert_eq!(stored[0].pharmacy_postal_code, "04416");
+    assert_eq!(stored[0].pharmacy_city, "Markkleeberg");
+    assert_eq!(stored[0].price_per_gram, "5,49 €/g");
+    assert_eq!(stored[0].price_eur_per_gram, Some(5.49));
     assert_eq!(stored[0].thc_value, Some(27.0));
-    assert_eq!(stored[0].preis_eur_pro_gramm_thc, Some(20.33));
-    assert!(stored[0].produkt_url.contains(
+    assert_eq!(stored[0].price_eur_per_thc_gram, Some(20.33));
+    assert!(stored[0].product_url.contains(
         "deliveryTarget=cGhhcm1hY3k6fDpiNGJkZGNjNS1kYzQxLTQ5ZDgtODdkZi0xNGEwM2Q1NjFiMzI%3D"
     ));
     assert!(
-        !stored[0].produkt_url.contains('#'),
+        !stored[0].product_url.contains('#'),
         "fragment must be stripped"
     );
     // "<1%" is parsed to 0.99.
@@ -190,7 +190,7 @@ async fn successful_run_stores_offers_pharmacies_and_strains(pool: PgPool) {
     // The shared strain has the same id at both pharmacies.
     assert_eq!(stored[1].strain_id, stored[3].strain_id);
     assert_ne!(stored[1].pharmacy_id, stored[3].pharmacy_id);
-    assert_eq!(stored[3].verfuegbarkeit, "NEU");
+    assert_eq!(stored[3].availability, "NEU");
 
     let latest = runs::latest_usable(&pool).await.unwrap().unwrap();
     assert_eq!(latest.id, run.id);
@@ -415,10 +415,10 @@ async fn missing_price_is_stored_as_null(pool: PgPool) {
     let run = scrape_now(&state, RunTrigger::Manual).await.unwrap();
     assert_eq!(run.status, RunStatus::Success);
     let stored = offers::for_run(&pool, run.id).await.unwrap();
-    assert_eq!(stored[0].preis_pro_gramm, "");
-    assert_eq!(stored[0].preis_eur_pro_gramm, None);
-    assert_eq!(stored[0].preis_eur_pro_gramm_thc, None);
-    assert_eq!(stored[1].preis_eur_pro_gramm, Some(9.0));
+    assert_eq!(stored[0].price_per_gram, "");
+    assert_eq!(stored[0].price_eur_per_gram, None);
+    assert_eq!(stored[0].price_eur_per_thc_gram, None);
+    assert_eq!(stored[1].price_eur_per_gram, Some(9.0));
     let snapshot = state.snapshot.get_or_load(&pool).await.unwrap().unwrap();
     // Unpriced strain sorts by key ("mit preis" < "ohne preis") and has null price.
     let ohne = snapshot

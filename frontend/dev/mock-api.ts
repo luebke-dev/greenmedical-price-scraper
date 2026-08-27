@@ -74,7 +74,7 @@ function nextFullHour(now: Date = new Date()): string {
 }
 
 const CSV_HEADER =
-  'apotheke,apotheke_plz,apotheke_stadt,name,bezeichnung,genetik,thc,cbd,preis_pro_gramm,verfuegbarkeit,produkt_url';
+  'pharmacy,pharmacy_postal_code,pharmacy_city,name,designation,genetics,thc,cbd,price_per_gram,availability,product_url';
 
 const DAY_MS = 86_400_000;
 
@@ -296,11 +296,11 @@ function toHighlight(strain: Strain, rating: Rating): Highlight {
   return {
     price: strain.min_price,
     name: strain.name,
-    apotheke: offer?.apotheke ?? '',
-    genetik: strain.genetik,
+    pharmacy: offer?.pharmacy ?? '',
+    genetics: strain.genetics,
     thc: strain.thc,
     cbd: strain.cbd,
-    produkt_url: offer?.produkt_url ?? '',
+    product_url: offer?.product_url ?? '',
     strain_id: strain.id,
     pharmacy_id: offer?.pharmacy_id ?? 0,
     rating_value: rating.value,
@@ -403,17 +403,17 @@ function toCsv(strains: Strain[]): string {
     for (const offer of strain.offers) {
       lines.push(
         [
-          offer.apotheke,
-          offer.apotheke_plz,
-          offer.apotheke_stadt,
+          offer.pharmacy,
+          offer.pharmacy_postal_code,
+          offer.pharmacy_city,
           strain.name,
-          strain.bezeichnung,
-          strain.genetik,
+          strain.designation,
+          strain.genetics,
           strain.thc,
           strain.cbd,
-          offer.preis_pro_gramm,
-          offer.verfuegbarkeit,
-          offer.produkt_url,
+          offer.price_per_gram,
+          offer.availability,
+          offer.product_url,
         ]
           .map(csvCell)
           .join(','),
@@ -437,11 +437,11 @@ function pharmaciesFrom(fixtures: Fixtures): Pharmacy[] {
         id: offer.pharmacy_id,
         external_id: `00000000-0000-4000-8000-${String(offer.pharmacy_id).padStart(12, '0')}`,
         provider: offer.provider,
-        name: offer.apotheke,
-        plz: offer.apotheke_plz,
-        city: offer.apotheke_stadt,
+        name: offer.pharmacy,
+        postal_code: offer.pharmacy_postal_code,
+        city: offer.pharmacy_city,
         address: '',
-        url: `https://greenmedical.health/de/apotheken/${offer.pharmacy_id}`,
+        url: `https://greenmedical.health/de/pharmacies/${offer.pharmacy_id}`,
         first_seen_at:
           fixtures.runs.runs[fixtures.runs.runs.length - 1]?.started_at ?? run.started_at,
         last_seen_at: run.finished_at ?? run.started_at,
@@ -591,8 +591,8 @@ const STRAIN_SORT_KEYS = new Set([
   'pharmacy_count',
   'rating',
   'name',
-  'bezeichnung',
-  'genetik',
+  'designation',
+  'genetics',
 ]);
 
 function numberParam(url: URL, name: string): number | null {
@@ -620,8 +620,8 @@ function strainSortValue(strain: Strain, key: string): number | string | null {
     case 'pharmacy_count':
       return strain.pharmacy_count;
     case 'name':
-    case 'bezeichnung':
-    case 'genetik':
+    case 'designation':
+    case 'genetics':
       return strain[key] || '';
     default:
       return null;
@@ -658,17 +658,17 @@ function facetRange(values: (number | null)[]): { min: number; max: number } | n
 }
 
 function buildFacets(strains: Strain[]): Facets {
-  const genetik = new Map<string, { value: string; count: number }>();
+  const genetics = new Map<string, { value: string; count: number }>();
   for (const strain of strains) {
-    const value = strain.genetik?.trim() ?? '';
+    const value = strain.genetics?.trim() ?? '';
     if (!value) continue;
     const key = value.toLowerCase();
-    const entry = genetik.get(key);
+    const entry = genetics.get(key);
     if (entry) entry.count += 1;
-    else genetik.set(key, { value, count: 1 });
+    else genetics.set(key, { value, count: 1 });
   }
   return {
-    genetik: [...genetik.values()].sort((a, b) => deCollator.compare(a.value, b.value)),
+    genetics: [...genetics.values()].sort((a, b) => deCollator.compare(a.value, b.value)),
     price: facetRange(strains.map((strain) => strain.sort.price)),
     thc: facetRange(strains.map((strain) => strain.sort.thc)),
     cbd: facetRange(strains.map((strain) => strain.sort.cbd)),
@@ -707,8 +707,8 @@ function strainsPage(fixtures: Fixtures, url: URL, ifNoneMatch: string | null): 
   if (!Number.isInteger(offset) || offset < 0) return error(400, 'bad_request', 'offset >= 0');
 
   const q = (url.searchParams.get('q') ?? '').trim().toLowerCase();
-  const genetik = new Set(
-    (url.searchParams.get('genetik') ?? '')
+  const genetics = new Set(
+    (url.searchParams.get('genetics') ?? '')
       .split(',')
       .map((item) => item.trim().toLowerCase())
       .filter((item) => item !== ''),
@@ -724,7 +724,7 @@ function strainsPage(fixtures: Fixtures, url: URL, ifNoneMatch: string | null): 
   const hits = all
     .filter((strain) => {
       if (q && !strain.search.includes(q)) return false;
-      if (genetik.size > 0 && !genetik.has((strain.genetik ?? '').toLowerCase())) return false;
+      if (genetics.size > 0 && !genetics.has((strain.genetics ?? '').toLowerCase())) return false;
       if (!inBounds(strain.sort.price, ...bounds.price)) return false;
       if (!inBounds(strain.sort.thc, ...bounds.thc)) return false;
       if (!inBounds(strain.sort.cbd, ...bounds.cbd)) return false;

@@ -23,7 +23,7 @@ type Filters = ReturnType<typeof useStrainFilters>;
 /** Facets: price 5.49–8 → slider 5.4–8; thc 20–27; cbd 0.99–5 → 0.9–5. */
 function facets() {
   return makeFacets({
-    genetik: [
+    genetics: [
       { value: 'Indica', count: 2 },
       { value: 'Sativa', count: 1 },
     ],
@@ -90,7 +90,7 @@ describe('useStrainFilters', () => {
       thc: { lo: 20, hi: 27 },
       cbd: { lo: 0.9, hi: 5 },
     });
-    expect(filters.genetik.value.map((o) => o.key)).toEqual(['indica', 'sativa']);
+    expect(filters.genetics.value.map((o) => o.key)).toEqual(['indica', 'sativa']);
     expect(filters.rows.value.map((r) => r.id)).toEqual([1]);
     expect(filters.count.value).toBe(3);
     expect(router.currentRoute.value.query).toEqual({});
@@ -103,18 +103,18 @@ describe('useStrainFilters', () => {
     expect(lastParams()).toEqual({ ...BASE, offset: 100 });
     expect(router.currentRoute.value.query).toEqual({ page: '3' });
 
-    filters.toggleGenetik('indica');
+    filters.toggleGenetics('indica');
     await flushPromises();
-    expect(lastParams()).toEqual({ ...BASE, genetik: ['indica'] });
+    expect(lastParams()).toEqual({ ...BASE, genetics: ['indica'] });
     expect(filters.state.page).toBe(1);
-    expect(router.currentRoute.value.query).toEqual({ genetik: ['indica'] });
+    expect(router.currentRoute.value.query).toEqual({ genetics: ['indica'] });
 
     filters.setSort('name');
     filters.setRange('price', { lo: 6, hi: 8 });
     await flushPromises();
-    expect(lastParams()).toEqual({ ...BASE, genetik: ['indica'], price_min: 6, sort: 'name' });
+    expect(lastParams()).toEqual({ ...BASE, genetics: ['indica'], price_min: 6, sort: 'name' });
     expect(router.currentRoute.value.query).toEqual({
-      genetik: ['indica'],
+      genetics: ['indica'],
       preis: '6-8',
       sort: 'name',
     });
@@ -123,9 +123,9 @@ describe('useStrainFilters', () => {
     filters.setRange('price', { lo: 5.4, hi: 8 });
     filters.setSort('name');
     await flushPromises();
-    expect(lastParams()).toEqual({ ...BASE, genetik: ['indica'], sort: 'name', dir: 'desc' });
+    expect(lastParams()).toEqual({ ...BASE, genetics: ['indica'], sort: 'name', dir: 'desc' });
     expect(router.currentRoute.value.query).toEqual({
-      genetik: ['indica'],
+      genetics: ['indica'],
       sort: 'name',
       dir: 'desc',
     });
@@ -166,7 +166,7 @@ describe('useStrainFilters', () => {
     await router.replace({
       query: {
         q: 'a',
-        genetik: 'INDICA',
+        genetics: 'INDICA',
         preis: '0-6',
         sort: 'thc',
         dir: 'desc',
@@ -178,7 +178,7 @@ describe('useStrainFilters', () => {
     // First request: sent as given (bounds unknown), then clamped to the facets.
     expect(strainsMock.mock.calls[0]?.[0]).toEqual({
       q: 'a',
-      genetik: ['indica'],
+      genetics: ['indica'],
       price_min: 0,
       price_max: 6,
       sort: 'thc',
@@ -188,13 +188,13 @@ describe('useStrainFilters', () => {
     });
     expect(filters.state.query).toBe('a');
     expect(filters.searchInput.value).toBe('a');
-    expect(filters.state.genetik).toEqual(['indica']);
+    expect(filters.state.genetics).toEqual(['indica']);
     expect(filters.state.ranges.price).toEqual({ lo: 5.4, hi: 6 });
     expect(filters.state.sort).toEqual({ key: 'thc', direction: 'desc' });
     expect(filters.state).toMatchObject({ page: 2, size: 25 });
     expect(lastParams()).toEqual({
       q: 'a',
-      genetik: ['indica'],
+      genetics: ['indica'],
       price_max: 6,
       sort: 'thc',
       dir: 'desc',
@@ -204,7 +204,7 @@ describe('useStrainFilters', () => {
     // The deep link stays as typed: it parses to the same state, so no rewrite is needed.
     expect(router.currentRoute.value.query).toEqual({
       q: 'a',
-      genetik: 'INDICA',
+      genetics: 'INDICA',
       preis: '0-6',
       sort: 'thc',
       dir: 'desc',
@@ -213,20 +213,20 @@ describe('useStrainFilters', () => {
     });
   });
 
-  it('keeps a deep link intact while the first response is pending and reconciles genetik', async () => {
+  it('keeps a deep link intact while the first response is pending and reconciles genetics', async () => {
     let release!: () => void;
     strainsMock.mockImplementationOnce(
       () => new Promise<StrainsPage>((resolve) => (release = () => resolve(pageOf()))),
     );
-    await router.replace({ query: { genetik: ['indica', 'ruderalis'], preis: '6-8' } });
+    await router.replace({ query: { genetics: ['indica', 'ruderalis'], preis: '6-8' } });
     const { filters } = await mountFilters();
     expect(router.currentRoute.value.query).toEqual({
-      genetik: ['indica', 'ruderalis'],
+      genetics: ['indica', 'ruderalis'],
       preis: '6-8',
     });
     expect(lastParams()).toEqual({
       ...BASE,
-      genetik: ['indica', 'ruderalis'],
+      genetics: ['indica', 'ruderalis'],
       price_min: 6,
       price_max: 8,
     });
@@ -234,18 +234,18 @@ describe('useStrainFilters', () => {
     release();
     await flushPromises();
     // Unknown chip dropped, range clamped/normalised; the request key changed → one more call.
-    expect(filters.state.genetik).toEqual(['indica']);
+    expect(filters.state.genetics).toEqual(['indica']);
     expect(filters.state.ranges.price).toEqual({ lo: 6, hi: 8 });
     expect(router.currentRoute.value.query).toEqual({
-      genetik: ['indica', 'ruderalis'],
+      genetics: ['indica', 'ruderalis'],
       preis: '6-8',
     });
-    expect(lastParams()).toEqual({ ...BASE, genetik: ['indica'], price_min: 6 });
+    expect(lastParams()).toEqual({ ...BASE, genetics: ['indica'], price_min: 6 });
     // A later change rewrites the URL with the reconciled state.
     filters.setSort('name');
     await flushPromises();
     expect(router.currentRoute.value.query).toEqual({
-      genetik: ['indica'],
+      genetics: ['indica'],
       preis: '6-8',
       sort: 'name',
     });
@@ -253,14 +253,14 @@ describe('useStrainFilters', () => {
 
   it('follows external navigation (back/forward) and resets filters but not the sort', async () => {
     const { filters } = await mountFilters();
-    await router.push({ query: { sort: 'name', dir: 'desc', genetik: 'sativa', page: '2' } });
+    await router.push({ query: { sort: 'name', dir: 'desc', genetics: 'sativa', page: '2' } });
     await flushPromises();
     expect(filters.state.sort).toEqual({ key: 'name', direction: 'desc' });
-    expect(filters.state.genetik).toEqual(['sativa']);
+    expect(filters.state.genetics).toEqual(['sativa']);
     expect(filters.state.page).toBe(2);
     expect(lastParams()).toEqual({
       ...BASE,
-      genetik: ['sativa'],
+      genetics: ['sativa'],
       sort: 'name',
       dir: 'desc',
       offset: 50,
@@ -268,7 +268,7 @@ describe('useStrainFilters', () => {
 
     filters.reset();
     await flushPromises();
-    expect(filters.state.genetik).toEqual([]);
+    expect(filters.state.genetics).toEqual([]);
     expect(filters.state.page).toBe(1);
     expect(filters.state.ranges.price).toEqual({ lo: 5.4, hi: 8 });
     expect(filters.state.sort).toEqual({ key: 'name', direction: 'desc' });
@@ -277,10 +277,10 @@ describe('useStrainFilters', () => {
   });
 
   describe('kept-alive overview (index → strain → index)', () => {
-    const FILTERED_QUERY = { genetik: ['indica'], sort: 'name', q: 'a', page: '2' };
+    const FILTERED_QUERY = { genetics: ['indica'], sort: 'name', q: 'a', page: '2' };
 
     async function applyFilters(filters: Filters) {
-      filters.toggleGenetik('indica');
+      filters.toggleGenetics('indica');
       filters.setSort('name');
       filters.searchInput.value = 'a';
       await flushPromises();
@@ -292,7 +292,7 @@ describe('useStrainFilters', () => {
     }
 
     function expectFilteredState(filters: Filters) {
-      expect(filters.state.genetik).toEqual(['indica']);
+      expect(filters.state.genetics).toEqual(['indica']);
       expect(filters.state.sort).toEqual({ key: 'name', direction: 'asc' });
       expect(filters.state.query).toBe('a');
       expect(filters.searchInput.value).toBe('a');
@@ -359,14 +359,14 @@ describe('useStrainFilters', () => {
       await router.push({ name: 'strain', params: { id: 7 } });
       await flushPromises();
 
-      await router.push({ name: 'index', query: { genetik: 'sativa' } });
+      await router.push({ name: 'index', query: { genetics: 'sativa' } });
       await flushPromises();
-      expect(filters.state.genetik).toEqual(['sativa']);
+      expect(filters.state.genetics).toEqual(['sativa']);
       expect(filters.state.query).toBe('');
       expect(filters.searchInput.value).toBe('');
       expect(filters.state.page).toBe(1);
       expect(filters.state.sort).toEqual({ key: 'price', direction: 'asc' });
-      expect(lastParams()).toEqual({ ...BASE, genetik: ['sativa'] });
+      expect(lastParams()).toEqual({ ...BASE, genetics: ['sativa'] });
     });
 
     it('re-derives ranges from facets that changed while another route was active', async () => {

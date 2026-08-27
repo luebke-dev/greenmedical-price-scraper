@@ -32,14 +32,14 @@ export interface Offer {
   offer_id: number;
   pharmacy_id: number;
   provider: Provider;
-  apotheke: string;
-  apotheke_plz: string;
-  apotheke_stadt: string;
-  preis_pro_gramm: string; // verbatim, z.B. "5,49 €/g"
-  preis_eur_pro_gramm: number | null;
-  preis_eur_pro_gramm_thc: number | null;
-  verfuegbarkeit: string; // "Auf Lager" | "NEU" | …
-  produkt_url: string;
+  pharmacy: string;
+  pharmacy_postal_code: string;
+  pharmacy_city: string;
+  price_per_gram: string; // verbatim, z.B. "5,49 €/g"
+  price_eur_per_gram: number | null;
+  price_eur_per_thc_gram: number | null;
+  availability: string; // "Auf Lager" | "NEU" | …
+  product_url: string;
 }
 
 export interface Trend {
@@ -60,8 +60,8 @@ export interface Rating {
 export interface Strain {
   id: number; // stabile DB-ID
   name: string;
-  bezeichnung: string;
-  genetik: string;
+  designation: string;
+  genetics: string;
   thc: string; // verbatim "27%", "<1%"
   cbd: string;
   thc_value: number | null; // geparst ("<1%" → 0.99)
@@ -93,11 +93,11 @@ export interface StrainDetail extends Strain {
 export interface Highlight {
   price: number | null;
   name: string;
-  apotheke: string;
-  genetik: string;
+  pharmacy: string;
+  genetics: string;
   thc: string;
   cbd: string;
-  produkt_url: string;
+  product_url: string;
   strain_id: number;
   pharmacy_id: number;
   rating_value?: number | null;
@@ -143,7 +143,7 @@ export interface FacetRange {
 
 export interface Facets {
   /** Over ALL strains of the run, alphabetical (de), empty value omitted. */
-  genetik: { value: string; count: number }[];
+  genetics: { value: string; count: number }[];
   /** Raw (unrounded) bounds over every strain with a value. */
   price: FacetRange | null;
   thc: FacetRange | null;
@@ -247,7 +247,7 @@ export interface Pharmacy {
   external_id: string;
   provider: Provider;
   name: string;
-  plz: string;
+  postal_code: string;
   city: string;
   address: string;
   url: string;

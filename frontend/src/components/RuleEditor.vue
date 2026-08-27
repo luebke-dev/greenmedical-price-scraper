@@ -64,8 +64,8 @@
                 <q-item v-bind="scope.itemProps">
                   <q-item-section>
                     <q-item-label>{{ scope.opt.name }}</q-item-label>
-                    <q-item-label v-if="scope.opt.bezeichnung" caption>{{
-                      scope.opt.bezeichnung
+                    <q-item-label v-if="scope.opt.designation" caption>{{
+                      scope.opt.designation
                     }}</q-item-label>
                   </q-item-section>
                 </q-item>
@@ -76,8 +76,8 @@
                 </q-item>
               </template>
             </q-select>
-            <span v-if="draft.strain?.bezeichnung" class="field-hint">{{
-              draft.strain.bezeichnung
+            <span v-if="draft.strain?.designation" class="field-hint">{{
+              draft.strain.designation
             }}</span>
             <span v-if="errors.get(draft.key)?.strain" class="field-error" role="alert">{{
               errors.get(draft.key)?.strain
@@ -232,7 +232,7 @@ function filterStrains(input: string, done: (update: () => void) => void, abort:
         strainOptions.value = page.strains.map((strain) => ({
           id: strain.id,
           name: strain.name,
-          bezeichnung: strain.bezeichnung,
+          designation: strain.designation,
         }));
       });
     })

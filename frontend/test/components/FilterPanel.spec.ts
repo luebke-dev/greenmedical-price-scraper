@@ -1,7 +1,7 @@
 import { mount } from '@vue/test-utils';
 import { describe, expect, it } from 'vitest';
 import FilterPanel from '@/components/FilterPanel.vue';
-import { boundsFromFacets, fullRanges, genetikFromFacets } from '@/lib/filter';
+import { boundsFromFacets, fullRanges, geneticsFromFacets } from '@/lib/filter';
 import { makeFacets } from '../fixtures';
 import { installTestPlugins } from '../helpers';
 
@@ -15,8 +15,8 @@ describe('FilterPanel', () => {
       props: {
         id: 'filters',
         open: true,
-        genetik: genetikFromFacets(facets),
-        selectedGenetik: ['indica'],
+        genetics: geneticsFromFacets(facets),
+        selectedGenetics: ['indica'],
         bounds,
         ranges: fullRanges(bounds),
       },
@@ -30,7 +30,7 @@ describe('FilterPanel', () => {
     ]);
     expect(chips[1]!.classes()).toContain('active');
     await chips[2]!.trigger('click');
-    expect(wrapper.emitted('toggleGenetik')).toEqual([['sativa']]);
+    expect(wrapper.emitted('toggleGenetics')).toEqual([['sativa']]);
 
     const ranges = wrapper.findAll('.filter-range');
     expect(ranges.map((range) => range.attributes('data-key'))).toEqual(['price', 'thc', 'cbd']);
@@ -44,8 +44,8 @@ describe('FilterPanel', () => {
       props: {
         id: 'filters',
         open: true,
-        genetik: [],
-        selectedGenetik: [],
+        genetics: [],
+        selectedGenetics: [],
         bounds: {},
         ranges: {},
       },
@@ -55,14 +55,14 @@ describe('FilterPanel', () => {
   });
 
   it('hides sliders whose facet is missing and chips below two options', () => {
-    const facets = makeFacets({ genetik: [{ value: 'Indica', count: 9 }], thc: null });
+    const facets = makeFacets({ genetics: [{ value: 'Indica', count: 9 }], thc: null });
     const bounds = boundsFromFacets(facets);
     const wrapper = mount(FilterPanel, {
       props: {
         id: 'filters',
         open: true,
-        genetik: genetikFromFacets(facets),
-        selectedGenetik: [],
+        genetics: geneticsFromFacets(facets),
+        selectedGenetics: [],
         bounds,
         ranges: fullRanges(bounds),
       },

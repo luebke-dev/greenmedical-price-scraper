@@ -35,8 +35,8 @@ describe('AppHeader', () => {
     const brand = wrapper.find('a.brand-link');
     expect(brand.attributes('href')).toBe('/');
 
-    useNavigationStore().rememberIndex({ genetik: ['indica'], sort: 'name', q: 'og' });
+    useNavigationStore().rememberIndex({ genetics: ['indica'], sort: 'name', q: 'og' });
     await nextTick();
-    expect(brand.attributes('href')).toBe('/?genetik=indica&sort=name&q=og');
+    expect(brand.attributes('href')).toBe('/?genetics=indica&sort=name&q=og');
   });
 });

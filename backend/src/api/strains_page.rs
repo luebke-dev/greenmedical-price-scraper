@@ -16,10 +16,10 @@ const MAX_LIMIT: i64 = 500;
 #[derive(Debug, Default, Deserialize, IntoParams)]
 #[into_params(parameter_in = Query)]
 pub struct StrainsQuery {
-    /// Volltext (case-insensitiv, Teilstring) über Name, Bezeichnung, Genetik, THC-/CBD-Label.
+    /// Volltext (case-insensitiv, Teilstring) über Name, Designation, Genetics, THC-/CBD-Label.
     pub q: Option<String>,
-    /// Genetik-Werte, kommagetrennt, case-insensitiv (`Indica,Sativa`).
-    pub genetik: Option<String>,
+    /// Genetics-Werte, kommagetrennt, case-insensitiv (`Indica,Sativa`).
+    pub genetics: Option<String>,
     /// Untergrenze `min_price` (€/g, inklusive); Sorten ohne Preis nur ohne Grenzen.
     pub price_min: Option<f64>,
     /// Obergrenze `min_price` (€/g, inklusive).
@@ -34,7 +34,7 @@ pub struct StrainsQuery {
     pub cbd_max: Option<f64>,
     /// Mindestbewertung; Sorten ohne Bewertung fallen heraus.
     pub rating_min: Option<f64>,
-    /// `price` (Default) | `price_per_thc_gram` | `thc` | `cbd` | `pharmacy_count` | `rating` | `name` | `bezeichnung` | `genetik`.
+    /// `price` (Default) | `price_per_thc_gram` | `thc` | `cbd` | `pharmacy_count` | `rating` | `name` | `designation` | `genetics`.
     #[param(example = "price")]
     pub sort: Option<String>,
     /// `asc` (Default) | `desc`; numerische Nullwerte stehen in beiden Richtungen hinten.
@@ -68,7 +68,7 @@ impl Range {
 pub struct StrainsRequest {
     pub q: Option<String>,
     /// Lowercased, deduplicated, sorted.
-    pub genetik: Vec<String>,
+    pub genetics: Vec<String>,
     pub price: Range,
     pub thc: Range,
     pub cbd: Range,
@@ -129,19 +129,19 @@ impl StrainsQuery {
             .q
             .map(|q| q.trim().to_lowercase())
             .filter(|q| !q.is_empty());
-        let mut genetik: Vec<String> = self
-            .genetik
+        let mut genetics: Vec<String> = self
+            .genetics
             .as_deref()
             .unwrap_or_default()
             .split(',')
             .map(|g| g.trim().to_lowercase())
             .filter(|g| !g.is_empty())
             .collect();
-        genetik.sort();
-        genetik.dedup();
+        genetics.sort();
+        genetics.dedup();
         Ok(StrainsRequest {
             q,
-            genetik,
+            genetics,
             price: range("price", self.price_min, self.price_max)?,
             thc: range("thc", self.thc_min, self.thc_max)?,
             cbd: range("cbd", self.cbd_min, self.cbd_max)?,
@@ -162,10 +162,10 @@ impl StrainsRequest {
         {
             return false;
         }
-        if !self.genetik.is_empty()
+        if !self.genetics.is_empty()
             && self
-                .genetik
-                .binary_search(&snapshot.keys[index].genetik_lower)
+                .genetics
+                .binary_search(&snapshot.keys[index].genetics_lower)
                 .is_err()
         {
             return false;
@@ -225,8 +225,8 @@ impl StrainsRequest {
         num("thc_max", self.thc.max);
         num("thc_min", self.thc.min);
         pairs.push(("dir", self.dir.as_str().into()));
-        if !self.genetik.is_empty() {
-            pairs.push(("genetik", self.genetik.join(",")));
+        if !self.genetics.is_empty() {
+            pairs.push(("genetics", self.genetics.join(",")));
         }
         pairs.push(("limit", self.limit.to_string()));
         pairs.push(("offset", self.offset.to_string()));
@@ -271,7 +271,7 @@ mod tests {
         assert_eq!(req.offset, 0);
         assert_eq!(req.sort, StrainSort::Price);
         assert_eq!(req.dir, SortDir::Asc);
-        assert!(req.genetik.is_empty());
+        assert!(req.genetics.is_empty());
         for (limit, offset) in [(0, 0), (501, 0), (1, -1)] {
             let query = StrainsQuery {
                 limit: Some(limit),
@@ -307,15 +307,15 @@ mod tests {
     }
 
     #[test]
-    fn genetik_is_normalised() {
+    fn genetics_is_normalised() {
         let req = StrainsQuery {
-            genetik: Some(" Sativa, indica,,SATIVA ".into()),
+            genetics: Some(" Sativa, indica,,SATIVA ".into()),
             q: Some("  OG ".into()),
             ..Default::default()
         }
         .validate()
         .unwrap();
-        assert_eq!(req.genetik, ["indica", "sativa"]);
+        assert_eq!(req.genetics, ["indica", "sativa"]);
         assert_eq!(req.q.as_deref(), Some("og"));
     }
 
@@ -340,14 +340,14 @@ mod tests {
     #[test]
     fn normalised_query_is_order_independent() {
         let a = StrainsQuery {
-            genetik: Some("Sativa,Indica".into()),
+            genetics: Some("Sativa,Indica".into()),
             price_min: Some(5.0),
             ..Default::default()
         }
         .validate()
         .unwrap();
         let b = StrainsQuery {
-            genetik: Some("indica,sativa".into()),
+            genetics: Some("indica,sativa".into()),
             price_min: Some(5.0),
             sort: Some("price".into()),
             dir: Some("asc".into()),
@@ -359,7 +359,7 @@ mod tests {
         assert_eq!(a.normalised(), b.normalised());
         assert_eq!(
             a.normalised(),
-            "dir=asc&genetik=indica,sativa&limit=50&offset=0&price_min=5&sort=price"
+            "dir=asc&genetics=indica,sativa&limit=50&offset=0&price_min=5&sort=price"
         );
         assert_eq!(a.hash(), b.hash());
         let c = StrainsQuery {
