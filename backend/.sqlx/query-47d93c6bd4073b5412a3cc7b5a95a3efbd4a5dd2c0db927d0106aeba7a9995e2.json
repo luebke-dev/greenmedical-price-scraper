@@ -1,0 +1,21 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT max(reviews_scraped_at) AS \"version?\" FROM strains",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "version?",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "47d93c6bd4073b5412a3cc7b5a95a3efbd4a5dd2c0db927d0106aeba7a9995e2"
+}

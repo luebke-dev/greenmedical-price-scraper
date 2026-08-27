@@ -1,0 +1,88 @@
+{
+  "generated_at": "2026-08-27T20:00:00.000Z",
+  "source": "https://greenmedical.health/de/cannabis/flowers",
+  "total": 260,
+  "pharmacy_count": 18,
+  "strain_count": 30,
+  "lowest_price": 2.99,
+  "cheapest_gram": {
+    "price": 2.99,
+    "name": "Gas Leak",
+    "pharmacy": "Bavarian Cannabis",
+    "genetics": "Hybrid Indica Dominant",
+    "thc": "27%",
+    "cbd": "1%",
+    "product_url": "https://greenmedical.health/de/cannabis/flower/huala_27_1_pt_gle-gas_leak?deliveryTarget=cGhhcm1hY3k6fDo0ZDAwMDE0YS0xZjVhLTExZWYtODczNy0wMjQyYWMxNDAwMDI%3D#reviews",
+    "strain_id": 300,
+    "pharmacy_id": 5
+  },
+  "cheapest_thc_gram": {
+    "price": 11.07,
+    "name": "Gas Leak",
+    "pharmacy": "Bavarian Cannabis",
+    "genetics": "Hybrid Indica Dominant",
+    "thc": "27%",
+    "cbd": "1%",
+    "product_url": "https://greenmedical.health/de/cannabis/flower/huala_27_1_pt_gle-gas_leak?deliveryTarget=cGhhcm1hY3k6fDo0ZDAwMDE0YS0xZjVhLTExZWYtODczNy0wMjQyYWMxNDAwMDI%3D#reviews",
+    "strain_id": 300,
+    "pharmacy_id": 5
+  },
+  "cheapest_cbd_gram": {
+    "price": 57.62,
+    "name": "Moon Berry",
+    "pharmacy": "420brokkoli",
+    "genetics": "Hybrid",
+    "thc": "10%",
+    "cbd": "13%",
+    "product_url": "https://greenmedical.health/de/cannabis/flower/pedanios_10_13_mbe_ca_moon_berry-moon_berry?deliveryTarget=cGhhcm1hY3k6fDo5MGFjZWYyZi1lYjU3LTQ5MDQtOGEzMS0xMTQyYTAwZGQyZDI%3D#reviews",
+    "strain_id": 574,
+    "pharmacy_id": 1
+  },
+  "highest_thc": {
+    "price": 5.83,
+    "name": "Nothern Lime Pie",
+    "pharmacy": "Cannabisapo24",
+    "genetics": "Hybrid",
+    "thc": "33%",
+    "cbd": "1%",
+    "product_url": "https://greenmedical.health/de/cannabis/flower/enua_33_1_nlp_ca-nothern_lime_pie?deliveryTarget=cGhhcm1hY3k6fDpkYjVkNDYzZi1lMjIyLTRiNWQtOTdmMy0wMzI2MmRjODEzNDc%3D#reviews",
+    "strain_id": 593,
+    "pharmacy_id": 9
+  },
+  "highest_cbd": {
+    "price": 7.49,
+    "name": "Moon Berry",
+    "pharmacy": "420brokkoli",
+    "genetics": "Hybrid",
+    "thc": "10%",
+    "cbd": "13%",
+    "product_url": "https://greenmedical.health/de/cannabis/flower/pedanios_10_13_mbe_ca_moon_berry-moon_berry?deliveryTarget=cGhhcm1hY3k6fDo5MGFjZWYyZi1lYjU3LTQ5MDQtOGEzMS0xMTQyYTAwZGQyZDI%3D#reviews",
+    "strain_id": 574,
+    "pharmacy_id": 1
+  },
+  "highest_thc_cbd": {
+    "price": 7.49,
+    "name": "Moon Berry",
+    "pharmacy": "420brokkoli",
+    "genetics": "Hybrid",
+    "thc": "10%",
+    "cbd": "13%",
+    "product_url": "https://greenmedical.health/de/cannabis/flower/pedanios_10_13_mbe_ca_moon_berry-moon_berry?deliveryTarget=cGhhcm1hY3k6fDo5MGFjZWYyZi1lYjU3LTQ5MDQtOGEzMS0xMTQyYTAwZGQyZDI%3D#reviews",
+    "strain_id": 574,
+    "pharmacy_id": 1
+  },
+  "run": {
+    "id": 40,
+    "started_at": "2026-08-27T19:56:20.000Z",
+    "finished_at": "2026-08-27T20:00:00.000Z",
+    "status": "success",
+    "trigger": "schedule",
+    "instance": "greenmedical-backend-0",
+    "pharmacies_total": 18,
+    "pharmacies_scraped": 18,
+    "pharmacies_failed": 0,
+    "offer_count": 2017,
+    "http_requests": 224,
+    "error": null
+  }
+}

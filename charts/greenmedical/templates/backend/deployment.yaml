@@ -1,0 +1,212 @@
+{{- include "greenmedical.validate" . -}}
+{{- $b := .Values.backend -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "greenmedical.backend.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "greenmedical.backend.labels" . | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if not $b.autoscaling.enabled }}
+  replicas: {{ $b.replicaCount }}
+  {{- end }}
+  revisionHistoryLimit: {{ $b.revisionHistoryLimit }}
+  {{- with $b.strategy }}
+  strategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "greenmedical.backend.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/backend/configmap.yaml") . | sha256sum }}
+        {{- if eq (include "greenmedical.secret.create" .) "true" }}
+        checksum/secret: {{ include (print $.Template.BasePath "/backend/secret.yaml") . | sha256sum }}
+        {{- end }}
+        {{- with $b.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "greenmedical.backend.selectorLabels" . | nindent 8 }}
+        {{- with $b.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "greenmedical.serviceAccountName" . }}
+      automountServiceAccountToken: {{ .Values.serviceAccount.automountServiceAccountToken }}
+      {{- with $b.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      terminationGracePeriodSeconds: {{ $b.terminationGracePeriodSeconds }}
+      {{- with $b.priorityClassName }}
+      priorityClassName: {{ . }}
+      {{- end }}
+      containers:
+        - name: backend
+          image: {{ include "greenmedical.image" (dict "image" $b.image "chart" .Chart) | quote }}
+          imagePullPolicy: {{ $b.image.pullPolicy }}
+          {{- with $b.args }}
+          args:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $b.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+            - name: metrics
+              containerPort: 9090
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: {{ include "greenmedical.backend.fullname" . }}
+            {{- with $b.extraEnvFrom }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "greenmedical.database.secretName" . }}
+                  key: {{ include "greenmedical.database.secretKey" . }}
+            {{- if eq (include "greenmedical.adminToken.enabled" .) "true" }}
+            - name: ADMIN_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "greenmedical.adminToken.secretName" . }}
+                  key: {{ include "greenmedical.adminToken.secretKey" . }}
+            {{- end }}
+            {{- if eq (include "greenmedical.smtp.credentials" .) "true" }}
+            {{- $smtpSecret := include "greenmedical.smtp.secretName" . }}
+            - name: SMTP_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $smtpSecret }}
+                  key: SMTP_USERNAME
+                  optional: true
+            - name: SMTP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $smtpSecret }}
+                  key: SMTP_PASSWORD
+                  optional: true
+            {{- end }}
+            - name: INSTANCE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            {{- with $b.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- if $b.startupProbe.enabled }}
+          startupProbe:
+            httpGet:
+              path: /readyz
+              port: http
+              {{- with $b.startupProbe.scheme }}
+              scheme: {{ . }}
+              {{- end }}
+              {{- with $b.startupProbe.httpHeaders }}
+              httpHeaders:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+            periodSeconds: {{ $b.startupProbe.periodSeconds }}
+            timeoutSeconds: {{ $b.startupProbe.timeoutSeconds }}
+            failureThreshold: {{ $b.startupProbe.failureThreshold }}
+            {{- with $b.startupProbe.terminationGracePeriodSeconds }}
+            terminationGracePeriodSeconds: {{ . }}
+            {{- end }}
+          {{- end }}
+          {{- if $b.livenessProbe.enabled }}
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+              {{- with $b.livenessProbe.scheme }}
+              scheme: {{ . }}
+              {{- end }}
+              {{- with $b.livenessProbe.httpHeaders }}
+              httpHeaders:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+            initialDelaySeconds: {{ $b.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ $b.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ $b.livenessProbe.timeoutSeconds }}
+            failureThreshold: {{ $b.livenessProbe.failureThreshold }}
+            {{- with $b.livenessProbe.terminationGracePeriodSeconds }}
+            terminationGracePeriodSeconds: {{ . }}
+            {{- end }}
+          {{- end }}
+          {{- if $b.readinessProbe.enabled }}
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+              {{- with $b.readinessProbe.scheme }}
+              scheme: {{ . }}
+              {{- end }}
+              {{- with $b.readinessProbe.httpHeaders }}
+              httpHeaders:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+            initialDelaySeconds: {{ $b.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ $b.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ $b.readinessProbe.timeoutSeconds }}
+            failureThreshold: {{ $b.readinessProbe.failureThreshold }}
+            successThreshold: {{ $b.readinessProbe.successThreshold }}
+            {{- with $b.readinessProbe.terminationGracePeriodSeconds }}
+            terminationGracePeriodSeconds: {{ . }}
+            {{- end }}
+          {{- end }}
+          {{- with $b.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            {{- with $b.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+      volumes:
+        - name: tmp
+          emptyDir:
+            {{- with $b.tmpSizeLimit }}
+            sizeLimit: {{ . }}
+            {{- else }}
+            {}
+            {{- end }}
+        {{- with $b.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with $b.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $b.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $b.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $b.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

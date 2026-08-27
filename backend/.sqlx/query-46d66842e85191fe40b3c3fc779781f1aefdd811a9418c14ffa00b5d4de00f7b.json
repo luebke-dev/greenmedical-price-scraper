@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT r.id FROM scrape_runs r, scrape_runs cur\n           WHERE cur.id = $1 AND r.status IN ('success', 'partial')\n             AND (r.started_at, r.id) < (cur.started_at, cur.id)\n           ORDER BY r.started_at DESC, r.id DESC LIMIT 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "scrape_runs",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "46d66842e85191fe40b3c3fc779781f1aefdd811a9418c14ffa00b5d4de00f7b"
+}

@@ -1,0 +1,15 @@
+{{- if .Values.frontend.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "greenmedical.frontend.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "greenmedical.frontend.labels" . | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- include "greenmedical.hpa.spec" (dict "component" .Values.frontend "name" (include "greenmedical.frontend.fullname" .)) | nindent 2 }}
+{{- end }}

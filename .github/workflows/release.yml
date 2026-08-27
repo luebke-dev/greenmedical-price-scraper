@@ -1,0 +1,227 @@
+name: Release
+
+on:
+  # main: only after the CI workflow succeeded (images/prerelease chart never come from a red commit).
+  workflow_run:
+    workflows: [CI]
+    branches: [main]
+    types: [completed]
+  # Tags run directly; CI already ran on the commit when it was on main.
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.event.workflow_run.head_sha || github.ref }}
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  # Commit being released (workflow_run events carry the CI head sha, not the trigger sha).
+  RELEASE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+jobs:
+  images:
+    name: Image (${{ matrix.component }})
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write # cosign keyless (Sigstore OIDC)
+      attestations: write
+    strategy:
+      fail-fast: false
+      matrix:
+        component: [backend, frontend]
+    outputs:
+      backend-digest: ${{ steps.export.outputs.backend-digest }}
+      frontend-digest: ${{ steps.export.outputs.frontend-digest }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Compute image name
+        id: image
+        run: |
+          echo "RELEASE_SHA_SHORT=${RELEASE_SHA::7}" >> "$GITHUB_ENV"
+          # GHCR requires lowercase repository paths.
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          echo "name=${REGISTRY}/${owner}/greenmedical-${{ matrix.component }}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Image metadata (tags + labels)
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ steps.image.outputs.name }}
+          tags: |
+            type=raw,value=sha-${{ env.RELEASE_SHA_SHORT }}
+            type=raw,value=main,enable=${{ github.event_name == 'workflow_run' }}
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            # `latest` only for stable releases; prerelease tags such as v1.0.0-rc.1 keep it untouched.
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, '-') }}
+          labels: |
+            org.opencontainers.image.title=greenmedical-${{ matrix.component }}
+            org.opencontainers.image.vendor=luebke-dev
+
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v7
+        with:
+          context: ./${{ matrix.component }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          annotations: ${{ steps.meta.outputs.annotations }}
+          provenance: mode=max
+          sbom: true
+          cache-from: type=gha,scope=${{ matrix.component }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.component }}
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v4.1.2
+
+      - name: Sign image (keyless)
+        env:
+          IMAGE: ${{ steps.image.outputs.name }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: cosign sign --yes "${IMAGE}@${DIGEST}"
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-name: ${{ steps.image.outputs.name }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
+      - name: Export digest
+        id: export
+        run: echo "${{ matrix.component }}-digest=${{ steps.build.outputs.digest }}" >> "$GITHUB_OUTPUT"
+
+  chart:
+    name: Helm chart
+    runs-on: ubuntu-latest
+    needs: images
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    env:
+      CHART: charts/greenmedical
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v5
+        with:
+          version: v4.2.4
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v4.1.2
+
+      - name: Determine chart and app version
+        id: version
+        run: |
+          set -euo pipefail
+          base="$(sed -n 's/^version:[[:space:]]*"\{0,1\}\([^"]*\)"\{0,1\}$/\1/p' "$CHART/Chart.yaml")"
+          short="${RELEASE_SHA::7}"
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            # Tag v1.2.3 → chart 1.2.3, app 1.2.3 (image tag pushed by the images job).
+            # Prerelease tags (v1.2.3-rc.1) yield chart/app 1.2.3-rc.1 and are flagged below.
+            version="${GITHUB_REF_NAME#v}"
+            app_version="$version"
+          else
+            # main → prerelease chart pointing at the sha-<short> image tag
+            version="${base}-main.${GITHUB_RUN_NUMBER}.${short}"
+            app_version="sha-${short}"
+          fi
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "app_version=${app_version}" >> "$GITHUB_OUTPUT"
+          echo "chart ${version} / app ${app_version}"
+
+      - name: Lint chart
+        run: |
+          set -euo pipefail
+          for values in "$CHART"/ci/*-values.yaml; do
+            helm lint --strict "$CHART" -f "$values"
+          done
+
+      - name: Align Artifact Hub annotations with the released app version
+        # Chart.yaml hard-codes the appVersion image tags; the packaged copy must reference the
+        # images this workflow actually pushed (semver tag or sha-<short>) and flag main builds as prerelease.
+        env:
+          APP_VERSION: ${{ steps.version.outputs.app_version }}
+          # Stable only for tags without a prerelease suffix (v1.0.0-rc.1 stays a prerelease).
+          PRERELEASE: ${{ (startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, '-')) && 'false' || 'true' }}
+        run: |
+          set -euo pipefail
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          IMAGES="$(printf -- '- name: backend\n  image: %s/%s/greenmedical-backend:%s\n- name: frontend\n  image: %s/%s/greenmedical-frontend:%s\n' \
+            "$REGISTRY" "$owner" "$APP_VERSION" "$REGISTRY" "$owner" "$APP_VERSION")"
+          export IMAGES
+          yq -i '.annotations["artifacthub.io/images"] = strenv(IMAGES) + "\n" | .annotations["artifacthub.io/prerelease"] = strenv(PRERELEASE)' "$CHART/Chart.yaml"
+          git --no-pager diff -- "$CHART/Chart.yaml"
+
+      - name: Package chart
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          helm package "$CHART" \
+            --version "${{ steps.version.outputs.version }}" \
+            --app-version "${{ steps.version.outputs.app_version }}" \
+            --destination dist
+          ls -l dist
+
+      - name: Log in to GHCR (helm)
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login "$REGISTRY" --username "${{ github.actor }}" --password-stdin
+
+      - name: Log in to GHCR (cosign)
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push chart
+        id: push
+        run: |
+          set -euo pipefail
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          out="$(helm push dist/greenmedical-*.tgz "oci://${REGISTRY}/${owner}/charts" 2>&1 | tee /dev/stderr)"
+          digest="$(echo "$out" | sed -n 's/^Digest: *//p')"
+          echo "ref=${REGISTRY}/${owner}/charts/greenmedical" >> "$GITHUB_OUTPUT"
+          echo "digest=${digest}" >> "$GITHUB_OUTPUT"
+
+      - name: Sign chart (keyless)
+        if: steps.push.outputs.digest != ''
+        run: cosign sign --yes "${{ steps.push.outputs.ref }}@${{ steps.push.outputs.digest }}"
+
+      - name: Summary
+        run: |
+          {
+            echo "## Release"
+            echo
+            echo "| Artefakt | Referenz |"
+            echo "|---|---|"
+            echo "| Backend-Image | \`${REGISTRY}/${GITHUB_REPOSITORY_OWNER,,}/greenmedical-backend@${{ needs.images.outputs.backend-digest }}\` |"
+            echo "| Frontend-Image | \`${REGISTRY}/${GITHUB_REPOSITORY_OWNER,,}/greenmedical-frontend@${{ needs.images.outputs.frontend-digest }}\` |"
+            echo "| Chart | \`oci://${{ steps.push.outputs.ref }}\` Version \`${{ steps.version.outputs.version }}\` (App \`${{ steps.version.outputs.app_version }}\`) |"
+          } >> "$GITHUB_STEP_SUMMARY"

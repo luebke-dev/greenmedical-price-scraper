@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE scrape_runs SET reviews_scraped = $2, reviews_failed = $3 WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int4",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "bad4459aeffef86692d5988bdb16a65b3f908ce8200c1e989dda707d0c89b260"
+}

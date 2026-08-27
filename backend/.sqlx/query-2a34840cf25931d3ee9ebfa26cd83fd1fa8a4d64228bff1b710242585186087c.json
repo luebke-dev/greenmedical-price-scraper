@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE notifications\n           SET sent_at = CASE WHEN $2::text IS NULL THEN now() ELSE NULL END, error = $2\n           WHERE id = ANY($1)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8Array",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "2a34840cf25931d3ee9ebfa26cd83fd1fa8a4d64228bff1b710242585186087c"
+}

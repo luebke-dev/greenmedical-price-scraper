@@ -1,0 +1,111 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT r.id AS run_id, r.started_at, r.status,\n                  MIN(o.price_eur)::float8 AS \"min?: f64\", AVG(o.price_eur)::float8 AS \"avg?: f64\",\n                  MAX(o.price_eur)::float8 AS \"max?: f64\",\n                  MIN(o.price_per_thc_g)::float8 AS \"min_thc?: f64\", AVG(o.price_per_thc_g)::float8 AS \"avg_thc?: f64\",\n                  MAX(o.price_per_thc_g)::float8 AS \"max_thc?: f64\",\n                  COUNT(*) AS \"offer_count!\", COUNT(DISTINCT o.pharmacy_id) AS \"pharmacy_count!\"\n           FROM scrape_runs r JOIN offers o ON o.run_id = r.id\n           WHERE o.strain_id = $1 AND r.started_at >= $2 AND r.started_at <= $3\n             AND (r.status = 'success' OR ($4::bool AND r.status = 'partial'))\n           GROUP BY r.id ORDER BY r.started_at, r.id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "run_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "scrape_runs",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "started_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "scrape_runs",
+            "name": "started_at"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "scrape_runs",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "min?: f64",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "avg?: f64",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "max?: f64",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "min_thc?: f64",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 7,
+        "name": "avg_thc?: f64",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 8,
+        "name": "max_thc?: f64",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 9,
+        "name": "offer_count!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 10,
+        "name": "pharmacy_count!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Timestamptz",
+        "Timestamptz",
+        "Bool"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "b466614c31dd5deda7a87f1c78e190de5708ee98aa9958279e30f0c5ec2d367f"
+}

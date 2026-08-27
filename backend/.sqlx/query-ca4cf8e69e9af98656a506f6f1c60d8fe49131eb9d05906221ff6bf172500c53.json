@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO scrape_run_errors (run_id, pharmacy_name, pharmacy_url, stage, message)\n           SELECT $1, * FROM UNNEST($2::text[], $3::text[], $4::text[], $5::text[])",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "TextArray",
+        "TextArray",
+        "TextArray",
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "ca4cf8e69e9af98656a506f6f1c60d8fe49131eb9d05906221ff6bf172500c53"
+}

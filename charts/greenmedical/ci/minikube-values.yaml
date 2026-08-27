@@ -1,0 +1,65 @@
+# Smoke test on minikube (see README "Helm-Smoke-Test"):
+#   minikube start --driver=podman
+#   minikube image build -t greenmedical-backend:dev backend/
+#   minikube image build -t greenmedical-frontend:dev frontend/
+#   kubectl --context minikube apply -f charts/greenmedical/examples/postgres-dev.yaml
+#   helm --kube-context minikube upgrade --install greenmedical charts/greenmedical \
+#     -f charts/greenmedical/ci/minikube-values.yaml --wait --timeout 5m
+#   helm --kube-context minikube test greenmedical
+database:
+  # Postgres deployed from examples/postgres-dev.yaml (Service "postgres" in the same namespace).
+  url: postgres://greenmedical:greenmedical@postgres:5432/greenmedical
+
+adminToken:
+  value: dev-token
+
+backend:
+  # Two replicas so the advisory lock is exercised: exactly one instance runs the bootstrap scrape,
+  # the other logs "lock held, skipping".
+  replicaCount: 2
+  image:
+    repository: greenmedical-backend
+    tag: dev
+    pullPolicy: Never
+  config:
+    logFormat: pretty
+    scrapeEnabled: true
+    scrapeBootstrap: true
+
+frontend:
+  image:
+    repository: greenmedical-frontend
+    tag: dev
+    pullPolicy: Never
+
+# No mail server on minikube: subscriptions and delivery are disabled. PUBLIC_URL comes from Ingress.
+email:
+  enabled: false
+
+ingress:
+  enabled: true
+  className: nginx
+  hosts:
+    - host: greenmedical.local
+      paths:
+        - path: /
+          pathType: Prefix
+
+# Not enforced by minikube's default CNI, but rendered so the smoke test covers the policies.
+networkPolicy:
+  enabled: true
+  ingressController:
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: ingress-nginx
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: ingress-nginx
+  dbPodSelector:
+    matchLabels:
+      app.kubernetes.io/name: postgres
+      app.kubernetes.io/part-of: greenmedical
+
+tests:
+  enabled: true
+  requireData: false

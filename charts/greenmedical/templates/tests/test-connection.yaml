@@ -1,0 +1,71 @@
+{{- if .Values.tests.enabled }}
+{{- $backend := printf "http://%s:%d" (include "greenmedical.backend.fullname" .) (int .Values.backend.service.port) -}}
+{{- $frontend := printf "http://%s:%d" (include "greenmedical.frontend.fullname" .) (int .Values.frontend.service.port) -}}
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ include "greenmedical.fullname" . }}-test-connection
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "greenmedical.labels" . | nindent 4 }}
+    app.kubernetes.io/component: test
+  annotations:
+    helm.sh/hook: test
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+    {{- with .Values.commonAnnotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  restartPolicy: Never
+  {{- with .Values.imagePullSecrets }}
+  imagePullSecrets:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  serviceAccountName: {{ include "greenmedical.serviceAccountName" . }}
+  automountServiceAccountToken: false
+  securityContext:
+    runAsNonRoot: true
+    # curlimages/curl runs as curl_user (uid 100, gid 101)
+    runAsUser: 100
+    runAsGroup: 101
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: curl
+      image: "{{ .Values.tests.image.repository }}:{{ .Values.tests.image.tag }}"
+      imagePullPolicy: {{ .Values.tests.image.pullPolicy }}
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        runAsNonRoot: true
+        capabilities:
+          drop: ["ALL"]
+      {{- with .Values.tests.resources }}
+      resources:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      command:
+        - sh
+        - -ec
+        - |
+          # Each check: expected HTTP status codes (space separated) + URL.
+          check() {
+            expected="$1"; url="$2"
+            code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 15 \
+              --retry 5 --retry-delay 3 --retry-connrefused "$url" || echo "000")"
+            case " $expected " in
+              *" $code "*) echo "ok    $url -> $code" ;;
+              *) echo "FAIL  $url -> $code (expected: $expected)"; exit 1 ;;
+            esac
+          }
+          echo "backend:  {{ $backend }}"
+          echo "frontend: {{ $frontend }}"
+          check "200" "{{ $backend }}/healthz"
+          check "200" "{{ $backend }}/readyz"
+          check "200" "{{ $backend }}/api/v1/runs?limit=1"
+          check "{{ if .Values.tests.requireData }}200{{ else }}200 404{{ end }}" "{{ $backend }}/api/v1/metadata"
+          check "200" "{{ $frontend }}/healthz"
+          check "200" "{{ $frontend }}/"
+          check "200" "{{ $frontend }}/api/v1/runs?limit=1"
+          echo "all connection checks passed"
+{{- end }}

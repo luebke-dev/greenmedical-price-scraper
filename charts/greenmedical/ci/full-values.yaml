@@ -1,0 +1,247 @@
+# Chart-testing variant: every optional feature switched on, secrets provided externally.
+commonLabels:
+  team: platform
+commonAnnotations:
+  example.com/owner: greenmedical
+imagePullSecrets:
+  - name: ghcr-pull
+
+serviceAccount:
+  annotations:
+    example.com/workload-identity: greenmedical
+
+database:
+  # CloudNativePG convention: <cluster>-app / uri
+  existingSecret: greenmedical-db-app
+  existingSecretKey: uri
+
+adminToken:
+  existingSecret: greenmedical-admin
+  existingSecretKey: token
+
+email:
+  enabled: true
+  from: "Preisalarm <preisalarm@example.com>"
+  smtp:
+    host: smtp.example.com
+    port: 587
+    tls: starttls
+    existingSecret: greenmedical-smtp
+
+backend:
+  replicaCount: 2
+  image:
+    tag: 0.1.0
+    digest: sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+  config:
+    logFormat: json
+    rustLog: "info,sqlx=warn,greenmedical=debug"
+    corsAllowedOrigins: "https://greenmedical.example.com"
+    publicUrl: https://greenmedical.example.com
+    subscriptionRateLimit: "10/1h"
+    scrapeCron: "0 30 3,9,15,21 * * *"
+    scrapeUserAgent: "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0"
+    snapshotRevalidateInterval: "15s"
+    scrapeRequestTimeout: "45s"
+    scrapeRetryTotal: 5
+    scrapeBackoffFactor: 1.5
+    scrapePharmacyDelay: "400ms"
+    scrapePageDelay: "600ms"
+    scrapeMinSuccessRatio: 0.6
+    extra:
+      SCRAPE_EXTRA_FLAG: "1"
+  extraEnv:
+    - name: EXAMPLE_ENV
+      value: "1"
+  extraEnvFrom:
+    - configMapRef:
+        name: greenmedical-extra
+        optional: true
+  podAnnotations:
+    prometheus.io/scrape: "false"
+  podLabels:
+    tier: api
+  service:
+    annotations:
+      example.com/service: backend
+    labels:
+      tier: api
+  extraVolumes:
+    - name: extra
+      emptyDir: {}
+  extraVolumeMounts:
+    - name: extra
+      mountPath: /extra
+      readOnly: true
+  # custom PriorityClass; system-* classes are only admitted in kube-system
+  priorityClassName: greenmedical-high
+  nodeSelector:
+    kubernetes.io/os: linux
+  tolerations:
+    - key: dedicated
+      operator: Equal
+      value: greenmedical
+      effect: NoSchedule
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            topologyKey: kubernetes.io/hostname
+            labelSelector:
+              matchLabels:
+                app.kubernetes.io/component: backend
+  topologySpreadConstraints:
+    - maxSkew: 1
+      topologyKey: topology.kubernetes.io/zone
+      whenUnsatisfiable: ScheduleAnyway
+      labelSelector:
+        matchLabels:
+          app.kubernetes.io/component: backend
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 4
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+    behavior:
+      scaleDown:
+        stabilizationWindowSeconds: 300
+  podDisruptionBudget:
+    enabled: true
+    maxUnavailable: 1
+
+frontend:
+  replicaCount: 2
+  image:
+    tag: 0.1.0
+  extraEnv:
+    - name: EXAMPLE_ENV
+      value: "1"
+  podAnnotations:
+    example.com/frontend: "true"
+  podLabels:
+    tier: web
+  service:
+    type: NodePort
+    nodePort: 30080
+    annotations:
+      example.com/service: frontend
+  extraVolumes:
+    - name: extra
+      emptyDir: {}
+  extraVolumeMounts:
+    - name: extra
+      mountPath: /extra
+      readOnly: true
+  nodeSelector:
+    kubernetes.io/os: linux
+  topologySpreadConstraints:
+    - maxSkew: 1
+      topologyKey: kubernetes.io/hostname
+      whenUnsatisfiable: ScheduleAnyway
+      labelSelector:
+        matchLabels:
+          app.kubernetes.io/component: frontend
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 4
+    targetCPUUtilizationPercentage: 70
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/proxy-body-size: 1m
+  hosts:
+    - host: greenmedical.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+    - host: preise.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: greenmedical-tls
+      hosts:
+        - greenmedical.example.com
+        - preise.example.com
+
+metrics:
+  serviceMonitor:
+    enabled: true
+    interval: 15s
+    scrapeTimeout: 5s
+    labels:
+      release: kube-prometheus-stack
+    annotations:
+      example.com/monitor: "true"
+    honorLabels: true
+    relabelings:
+      - sourceLabels: [__meta_kubernetes_pod_name]
+        targetLabel: pod
+    metricRelabelings:
+      - sourceLabels: [__name__]
+        regex: "go_.*"
+        action: drop
+
+networkPolicy:
+  enabled: true
+  ingressController:
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: ingress-nginx
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: ingress-nginx
+  monitoring:
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: monitoring
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: prometheus
+  extraEgressCIDRs:
+    - 10.20.0.0/16
+  smtp:
+    cidrs:
+      - 10.40.0.0/16
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: postfix
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: mail
+  dbPodSelector:
+    matchLabels:
+      cnpg.io/cluster: greenmedical-db
+  dbNamespaceSelector:
+    matchLabels:
+      kubernetes.io/metadata.name: databases
+  backend:
+    extraEgress:
+      - to:
+          - ipBlock:
+              cidr: 10.30.0.0/16
+        ports:
+          - port: 8200
+            protocol: TCP
+  frontend:
+    extraIngress:
+      - from:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: uptime
+        ports:
+          - port: 8080
+            protocol: TCP
+
+tests:
+  enabled: true
+  requireData: true

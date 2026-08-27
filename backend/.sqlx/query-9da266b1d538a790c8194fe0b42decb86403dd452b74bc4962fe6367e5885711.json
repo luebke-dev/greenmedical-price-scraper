@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE scrape_runs SET finished_at = now(), status = 'failed', error = 'stale'\n           WHERE status = 'running' AND started_at < $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9da266b1d538a790c8194fe0b42decb86403dd452b74bc4962fe6367e5885711"
+}

@@ -1,0 +1,231 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT o.id AS offer_id, o.pharmacy_id, o.strain_id,\n                  p.provider, p.name AS pharmacy, p.postal_code AS pharmacy_postal_code, p.city AS pharmacy_city,\n                  s.name, s.designation,\n                  o.genetics, o.thc_label, o.cbd_label, o.price_label, o.availability, o.product_url,\n                  o.price_eur::float8 AS \"price_eur?: f64\", o.price_per_thc_g::float8 AS \"price_per_thc_g?: f64\",\n                  o.price_per_cbd_g::float8 AS \"price_per_cbd_g?: f64\",\n                  o.thc_pct::float8 AS \"thc_pct?: f64\", o.cbd_pct::float8 AS \"cbd_pct?: f64\"\n           FROM offers o\n           JOIN pharmacies p ON p.id = o.pharmacy_id\n           JOIN strains s ON s.id = o.strain_id\n           WHERE o.run_id = $1\n           ORDER BY o.position, o.id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "offer_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "offers",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "pharmacy_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "offers",
+            "name": "pharmacy_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "strain_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "offers",
+            "name": "strain_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "provider",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "pharmacies",
+            "name": "provider"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "pharmacy",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "pharmacies",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "pharmacy_postal_code",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "pharmacies",
+            "name": "postal_code"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "pharmacy_city",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "pharmacies",
+            "name": "city"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "strains",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "designation",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "strains",
+            "name": "designation"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "genetics",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "offers",
+            "name": "genetics"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "thc_label",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "offers",
+            "name": "thc_label"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "cbd_label",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "offers",
+            "name": "cbd_label"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "price_label",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "offers",
+            "name": "price_label"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "availability",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "offers",
+            "name": "availability"
+          }
+        }
+      },
+      {
+        "ordinal": 14,
+        "name": "product_url",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "offers",
+            "name": "product_url"
+          }
+        }
+      },
+      {
+        "ordinal": 15,
+        "name": "price_eur?: f64",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 16,
+        "name": "price_per_thc_g?: f64",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 17,
+        "name": "price_per_cbd_g?: f64",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 18,
+        "name": "thc_pct?: f64",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 19,
+        "name": "cbd_pct?: f64",
+        "type_info": "Float8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "7c223e5a1f090d993049586942807d624a4920f9425df04ce6a1e9a244cc5aeb"
+}

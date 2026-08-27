@@ -1,0 +1,172 @@
+{{- $np := .Values.networkPolicy -}}
+{{- if $np.enabled }}
+# ---------------------------------------------------------------------------
+# Backend: reachable from the frontend (API) and from monitoring (metrics);
+# may talk to DNS, HTTPS on the internet (greenmedical.health), the database and (if enabled) SMTP.
+# ---------------------------------------------------------------------------
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "greenmedical.backend.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "greenmedical.backend.labels" . | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "greenmedical.backend.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "greenmedical.frontend.selectorLabels" . | nindent 14 }}
+        {{- if .Values.tests.enabled }}
+        - podSelector:
+            matchLabels:
+              {{- include "greenmedical.test.selectorLabels" . | nindent 14 }}
+        {{- end }}
+      ports:
+        - port: 8080
+          protocol: TCP
+    - from:
+        {{- include "greenmedical.networkPolicy.peer" $np.monitoring | nindent 8 }}
+      ports:
+        - port: 9090
+          protocol: TCP
+    {{- with $np.backend.extraIngress }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  egress:
+    - to:
+        {{- include "greenmedical.networkPolicy.peer" $np.dns | nindent 8 }}
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    {{- if $np.externalEgress.enabled }}
+    - to:
+        - ipBlock:
+            cidr: {{ $np.externalEgress.cidr }}
+            {{- with $np.externalEgress.except }}
+            except:
+              {{- toYaml . | nindent 14 }}
+            {{- end }}
+      ports:
+        - port: {{ $np.externalEgress.port }}
+          protocol: TCP
+    {{- end }}
+    {{- if $np.extraEgressCIDRs }}
+    - to:
+        {{- range $np.extraEgressCIDRs }}
+        - ipBlock:
+            cidr: {{ . }}
+        {{- end }}
+      ports:
+        - port: {{ $np.dbPort }}
+          protocol: TCP
+    {{- end }}
+    {{- if $np.dbPodSelector }}
+    - to:
+        - podSelector:
+            {{- toYaml $np.dbPodSelector | nindent 12 }}
+          {{- with $np.dbNamespaceSelector }}
+          namespaceSelector:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      ports:
+        - port: {{ $np.dbPort }}
+          protocol: TCP
+    {{- end }}
+    {{- if $.Values.email.enabled }}
+    {{- /* SMTP: in-cluster pods and/or CIDRs; fallback = same scope as externalEgress (relay on the internet). */}}
+    - to:
+        {{- if $np.smtp.podSelector }}
+        - podSelector:
+            {{- toYaml $np.smtp.podSelector | nindent 12 }}
+          {{- with $np.smtp.namespaceSelector }}
+          namespaceSelector:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+        {{- end }}
+        {{- range $np.smtp.cidrs }}
+        - ipBlock:
+            cidr: {{ . }}
+        {{- end }}
+        {{- if and (empty $np.smtp.podSelector) (empty $np.smtp.cidrs) }}
+        - ipBlock:
+            cidr: {{ $np.externalEgress.cidr }}
+            {{- with $np.externalEgress.except }}
+            except:
+              {{- toYaml . | nindent 14 }}
+            {{- end }}
+        {{- end }}
+      ports:
+        - port: {{ $.Values.email.smtp.port }}
+          protocol: TCP
+    {{- end }}
+    {{- with $np.backend.extraEgress }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+---
+# ---------------------------------------------------------------------------
+# Frontend: reachable from the ingress controller; may talk to DNS and the backend.
+# ---------------------------------------------------------------------------
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "greenmedical.frontend.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "greenmedical.frontend.labels" . | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "greenmedical.frontend.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        {{- include "greenmedical.networkPolicy.peer" $np.ingressController | nindent 8 }}
+        {{- if .Values.tests.enabled }}
+        - podSelector:
+            matchLabels:
+              {{- include "greenmedical.test.selectorLabels" . | nindent 14 }}
+        {{- end }}
+      ports:
+        - port: 8080
+          protocol: TCP
+    {{- with $np.frontend.extraIngress }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  egress:
+    - to:
+        {{- include "greenmedical.networkPolicy.peer" $np.dns | nindent 8 }}
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- include "greenmedical.backend.selectorLabels" . | nindent 14 }}
+      ports:
+        - port: 8080
+          protocol: TCP
+    {{- with $np.frontend.extraEgress }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+{{- end }}

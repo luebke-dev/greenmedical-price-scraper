@@ -1,0 +1,226 @@
+{
+  "13": {
+    "product_uuid": "295cd587-fa4d-4bbd-88ac-ecf7de0480ae",
+    "rating": {
+      "value": 4.5,
+      "count": 124,
+      "scraped_at": "2026-08-27T19:58:00.000Z"
+    }
+  },
+  "26": {
+    "product_uuid": "6cd8aa27-5562-48c9-8513-325261cefdf1",
+    "rating": {
+      "value": 4.0,
+      "count": 62,
+      "scraped_at": "2026-08-27T19:58:00.000Z"
+    }
+  },
+  "45": {
+    "product_uuid": "22248aa4-6b0f-49f7-8e91-c787e01c5e2e",
+    "rating": {
+      "value": 3.2,
+      "count": 28,
+      "scraped_at": "2026-08-27T19:58:00.000Z"
+    }
+  },
+  "97": {
+    "product_uuid": "93e204f9-3a3b-42a7-89df-6a620dcaab77",
+    "rating": {
+      "value": 4.0,
+      "count": 75,
+      "scraped_at": "2026-08-27T19:58:00.000Z"
+    }
+  },
+  "112": {
+    "product_uuid": "59f0649b-c5cb-4aaf-8463-91897b660f4f",
+    "rating": {
+      "value": null,
+      "count": 0,
+      "scraped_at": "2026-08-27T19:58:00.000Z"
+    }
+  },
+  "122": {
+    "product_uuid": "8acf83c1-8076-4722-86ea-ce9058303ad9",
+    "rating": {
+      "value": 4.5,
+      "count": 58,
+      "scraped_at": "2026-08-27T19:58:00.000Z"
+    }
+  },
+  "135": {
+    "product_uuid": null,
+    "rating": null
+  },
+  "140": {
+    "product_uuid": "e60ced2e-12eb-442f-89d9-4a2ce34fc749",
+    "rating": {
+      "value": 4.5,
+      "count": 9,
+      "scraped_at": "2026-08-27T19:58:00.000Z"
+    }
+  },
+  "162": {
+    "product_uuid": "75f951ec-5f46-41fe-8bd4-afb4bb021cfa",
+    "rating": {
+      "value": 3.2,
+      "count": 3,
+      "scraped_at": "2026-08-27T19:58:00.000Z"
+    }
+  },
+  "194": {
+    "product_uuid": "a21b338d-b474-4af0-8981-9ec6a1d2b6c9",
+    "rating": {
+      "value": null,
+      "count": 0,
+      "scraped_at": "2026-08-27T19:58:00.000Z"
+    }
+  },
+  "242": {
+    "product_uuid": "743c856b-4485-4215-844a-8311f776b934",
+    "rating": {
+      "value": 4.2,
+      "count": 124,
+      "scraped_at": "2026-08-27T19:58:00.000Z"
+    }
+  },
+  "249": {
+    "product_uuid": "63e48ca2-4bba-4cfa-8b79-3a52d280b6fa",
+    "rating": {
+      "value": 4.5,
+      "count": 9,
+      "scraped_at": "2026-08-27T19:58:00.000Z"
+    }
+  },
+  "270": {
+    "product_uuid": "3571b36b-4e1a-4953-8a34-2581f29ef0cb",
+    "rating": {
+      "value": 4.1,
+      "count": 75,
+      "scraped_at": "2026-08-27T19:58:00.000Z"
+    }
+  },
+  "300": {
+    "product_uuid": null,
+    "rating": null
+  },
+  "411": {
+    "product_uuid": "ce54b4bc-7cbf-41b6-8d7c-2a7629e1d44e",
+    "rating": {
+      "value": null,
+      "count": 0,
+      "scraped_at": "2026-08-27T19:58:00.000Z"
+    }
+  },
+  "421": {
+    "product_uuid": "4d3c459f-e7d4-45de-8fce-9331e57855a3",
+    "rating": {
+      "value": 3.2,
+      "count": 75,
+      "scraped_at": "2026-08-27T19:58:00.000Z"
+    }
+  },
+  "442": {
+    "product_uuid": "cf5e66be-e646-45e1-8af7-233371febf5f",
+    "rating": {
+      "value": 4.6,
+      "count": 5,
+      "scraped_at": "2026-08-27T19:58:00.000Z"
+    }
+  },
+  "574": {
+    "product_uuid": "0aa13737-8713-4fa7-86bd-4e59c7dd2747",
+    "rating": {
+      "value": 3.4,
+      "count": 12,
+      "scraped_at": "2026-08-27T19:58:00.000Z"
+    }
+  },
+  "593": {
+    "product_uuid": "e0969798-1f93-4342-877b-2e6857709ddc",
+    "rating": {
+      "value": 4.7,
+      "count": 9,
+      "scraped_at": "2026-08-27T19:58:00.000Z"
+    }
+  },
+  "596": {
+    "product_uuid": "048cd7fb-0892-4611-8ed6-c98de46aaba9",
+    "rating": {
+      "value": null,
+      "count": 0,
+      "scraped_at": "2026-08-27T19:58:00.000Z"
+    }
+  },
+  "631": {
+    "product_uuid": null,
+    "rating": null
+  },
+  "635": {
+    "product_uuid": "4a19451a-0cda-4e4d-8685-6ac4382ec5f0",
+    "rating": {
+      "value": 4.3,
+      "count": 17,
+      "scraped_at": "2026-08-27T19:58:00.000Z"
+    }
+  },
+  "671": {
+    "product_uuid": "7762bd71-cc20-42ca-8f59-2b8b56df7624",
+    "rating": {
+      "value": 4.2,
+      "count": 75,
+      "scraped_at": "2026-08-27T19:58:00.000Z"
+    }
+  },
+  "680": {
+    "product_uuid": "a0bdf718-5751-442b-86bf-f6d3ad0de8b6",
+    "rating": {
+      "value": 3.7,
+      "count": 62,
+      "scraped_at": "2026-08-27T19:58:00.000Z"
+    }
+  },
+  "728": {
+    "product_uuid": "a212504c-340b-4533-8ea9-06892d91495c",
+    "rating": {
+      "value": null,
+      "count": 0,
+      "scraped_at": "2026-08-27T19:58:00.000Z"
+    }
+  },
+  "735": {
+    "product_uuid": "7abc7769-b507-40b6-8375-d22b30a359b1",
+    "rating": {
+      "value": 3.5,
+      "count": 66,
+      "scraped_at": "2026-08-27T19:58:00.000Z"
+    }
+  },
+  "737": {
+    "product_uuid": "f789005e-a82f-428c-8bbf-c84ba0096584",
+    "rating": {
+      "value": 3.6,
+      "count": 75,
+      "scraped_at": "2026-08-27T19:58:00.000Z"
+    }
+  },
+  "751": {
+    "product_uuid": null,
+    "rating": null
+  },
+  "762": {
+    "product_uuid": "c10c0346-0029-49d9-8ff5-110303d7cb4a",
+    "rating": {
+      "value": 4.4,
+      "count": 62,
+      "scraped_at": "2026-08-27T19:58:00.000Z"
+    }
+  },
+  "881": {
+    "product_uuid": "fcd4061c-0537-43ca-8498-cfb2fcb8eb48",
+    "rating": {
+      "value": null,
+      "count": 0,
+      "scraped_at": "2026-08-27T19:58:00.000Z"
+    }
+  }
+}

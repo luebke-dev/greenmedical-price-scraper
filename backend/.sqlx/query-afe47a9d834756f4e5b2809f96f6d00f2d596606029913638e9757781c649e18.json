@@ -1,0 +1,49 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT s.id AS strain_id, s.name,\n                  (array_agg(o.product_url ORDER BY o.position, o.id))[1] AS \"product_url!\"\n           FROM offers o\n           JOIN strains s ON s.id = o.strain_id\n           JOIN pharmacies p ON p.id = o.pharmacy_id\n           WHERE o.run_id = $1 AND o.product_url <> ''\n             AND p.provider = 'greenmedical'\n             AND ($2::timestamptz IS NULL OR s.reviews_scraped_at IS NULL OR s.reviews_scraped_at < $2)\n           GROUP BY s.id\n           ORDER BY s.reviews_scraped_at ASC NULLS FIRST, s.id\n           LIMIT $3",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "strain_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "strains",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "strains",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "product_url!",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Timestamptz",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "afe47a9d834756f4e5b2809f96f6d00f2d596606029913638e9757781c649e18"
+}

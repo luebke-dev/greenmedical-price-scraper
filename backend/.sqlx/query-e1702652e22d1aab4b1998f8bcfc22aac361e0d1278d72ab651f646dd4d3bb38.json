@@ -1,0 +1,90 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT (r.started_at AT TIME ZONE $5)::date AS \"day!\",\n                  COUNT(DISTINCT r.id) AS \"run_count!\",\n                  MIN(o.price_eur)::float8 AS \"min?: f64\", AVG(o.price_eur)::float8 AS \"avg?: f64\",\n                  MAX(o.price_eur)::float8 AS \"max?: f64\",\n                  MIN(o.price_per_thc_g)::float8 AS \"min_thc?: f64\", AVG(o.price_per_thc_g)::float8 AS \"avg_thc?: f64\",\n                  MAX(o.price_per_thc_g)::float8 AS \"max_thc?: f64\",\n                  ROUND(COUNT(*)::numeric / COUNT(DISTINCT r.id))::bigint AS \"offer_count!\",\n                  COUNT(DISTINCT o.pharmacy_id) AS \"pharmacy_count!\"\n           FROM scrape_runs r JOIN offers o ON o.run_id = r.id\n           WHERE o.strain_id = $1 AND r.started_at >= $2 AND r.started_at <= $3\n             AND (r.status = 'success' OR ($4::bool AND r.status = 'partial'))\n           GROUP BY 1 ORDER BY 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "day!",
+        "type_info": "Date",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "run_count!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "min?: f64",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "avg?: f64",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "max?: f64",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "min_thc?: f64",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "avg_thc?: f64",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 7,
+        "name": "max_thc?: f64",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 8,
+        "name": "offer_count!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 9,
+        "name": "pharmacy_count!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Timestamptz",
+        "Timestamptz",
+        "Bool",
+        "Text"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "e1702652e22d1aab4b1998f8bcfc22aac361e0d1278d72ab651f646dd4d3bb38"
+}

@@ -1,0 +1,170 @@
+{{- $f := .Values.frontend -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "greenmedical.frontend.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "greenmedical.frontend.labels" . | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if not $f.autoscaling.enabled }}
+  replicas: {{ $f.replicaCount }}
+  {{- end }}
+  revisionHistoryLimit: {{ $f.revisionHistoryLimit }}
+  {{- with $f.strategy }}
+  strategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "greenmedical.frontend.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with $f.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "greenmedical.frontend.selectorLabels" . | nindent 8 }}
+        {{- with $f.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "greenmedical.serviceAccountName" . }}
+      automountServiceAccountToken: {{ .Values.serviceAccount.automountServiceAccountToken }}
+      {{- with $f.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      terminationGracePeriodSeconds: {{ $f.terminationGracePeriodSeconds }}
+      {{- with $f.priorityClassName }}
+      priorityClassName: {{ . }}
+      {{- end }}
+      containers:
+        - name: frontend
+          image: {{ include "greenmedical.image" (dict "image" $f.image "chart" .Chart) | quote }}
+          imagePullPolicy: {{ $f.image.pullPolicy }}
+          {{- with $f.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            # nginx proxies /api/ to the backend Service (rendered into default.conf by envsubst).
+            - name: BACKEND_URL
+              value: {{ printf "http://%s:%d" (include "greenmedical.backend.fullname" .) (int .Values.backend.service.port) | quote }}
+            {{- with $f.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- if $f.startupProbe.enabled }}
+          startupProbe:
+            httpGet:
+              path: {{ $f.startupProbe.path }}
+              port: http
+              {{- with $f.startupProbe.scheme }}
+              scheme: {{ . }}
+              {{- end }}
+              {{- with $f.startupProbe.httpHeaders }}
+              httpHeaders:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+            periodSeconds: {{ $f.startupProbe.periodSeconds }}
+            timeoutSeconds: {{ $f.startupProbe.timeoutSeconds }}
+            failureThreshold: {{ $f.startupProbe.failureThreshold }}
+            {{- with $f.startupProbe.terminationGracePeriodSeconds }}
+            terminationGracePeriodSeconds: {{ . }}
+            {{- end }}
+          {{- end }}
+          {{- if $f.livenessProbe.enabled }}
+          livenessProbe:
+            httpGet:
+              path: {{ $f.livenessProbe.path }}
+              port: http
+              {{- with $f.livenessProbe.scheme }}
+              scheme: {{ . }}
+              {{- end }}
+              {{- with $f.livenessProbe.httpHeaders }}
+              httpHeaders:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+            periodSeconds: {{ $f.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ $f.livenessProbe.timeoutSeconds }}
+            failureThreshold: {{ $f.livenessProbe.failureThreshold }}
+            {{- with $f.livenessProbe.terminationGracePeriodSeconds }}
+            terminationGracePeriodSeconds: {{ . }}
+            {{- end }}
+          {{- end }}
+          {{- if $f.readinessProbe.enabled }}
+          readinessProbe:
+            httpGet:
+              path: {{ $f.readinessProbe.path }}
+              port: http
+              {{- with $f.readinessProbe.scheme }}
+              scheme: {{ . }}
+              {{- end }}
+              {{- with $f.readinessProbe.httpHeaders }}
+              httpHeaders:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+            periodSeconds: {{ $f.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ $f.readinessProbe.timeoutSeconds }}
+            failureThreshold: {{ $f.readinessProbe.failureThreshold }}
+            successThreshold: {{ $f.readinessProbe.successThreshold }}
+            {{- with $f.readinessProbe.terminationGracePeriodSeconds }}
+            terminationGracePeriodSeconds: {{ . }}
+            {{- end }}
+          {{- end }}
+          {{- with $f.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            # nginx-unprivileged keeps pid + temp dirs in /tmp; envsubst writes the rendered config to conf.d.
+            - name: tmp
+              mountPath: /tmp
+            - name: nginx-conf
+              mountPath: /etc/nginx/conf.d
+            {{- with $f.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+      volumes:
+        - name: tmp
+          emptyDir:
+            {{- with $f.tmpSizeLimit }}
+            sizeLimit: {{ . }}
+            {{- else }}
+            {}
+            {{- end }}
+        - name: nginx-conf
+          emptyDir:
+            sizeLimit: 1Mi
+        {{- with $f.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with $f.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $f.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $f.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $f.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

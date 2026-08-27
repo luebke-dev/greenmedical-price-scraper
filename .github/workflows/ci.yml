@@ -1,0 +1,254 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Bumped by Renovate (regex manager in renovate.json). Keep in sync with backend/Dockerfile.
+  RUST_TOOLCHAIN: "1.98"
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+
+jobs:
+  backend:
+    name: Backend (Rust)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: greenmedical
+          POSTGRES_PASSWORD: greenmedical
+          POSTGRES_DB: greenmedical
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U greenmedical -d greenmedical"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 12
+    env:
+      DATABASE_URL: postgres://greenmedical:greenmedical@localhost:5432/greenmedical
+      SQLX_OFFLINE: "false"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt, clippy
+
+      - name: Cache cargo registry and build artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: backend
+
+      - name: Install sqlx-cli
+        uses: taiki-e/install-action@v2
+        with:
+          tool: sqlx-cli
+
+      - name: rustfmt
+        run: cargo fmt --all --check
+
+      - name: Apply migrations to the CI database
+        run: sqlx migrate run
+
+      - name: clippy
+        run: cargo clippy --all-targets --all-features --locked -- -D warnings
+
+      - name: Verify sqlx offline query data is up to date
+        run: cargo sqlx prepare --check -- --all-targets --all-features
+
+      - name: Tests
+        run: cargo test --all-features --locked
+
+  frontend:
+    name: Frontend (Quasar)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      # pnpm major is pinned here; do not also add a `packageManager` field to frontend/package.json
+      # (pnpm/action-setup refuses to run when both are present).
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 26
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint (prettier + eslint)
+        run: pnpm lint:check
+
+      - name: Type check (vue-tsc)
+        run: pnpm typecheck
+
+      - name: Unit tests (vitest)
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
+
+  helm:
+    name: Helm chart
+    runs-on: ubuntu-latest
+    env:
+      KUBECONFORM_VERSION: v0.8.0
+      KUBE_SCORE_VERSION: v1.20.0
+      KUBERNETES_VERSION: 1.31.0
+      CHART: charts/greenmedical
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v5
+        with:
+          version: v4.2.4
+
+      - name: Install kubeconform and kube-score
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.local/bin"
+          curl -sSfL "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" \
+            | tar -xz -C "$HOME/.local/bin" kubeconform
+          curl -sSfL "https://github.com/zegl/kube-score/releases/download/${KUBE_SCORE_VERSION}/kube-score_${KUBE_SCORE_VERSION#v}_linux_amd64.tar.gz" \
+            | tar -xz -C "$HOME/.local/bin" kube-score
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/bin/kubeconform" -v
+          "$HOME/.local/bin/kube-score" version
+
+      - name: helm lint --strict (every ci values file)
+        run: |
+          set -euo pipefail
+          for values in "$CHART"/ci/*-values.yaml; do
+            echo "::group::helm lint $values"
+            helm lint --strict "$CHART" -f "$values"
+            echo "::endgroup::"
+          done
+
+      - name: Values guard rails (must fail without a database)
+        run: |
+          set -euo pipefail
+          if helm template guard "$CHART" >/dev/null 2>&1; then
+            echo "expected 'helm template' to fail without database.existingSecret/database.url" >&2
+            exit 1
+          fi
+          if helm template guard "$CHART" --set database.url=postgres://x --set database.existingSecret=y >/dev/null 2>&1; then
+            echo "expected 'helm template' to fail with both database.url and database.existingSecret" >&2
+            exit 1
+          fi
+          if helm template guard "$CHART" --set database.existingSecret=y --set networkPolicy.enabled=true >/dev/null 2>&1; then
+            echo "expected 'helm template' to fail with networkPolicy.enabled but no DB egress (extraEgressCIDRs/dbPodSelector)" >&2
+            exit 1
+          fi
+          if helm template guard "$CHART" --set database.existingSecret=y --set backend.autoscaling.enabled=true \
+               --set backend.autoscaling.targetCPUUtilizationPercentage= >/dev/null 2>&1; then
+            echo "expected 'helm template' to fail with autoscaling.enabled but no CPU/memory target" >&2
+            exit 1
+          fi
+          # The README install command must keep rendering (ingress.hosts[0].paths defaults to "/").
+          helm template guard "$CHART" --set database.existingSecret=y --set ingress.enabled=true \
+            --set 'ingress.hosts[0].host=preise.example.com' >/dev/null
+
+      - name: helm template | kubeconform -strict
+        run: |
+          set -euo pipefail
+          for values in "$CHART"/ci/*-values.yaml; do
+            echo "::group::kubeconform $values"
+            helm template greenmedical "$CHART" -n greenmedical -f "$values" \
+              | kubeconform -strict -summary \
+                  -kubernetes-version "$KUBERNETES_VERSION" \
+                  -schema-location default \
+                  -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json'
+            echo "::endgroup::"
+          done
+
+      - name: helm template | kube-score
+        run: |
+          set -euo pipefail
+          # Deliberate deviations from kube-score defaults:
+          #  * no CPU limits (throttling during scrapes is worse than bursting)
+          #  * IfNotPresent pull policy with immutable tags/digests
+          #  * nginx-unprivileged runs as uid/gid 101 (image contract)
+          ignore=(--ignore-container-cpu-limit
+                  --ignore-test container-image-pull-policy
+                  --ignore-test container-security-context-user-group-id)
+          for values in "$CHART"/ci/*-values.yaml; do
+            extra=()
+            # The minimal variant intentionally has networkPolicy.enabled=false.
+            case "$values" in *default-values.yaml) extra=(--ignore-test pod-networkpolicy) ;; esac
+            echo "::group::kube-score $values"
+            helm template greenmedical "$CHART" -n greenmedical -f "$values" --skip-tests \
+              | kube-score score - --output-format ci "${ignore[@]}" "${extra[@]}"
+            echo "::endgroup::"
+          done
+
+      - name: helm package (dry run)
+        run: helm package "$CHART" --destination "${RUNNER_TEMP}"
+
+  images:
+    name: Image build (${{ matrix.component }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        component: [backend, frontend]
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build ${{ matrix.component }} image (no push)
+        uses: docker/build-push-action@v7
+        with:
+          context: ./${{ matrix.component }}
+          push: false
+          load: true
+          tags: greenmedical-${{ matrix.component }}:ci
+          cache-from: type=gha,scope=${{ matrix.component }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.component }}
+
+      - name: Smoke test image
+        run: |
+          set -euo pipefail
+          case "${{ matrix.component }}" in
+            backend)
+              # distroless: no shell – the binary must at least print its help.
+              docker run --rm greenmedical-backend:ci --help
+              ;;
+            frontend)
+              # nginx resolves proxy_pass hosts while parsing, so use an IP literal for the config test.
+              docker run --rm -e BACKEND_URL=http://127.0.0.1:8080 --entrypoint sh greenmedical-frontend:ci \
+                -ec '/docker-entrypoint.d/20-envsubst-on-templates.sh >/dev/null && nginx -t'
+              ;;
+          esac

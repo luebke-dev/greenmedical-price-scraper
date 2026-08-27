@@ -1,0 +1,58 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO strains (name_key, designation_key, name, designation, genetics, thc_label, cbd_label, first_seen_at, last_seen_at)\n           SELECT u.name_key, u.designation_key, u.name, u.designation, u.genetics, u.thc_label, u.cbd_label, now(), now()\n           FROM UNNEST($1::text[], $2::text[], $3::text[], $4::text[], $5::text[], $6::text[], $7::text[])\n                AS u(name_key, designation_key, name, designation, genetics, thc_label, cbd_label)\n           ON CONFLICT (name_key, designation_key) DO UPDATE SET\n               name = EXCLUDED.name, designation = EXCLUDED.designation, genetics = EXCLUDED.genetics,\n               thc_label = EXCLUDED.thc_label, cbd_label = EXCLUDED.cbd_label, last_seen_at = EXCLUDED.last_seen_at\n           RETURNING id, name_key, designation_key",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "strains",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "name_key",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "strains",
+            "name": "name_key"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "designation_key",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "strains",
+            "name": "designation_key"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "TextArray",
+        "TextArray",
+        "TextArray",
+        "TextArray",
+        "TextArray",
+        "TextArray",
+        "TextArray"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "4ad3cb5733e25ec60fa43ad5cc6eeaf09f7386185a320d7a43cfbbff920fe83d"
+}

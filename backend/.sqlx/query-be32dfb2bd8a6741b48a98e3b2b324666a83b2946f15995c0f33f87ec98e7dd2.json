@@ -1,0 +1,73 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT o.strain_id, s.name, s.designation,\n                  MIN(o.price_eur)::float8 AS \"min_price?: f64\",\n                  MAX(o.thc_pct)::float8 AS \"thc_value?: f64\",\n                  (ARRAY_AGG(p.name ORDER BY o.price_eur ASC NULLS LAST, o.id))[1] AS \"pharmacy!\"\n           FROM offers o JOIN strains s ON s.id = o.strain_id JOIN pharmacies p ON p.id = o.pharmacy_id\n           WHERE o.run_id = $1\n           GROUP BY o.strain_id, s.name, s.designation\n           ORDER BY o.strain_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "strain_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "offers",
+            "name": "strain_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "strains",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "designation",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "strains",
+            "name": "designation"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "min_price?: f64",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "thc_value?: f64",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "pharmacy!",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "be32dfb2bd8a6741b48a98e3b2b324666a83b2946f15995c0f33f87ec98e7dd2"
+}

@@ -1,0 +1,39 @@
+apiVersion: v2
+name: greenmedical
+description: >-
+  Livebestand – Rust-Backend (Scraper + REST-API) und Quasar-Frontend
+  für die Preisübersicht von Cannabisblüten bei GreenMedical und DrAnsay.
+  Benötigt eine externe PostgreSQL-Datenbank (z. B. CloudNativePG).
+type: application
+version: 2026.8.0
+appVersion: "2026.8.0"
+kubeVersion: ">=1.28.0-0"
+home: https://github.com/luebke-dev/greenmedical-price-scraper
+icon: https://raw.githubusercontent.com/luebke-dev/greenmedical-price-scraper/main/charts/greenmedical/icon.svg
+sources:
+  - https://github.com/luebke-dev/greenmedical-price-scraper
+keywords:
+  - greenmedical
+  - cannabis
+  - scraper
+  - prices
+  - rust
+  - quasar
+maintainers:
+  - name: Sebastian Lübke
+    url: https://github.com/luebke-dev
+annotations:
+  artifacthub.io/category: monitoring-logging
+  # prerelease + images are rewritten by .github/workflows/release.yml before `helm package`
+  # so they always match the released --app-version (semver tag or sha-<short>).
+  artifacthub.io/prerelease: "false"
+  artifacthub.io/images: |
+    - name: backend
+      image: ghcr.io/luebke-dev/greenmedical-backend:2026.8.0
+    - name: frontend
+      image: ghcr.io/luebke-dev/greenmedical-frontend:2026.8.0
+  artifacthub.io/links: |
+    - name: Quellcode
+      url: https://github.com/luebke-dev/greenmedical-price-scraper
+    - name: API-Vertrag
+      url: https://github.com/luebke-dev/greenmedical-price-scraper/blob/main/docs/api-contract.md
