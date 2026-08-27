@@ -382,6 +382,7 @@ Apo D,4,E,Sorte Z,ABC,Indica,20%,1%,"6,00 €",neu"#,
             "next_run_at",
             "scrape_running",
             "schedule",
+            "email_enabled",
         ]
         .into_iter()
         .map(String::from)
