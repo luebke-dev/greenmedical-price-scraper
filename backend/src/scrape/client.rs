@@ -6,7 +6,9 @@ use std::time::Duration;
 
 use chrono::Utc;
 use reqwest::StatusCode;
-use reqwest::header::{ACCEPT, ACCEPT_LANGUAGE, HeaderMap, HeaderValue, RETRY_AFTER};
+use reqwest::header::{
+    ACCEPT, ACCEPT_LANGUAGE, CONTENT_TYPE, HeaderMap, HeaderValue, ORIGIN, REFERER, RETRY_AFTER,
+};
 use tracing::{debug, warn};
 use url::Url;
 
@@ -193,6 +195,47 @@ impl ScrapeClient {
             warn!(%url, attempt = attempts, error = %kind, delay_ms = delay.as_millis() as u64, "retrying request");
             debug!(retries_left = self.retry_total - attempts, "retry budget");
             tokio::time::sleep(delay).await;
+        }
+    }
+
+    /// POST a JSON document to a read-only source endpoint.
+    pub async fn post_json_text(
+        &self,
+        url: Url,
+        referer: &Url,
+        body: &serde_json::Value,
+    ) -> Result<Fetched, HttpError> {
+        let origin = format!("{}://{}", url.scheme(), url.host_str().unwrap_or_default());
+        metrics::counter!("scrape_http_requests_total").increment(1);
+        let response = self
+            .http
+            .post(url.clone())
+            .header(CONTENT_TYPE, "application/json")
+            .header(ORIGIN, origin)
+            .header(REFERER, referer.as_str())
+            .body(serde_json::to_vec(body).expect("JSON value serializes"))
+            .send()
+            .await;
+        match response {
+            Ok(resp) if resp.status().is_success() => resp
+                .text()
+                .await
+                .map(|body| Fetched { body, attempts: 1 })
+                .map_err(|err| HttpError {
+                    url: url.to_string(),
+                    attempts: 1,
+                    kind: HttpErrorKind::Transport(transport_message(&err)),
+                }),
+            Ok(resp) => Err(HttpError {
+                url: url.to_string(),
+                attempts: 1,
+                kind: HttpErrorKind::Status(resp.status()),
+            }),
+            Err(err) => Err(HttpError {
+                url: url.to_string(),
+                attempts: 1,
+                kind: HttpErrorKind::Transport(transport_message(&err)),
+            }),
         }
     }
 }

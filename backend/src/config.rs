@@ -173,6 +173,21 @@ pub struct Config {
     )]
     pub scrape_base_url: Url,
 
+    /// DrAnsay shop base URL. Set `ANSAY_ENABLED=false` to disable this source.
+    #[arg(
+        long,
+        env = "ANSAY_BASE_URL",
+        default_value = "https://shop.dransay.com"
+    )]
+    pub ansay_base_url: Url,
+
+    #[arg(long, env = "ANSAY_ENABLED", default_value = "true", value_parser = BoolishValueParser::new(), action = ArgAction::Set)]
+    pub ansay_enabled: bool,
+
+    /// Maximum number of DrAnsay pharmacies fetched concurrently.
+    #[arg(long, env = "ANSAY_CONCURRENCY", default_value_t = 4)]
+    pub ansay_concurrency: usize,
+
     #[arg(long, env = "SCRAPE_USER_AGENT", default_value = DEFAULT_USER_AGENT)]
     pub scrape_user_agent: String,
 
@@ -285,6 +300,9 @@ impl std::fmt::Debug for Config {
             .field("scrape_bootstrap_max_age", &self.scrape_bootstrap_max_age)
             .field("scrape_stale_run_after", &self.scrape_stale_run_after)
             .field("scrape_base_url", &self.scrape_base_url)
+            .field("ansay_base_url", &self.ansay_base_url)
+            .field("ansay_enabled", &self.ansay_enabled)
+            .field("ansay_concurrency", &self.ansay_concurrency)
             .field("scrape_user_agent", &self.scrape_user_agent)
             .field("scrape_request_timeout", &self.scrape_request_timeout)
             .field("scrape_retry_total", &self.scrape_retry_total)

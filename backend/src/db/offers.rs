@@ -98,7 +98,7 @@ pub async fn insert_many<'e>(
 pub async fn for_run<'e>(exec: impl PgExecutor<'e>, run_id: i64) -> sqlx::Result<Vec<OfferRecord>> {
     let rows = sqlx::query!(
         r#"SELECT o.id AS offer_id, o.pharmacy_id, o.strain_id,
-                  p.name AS apotheke, p.plz AS apotheke_plz, p.city AS apotheke_stadt,
+                  p.provider, p.name AS apotheke, p.plz AS apotheke_plz, p.city AS apotheke_stadt,
                   s.name, s.bezeichnung,
                   o.genetik, o.thc_label, o.cbd_label, o.price_label, o.availability, o.product_url,
                   o.price_eur::float8 AS "price_eur?: f64", o.price_per_thc_g::float8 AS "price_per_thc_g?: f64",
@@ -118,6 +118,10 @@ pub async fn for_run<'e>(exec: impl PgExecutor<'e>, run_id: i64) -> sqlx::Result
         .map(|r| OfferRecord {
             offer_id: r.offer_id,
             pharmacy_id: r.pharmacy_id,
+            provider: match r.provider.as_str() {
+                "ansay" => crate::domain::Provider::Ansay,
+                _ => crate::domain::Provider::Greenmedical,
+            },
             strain_id: r.strain_id,
             apotheke: r.apotheke,
             apotheke_plz: r.apotheke_plz,

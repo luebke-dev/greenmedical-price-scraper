@@ -15,11 +15,12 @@ use crate::domain::{
     ConfirmDto, FacetsDto, GenetikFacetDto, HighlightDto, HistoryBucket, HistoryDto,
     HistoryPointDto, MetadataDto, OfferDto, OfferHistoryMode, OfferHistoryPageDto,
     OfferHistoryRowDto, OfferHistoryRows, OfferPhaseRowDto, PharmacyDto, PharmacySeriesDto,
-    PharmacySeriesPointDto, RangeDto, RatingDistributionDto, RatingDto, RatingHistoryPointDto,
-    ReviewDto, ReviewSummaryDto, ReviewsResponseDto, RuleDto, RuleInputDto, RuleKind,
-    RulesUpdateDto, RunDetailDto, RunDto, RunErrorDto, RunStatus, RunTrigger, RunsResponseDto,
-    ScheduleDto, SortDto, StrainDetailDto, StrainDto, StrainListItemDto, StrainsPageDto,
-    SubscriptionAcceptedDto, SubscriptionCreateDto, SubscriptionDto, TrendDirection, TrendDto,
+    PharmacySeriesPointDto, Provider, RangeDto, RatingDistributionDto, RatingDto,
+    RatingHistoryPointDto, ReviewDto, ReviewSummaryDto, ReviewsResponseDto, RuleDto, RuleInputDto,
+    RuleKind, RulesUpdateDto, RunDetailDto, RunDto, RunErrorDto, RunStatus, RunTrigger,
+    RunsResponseDto, ScheduleDto, SortDto, StrainDetailDto, StrainDto, StrainListItemDto,
+    StrainsPageDto, SubscriptionAcceptedDto, SubscriptionCreateDto, SubscriptionDto,
+    TrendDirection, TrendDto,
 };
 
 /// Path of the JSON document.
@@ -83,7 +84,7 @@ impl Modify for Security {
     ),
     components(schemas(
         ErrorEnvelopeDto, ErrorDetailDto, HealthzDto, ReadyzDto, ScrapeAcceptedDto,
-        RunStatus, RunTrigger, RunDto, RunErrorDto, RunDetailDto, RunsResponseDto,
+        RunStatus, RunTrigger, Provider, RunDto, RunErrorDto, RunDetailDto, RunsResponseDto,
         OfferDto, SortDto, RatingDto, TrendDirection, TrendDto, StrainDto, StrainDetailDto,
         StrainListItemDto, GenetikFacetDto, RangeDto, FacetsDto, StrainsPageDto,
         HighlightDto, ScheduleDto, MetadataDto,

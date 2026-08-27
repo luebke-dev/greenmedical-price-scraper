@@ -69,6 +69,7 @@ pub fn group_by_strain(offers: &[OfferRecord]) -> Vec<StrainDto> {
                 .map(|o| OfferDto {
                     offer_id: o.offer_id,
                     pharmacy_id: o.pharmacy_id,
+                    provider: o.provider,
                     apotheke: o.apotheke.clone(),
                     apotheke_plz: o.apotheke_plz.clone(),
                     apotheke_stadt: o.apotheke_stadt.clone(),
@@ -114,7 +115,7 @@ pub fn group_by_strain(offers: &[OfferRecord]) -> Vec<StrainDto> {
             let pharmacy_count = members
                 .iter()
                 .filter(|o| !o.apotheke.is_empty())
-                .map(|o| o.apotheke.as_str())
+                .map(|o| o.pharmacy_id)
                 .collect::<HashSet<_>>()
                 .len() as i64;
 
@@ -175,6 +176,7 @@ pub(crate) mod test_support {
             offers.push(OfferRecord {
                 offer_id: index as i64 + 1,
                 pharmacy_id: 0,
+                provider: crate::domain::Provider::Greenmedical,
                 strain_id: 0,
                 apotheke: clean_text(field(0)),
                 apotheke_plz: clean_text(field(1)),
@@ -311,6 +313,7 @@ Apo C,3,D,Alpha,A1,Sativa,10%,1%,"9,00 €",neu"#,
             "produkt_url",
             "offer_id",
             "pharmacy_id",
+            "provider",
         ]
         .into_iter()
         .map(String::from)

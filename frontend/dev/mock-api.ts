@@ -436,6 +436,7 @@ function pharmaciesFrom(fixtures: Fixtures): Pharmacy[] {
       byId.set(offer.pharmacy_id, {
         id: offer.pharmacy_id,
         external_id: `00000000-0000-4000-8000-${String(offer.pharmacy_id).padStart(12, '0')}`,
+        provider: offer.provider,
         name: offer.apotheke,
         plz: offer.apotheke_plz,
         city: offer.apotheke_stadt,

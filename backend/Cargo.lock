@@ -1123,7 +1123,7 @@ checksum = "e4eba85ea1d0a966a983acd07deee566e67395d2d96b6fb39e62b5a833f1eb0b"
 
 [[package]]
 name = "greenmedical-backend"
-version = "0.1.0"
+version = "2026.8.0"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -1135,6 +1135,7 @@ dependencies = [
  "constant_time_eq",
  "cron",
  "csv",
+ "futures",
  "http-body-util",
  "humantime",
  "lettre",

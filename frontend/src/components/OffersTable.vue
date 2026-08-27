@@ -3,6 +3,7 @@
     <thead>
       <tr>
         <th scope="col">{{ de.offers.pharmacy }}</th>
+        <th scope="col">{{ de.offers.provider }}</th>
         <th scope="col">{{ de.offers.city }}</th>
         <th scope="col">{{ de.offers.price }}</th>
         <th scope="col">{{ de.offers.thcPrice }}</th>
@@ -14,10 +15,11 @@
     </thead>
     <tbody>
       <tr v-if="offers.length === 0">
-        <td class="empty" colspan="6">{{ de.offers.empty }}</td>
+        <td class="empty" colspan="7">{{ de.offers.empty }}</td>
       </tr>
       <tr v-for="offer in offers" :key="offer.offer_id">
         <td>{{ offer.apotheke || '' }}</td>
+        <td><span class="provider-badge">{{ de.offers.providers[offer.provider] }}</span></td>
         <td>{{ offer.apotheke_stadt || '' }}</td>
         <td class="price">{{ offer.preis_pro_gramm || euro(offer.preis_eur_pro_gramm, '€/g') }}</td>
         <td class="price">{{ euro(offer.preis_eur_pro_gramm_thc, '€/g THC') }}</td>

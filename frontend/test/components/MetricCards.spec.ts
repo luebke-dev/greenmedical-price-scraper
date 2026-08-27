@@ -65,7 +65,7 @@ describe('MetricCards', () => {
     expect(link.attributes('href')).toBe('https://greenmedical.health/de/cannabis/flower/bunatic');
     expect(link.attributes('target')).toBe('_blank');
     expect(link.attributes('rel')).toBe('noopener');
-    expect(link.attributes('aria-label')).toBe('Bunatic bei greenmedical öffnen');
+    expect(link.attributes('aria-label')).toBe('Bunatic beim Anbieter öffnen');
 
     const history = cheapest.find('a.history-link');
     expect(history.text()).toBe('Verlauf →');

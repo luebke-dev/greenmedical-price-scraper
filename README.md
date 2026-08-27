@@ -1,7 +1,9 @@
 # GreenMedical Livebestand
 
-Preise, Verfügbarkeit, Preisverlauf und Bewertungen aller Cannabisblüten der
-GreenMedical-Partnerapotheken — gescrapt von [greenmedical.health](https://greenmedical.health).
+Preise, Verfügbarkeit, Preisverlauf und Bewertungen lieferbarer Cannabisblüten
+von [greenmedical.health](https://greenmedical.health) und
+[DrAnsay](https://shop.dransay.com). Angebote bleiben nach Anbieter getrennt;
+doppelte DrAnsay-Produkte, Abholangebote und nicht verfügbare Ware werden verworfen.
 
 **Live:** <https://green.luebke.dev>
 
@@ -9,7 +11,7 @@ GreenMedical-Partnerapotheken — gescrapt von [greenmedical.health](https://gre
 
 | Teil | Inhalt |
 |---|---|
-| [`backend/`](backend/README.md) | Rust (axum + sqlx). Scrapt selbst 4×/Tag (04/10/16/22 Europe/Berlin), speichert jeden Lauf in PostgreSQL, liefert die JSON-API unter `/api/v1`, `/healthz`, `/readyz`, `/metrics`. |
+| [`backend/`](backend/README.md) | Rust (axum + sqlx). Scrapt GreenMedical und lieferfähige DrAnsay-Apotheken stündlich, speichert jeden Lauf in PostgreSQL und liefert die JSON-API unter `/api/v1`, `/healthz`, `/readyz`, `/metrics`. |
 | [`frontend/`](frontend/README.md) | Quasar-SPA (Vue 3): Tabelle mit Suche/Filtern, Kennzahlen, Sortenseite mit Preisverlauf, Angebotshistorie und Bewertungen. |
 | [`charts/greenmedical/`](charts/greenmedical/README.md) | Helm-Chart für Kubernetes (externe PostgreSQL). |
 | [`docs/api-contract.md`](docs/api-contract.md) | API-Vertrag und alle Env-Variablen. |

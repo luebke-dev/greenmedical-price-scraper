@@ -53,6 +53,11 @@ data:
   {{- with $cfg.scrapeBaseUrl }}
   SCRAPE_BASE_URL: {{ . | quote }}
   {{- end }}
+  ANSAY_ENABLED: {{ $cfg.ansayEnabled | toString | quote }}
+  {{- with $cfg.ansayBaseUrl }}
+  ANSAY_BASE_URL: {{ . | quote }}
+  {{- end }}
+  ANSAY_CONCURRENCY: {{ $cfg.ansayConcurrency | toString | quote }}
   {{- with $cfg.scrapeUserAgent }}
   SCRAPE_USER_AGENT: {{ . | quote }}
   {{- end }}

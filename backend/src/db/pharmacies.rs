@@ -4,11 +4,12 @@ use std::collections::HashMap;
 
 use sqlx::PgExecutor;
 
-use crate::domain::PharmacyDto;
+use crate::domain::{PharmacyDto, Provider};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PharmacyInput {
     pub external_id: String,
+    pub provider: Provider,
     pub name: String,
     pub plz: String,
     pub city: String,
@@ -33,6 +34,7 @@ pub async fn upsert_many<'e>(
         return Ok(HashMap::new());
     }
     let external_ids: Vec<&str> = unique.iter().map(|p| p.external_id.as_str()).collect();
+    let providers: Vec<&str> = unique.iter().map(|p| p.provider.as_str()).collect();
     let names: Vec<&str> = unique.iter().map(|p| p.name.as_str()).collect();
     let plzs: Vec<&str> = unique.iter().map(|p| p.plz.as_str()).collect();
     let cities: Vec<&str> = unique.iter().map(|p| p.city.as_str()).collect();
@@ -40,15 +42,16 @@ pub async fn upsert_many<'e>(
     let urls: Vec<&str> = unique.iter().map(|p| p.url.as_str()).collect();
 
     let rows = sqlx::query!(
-        r#"INSERT INTO pharmacies (external_id, name, plz, city, address, url, first_seen_at, last_seen_at)
-           SELECT u.external_id, u.name, u.plz, u.city, u.address, u.url, now(), now()
-           FROM UNNEST($1::text[], $2::text[], $3::text[], $4::text[], $5::text[], $6::text[])
-                AS u(external_id, name, plz, city, address, url)
+        r#"INSERT INTO pharmacies (external_id, provider, name, plz, city, address, url, first_seen_at, last_seen_at)
+           SELECT u.external_id, u.provider, u.name, u.plz, u.city, u.address, u.url, now(), now()
+           FROM UNNEST($1::text[], $2::text[], $3::text[], $4::text[], $5::text[], $6::text[], $7::text[])
+                AS u(external_id, provider, name, plz, city, address, url)
            ON CONFLICT (external_id) DO UPDATE SET
-               name = EXCLUDED.name, plz = EXCLUDED.plz, city = EXCLUDED.city,
+               provider = EXCLUDED.provider, name = EXCLUDED.name, plz = EXCLUDED.plz, city = EXCLUDED.city,
                address = EXCLUDED.address, url = EXCLUDED.url, last_seen_at = EXCLUDED.last_seen_at
            RETURNING id, external_id"#,
         &external_ids as &[&str],
+        &providers as &[&str],
         &names as &[&str],
         &plzs as &[&str],
         &cities as &[&str],
@@ -66,7 +69,7 @@ pub async fn list<'e>(
     latest_run_id: Option<i64>,
 ) -> sqlx::Result<Vec<PharmacyDto>> {
     let rows = sqlx::query!(
-        r#"SELECT p.id, p.external_id, p.name, p.plz, p.city, p.address, p.url, p.first_seen_at, p.last_seen_at,
+        r#"SELECT p.id, p.external_id, p.provider, p.name, p.plz, p.city, p.address, p.url, p.first_seen_at, p.last_seen_at,
                   (SELECT COUNT(*) FROM offers o WHERE o.pharmacy_id = p.id AND o.run_id = $1) AS "offer_count_latest!"
            FROM pharmacies p ORDER BY p.name, p.id"#,
         latest_run_id
@@ -78,6 +81,10 @@ pub async fn list<'e>(
         .map(|r| PharmacyDto {
             id: r.id,
             external_id: r.external_id,
+            provider: match r.provider.as_str() {
+                "ansay" => Provider::Ansay,
+                _ => Provider::Greenmedical,
+            },
             name: r.name,
             plz: r.plz,
             city: r.city,

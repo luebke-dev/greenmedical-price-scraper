@@ -135,6 +135,7 @@ async fn persist(
             .iter()
             .map(|o| pharmacies::PharmacyInput {
                 external_id: o.pharmacy_uuid.clone(),
+                provider: o.provider,
                 name: clean_text(Some(&o.pharmacy.name)),
                 plz: clean_text(Some(&o.pharmacy.plz)),
                 city: clean_text(Some(&o.pharmacy.stadt)),
@@ -555,6 +556,7 @@ mod tests {
 
     fn offer() -> ScrapedOffer {
         ScrapedOffer {
+            provider: crate::domain::Provider::Greenmedical,
             pharmacy: PharmacyRow {
                 name: "Apo".into(),
                 url: "https://x".into(),

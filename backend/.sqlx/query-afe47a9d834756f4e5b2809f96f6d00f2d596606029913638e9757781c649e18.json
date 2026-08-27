@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT s.id AS strain_id, s.name,\n                  (array_agg(o.product_url ORDER BY o.position, o.id))[1] AS \"product_url!\"\n           FROM offers o\n           JOIN strains s ON s.id = o.strain_id\n           WHERE o.run_id = $1 AND o.product_url <> ''\n             AND ($2::timestamptz IS NULL OR s.reviews_scraped_at IS NULL OR s.reviews_scraped_at < $2)\n           GROUP BY s.id\n           ORDER BY s.reviews_scraped_at ASC NULLS FIRST, s.id\n           LIMIT $3",
+  "query": "SELECT s.id AS strain_id, s.name,\n                  (array_agg(o.product_url ORDER BY o.position, o.id))[1] AS \"product_url!\"\n           FROM offers o\n           JOIN strains s ON s.id = o.strain_id\n           JOIN pharmacies p ON p.id = o.pharmacy_id\n           WHERE o.run_id = $1 AND o.product_url <> ''\n             AND p.provider = 'greenmedical'\n             AND ($2::timestamptz IS NULL OR s.reviews_scraped_at IS NULL OR s.reviews_scraped_at < $2)\n           GROUP BY s.id\n           ORDER BY s.reviews_scraped_at ASC NULLS FIRST, s.id\n           LIMIT $3",
   "describe": {
     "columns": [
       {
@@ -45,5 +45,5 @@
       null
     ]
   },
-  "hash": "2e049ada1ac383eca14e252ef1f0937a02de8b1d37110c98a92e28c10dc24e7f"
+  "hash": "afe47a9d834756f4e5b2809f96f6d00f2d596606029913638e9757781c649e18"
 }

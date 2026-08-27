@@ -20,7 +20,25 @@ pub const CSV_FIELDNAMES: [&str; 11] = [
 ];
 
 /// Source URL reported in metadata.
-pub const SOURCE_URL: &str = "https://greenmedical.health/de/cannabis/flowers";
+pub const SOURCE_URL: &str =
+    "https://greenmedical.health/de/cannabis/flowers, https://shop.dransay.com/products";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum Provider {
+    #[default]
+    Greenmedical,
+    Ansay,
+}
+
+impl Provider {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Greenmedical => "greenmedical",
+            Self::Ansay => "ansay",
+        }
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "lowercase")]
@@ -122,6 +140,7 @@ pub struct RunDetailDto {
 pub struct OfferRecord {
     pub offer_id: i64,
     pub pharmacy_id: i64,
+    pub provider: Provider,
     pub strain_id: i64,
     pub apotheke: String,
     pub apotheke_plz: String,
@@ -145,6 +164,7 @@ pub struct OfferRecord {
 pub struct OfferDto {
     pub offer_id: i64,
     pub pharmacy_id: i64,
+    pub provider: Provider,
     pub apotheke: String,
     pub apotheke_plz: String,
     pub apotheke_stadt: String,
@@ -484,6 +504,7 @@ pub struct OfferHistoryPageDto {
 pub struct PharmacyDto {
     pub id: i64,
     pub external_id: String,
+    pub provider: Provider,
     pub name: String,
     pub plz: String,
     pub city: String,

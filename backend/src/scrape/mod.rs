@@ -1,5 +1,6 @@
 //! Scraping: HTTP client, HTML parsing, site orchestration and run lifecycle.
 
+pub mod ansay;
 pub mod client;
 pub mod parse;
 pub mod reviews;
@@ -10,7 +11,7 @@ use tracing::{info, warn};
 use url::Url;
 
 use crate::config::Config;
-use crate::domain::RunErrorDto;
+use crate::domain::{Provider, RunErrorDto};
 use crate::scrape::client::{HttpError, ScrapeClient};
 use crate::scrape::parse::{PharmacyRow, Product};
 use crate::scrape::target::{make_delivery_target, with_delivery_target};
@@ -20,6 +21,7 @@ pub use run::{RunHandle, StartError, execute_run, start_run};
 /// A product tile attached to the pharmacy it was scraped from.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ScrapedOffer {
+    pub provider: Provider,
     pub pharmacy: PharmacyRow,
     pub pharmacy_uuid: String,
     pub product: Product,
@@ -104,6 +106,7 @@ pub async fn scrape_flowers_for_pharmacy(
                 product.produkt_url = with_delivery_target(&product.produkt_url, delivery_target);
             }
             products.push(ScrapedOffer {
+                provider: Provider::Greenmedical,
                 pharmacy: pharmacy.clone(),
                 pharmacy_uuid: pharmacy_uuid.to_owned(),
                 product,
@@ -232,6 +235,30 @@ pub async fn scrape_site(
             failed = result.pharmacies_failed,
             "pharmacies could not be scraped and were skipped"
         );
+    }
+    if config.ansay_enabled {
+        match ansay::scrape_ansay(client, config).await {
+            Ok(ansay) => {
+                result.pharmacies_total += ansay.pharmacies_total;
+                result.pharmacies_resolved += ansay.pharmacies_resolved;
+                result.pharmacies_scraped += ansay.pharmacies_scraped;
+                result.pharmacies_failed += ansay.pharmacies_failed;
+                result.http_requests += ansay.http_requests;
+                result.errors.extend(ansay.errors);
+                result.offers.extend(ansay.offers);
+            }
+            Err(err) => {
+                warn!(%err, "DrAnsay source failed; keeping GreenMedical results");
+                result.pharmacies_total += 1;
+                result.pharmacies_failed += 1;
+                result.errors.push(RunErrorDto {
+                    pharmacy_name: "DrAnsay".into(),
+                    pharmacy_url: config.ansay_base_url.to_string(),
+                    stage: "pages".into(),
+                    message: err.to_string(),
+                });
+            }
+        }
     }
     Ok(result)
 }

@@ -39,7 +39,9 @@ pub async fn targets_for_run<'e>(
                   (array_agg(o.product_url ORDER BY o.position, o.id))[1] AS "product_url!"
            FROM offers o
            JOIN strains s ON s.id = o.strain_id
+           JOIN pharmacies p ON p.id = o.pharmacy_id
            WHERE o.run_id = $1 AND o.product_url <> ''
+             AND p.provider = 'greenmedical'
              AND ($2::timestamptz IS NULL OR s.reviews_scraped_at IS NULL OR s.reviews_scraped_at < $2)
            GROUP BY s.id
            ORDER BY s.reviews_scraped_at ASC NULLS FIRST, s.id

@@ -1,6 +1,7 @@
 # greenmedical-backend
 
-Rust-Backend des GreenMedical Price Scrapers: scrapt greenmedical.health nach Zeitplan
+Rust-Backend des Preisvergleichs: scrapt greenmedical.health und lieferfähige
+DrAnsay-Apotheken nach Zeitplan
 (Standard 04/10/16/22 Uhr Europe/Berlin), speichert jeden Lauf in PostgreSQL und
 liefert die JSON-API für das Frontend (`docs/api-contract.md` ist der verbindliche Vertrag).
 
@@ -64,6 +65,9 @@ ahmt `Intl.Collator('de', { numeric: true, sensitivity: 'base' })` nach
 | `SCRAPE_BOOTSTRAP` / `SCRAPE_BOOTSTRAP_MAX_AGE` | `true` / `2h` | Sofort scrapen, wenn kein/zu alter Lauf |
 | `SCRAPE_STALE_RUN_AFTER` | `2h` | ältere `running`-Läufe werden `failed` |
 | `SCRAPE_BASE_URL` | `https://greenmedical.health` | in Tests auf wiremock umgebogen |
+| `ANSAY_BASE_URL` | `https://shop.dransay.com` | DrAnsay-Shop und JSON-Endpunkte |
+| `ANSAY_ENABLED` | `true` | DrAnsay-Quelle aktivieren |
+| `ANSAY_CONCURRENCY` | `4` | parallele Abrufe; `SCRAPE_PAGE_DELAY` taktet auch DrAnsay |
 | `SCRAPE_USER_AGENT` | Firefox-UA | wie im alten Python-Scraper |
 | `SCRAPE_REQUEST_TIMEOUT` / `SCRAPE_RETRY_TOTAL` / `SCRAPE_BACKOFF_FACTOR` | `30s` / `4` / `1.0` | Retry auf 429/5xx, Sleeps 0/2/4/8 s, `Retry-After` wird beachtet (max. 120 s) |
 | `SCRAPE_PHARMACY_DELAY` / `SCRAPE_PAGE_DELAY` | `300ms` / `500ms` | Höflichkeitspausen |

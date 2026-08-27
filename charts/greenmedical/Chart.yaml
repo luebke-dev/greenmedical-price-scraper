@@ -1,12 +1,12 @@
 apiVersion: v2
 name: greenmedical
 description: >-
-  GreenMedical Livebestand – Rust-Backend (Scraper + REST-API) und Quasar-Frontend
-  für die Preisübersicht von Cannabisblüten bei GreenMedical-Partnerapotheken.
+  Livebestand – Rust-Backend (Scraper + REST-API) und Quasar-Frontend
+  für die Preisübersicht von Cannabisblüten bei GreenMedical und DrAnsay.
   Benötigt eine externe PostgreSQL-Datenbank (z. B. CloudNativePG).
 type: application
-version: 0.1.0
-appVersion: "0.1.0"
+version: 2026.8.0
+appVersion: "2026.8.0"
 kubeVersion: ">=1.28.0-0"
 home: https://github.com/luebke-dev/greenmedical-price-scraper
 icon: https://raw.githubusercontent.com/luebke-dev/greenmedical-price-scraper/main/charts/greenmedical/icon.svg
@@ -29,9 +29,9 @@ annotations:
   artifacthub.io/prerelease: "false"
   artifacthub.io/images: |
     - name: backend
-      image: ghcr.io/luebke-dev/greenmedical-backend:0.1.0
+      image: ghcr.io/luebke-dev/greenmedical-backend:2026.8.0
     - name: frontend
-      image: ghcr.io/luebke-dev/greenmedical-frontend:0.1.0
+      image: ghcr.io/luebke-dev/greenmedical-frontend:2026.8.0
   artifacthub.io/links: |
     - name: Quellcode
       url: https://github.com/luebke-dev/greenmedical-price-scraper

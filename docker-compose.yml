@@ -80,6 +80,9 @@ services:
       SCRAPE_BOOTSTRAP: ${SCRAPE_BOOTSTRAP:-false}
       SCRAPE_CRON: ${SCRAPE_CRON:-0 0 * * * *}
       SCRAPE_TIMEZONE: ${SCRAPE_TIMEZONE:-Europe/Berlin}
+      ANSAY_ENABLED: ${ANSAY_ENABLED:-true}
+      ANSAY_BASE_URL: ${ANSAY_BASE_URL:-https://shop.dransay.com}
+      ANSAY_CONCURRENCY: ${ANSAY_CONCURRENCY:-4}
       ADMIN_TOKEN: ${ADMIN_TOKEN:-}
       # Price alerts: mails go to the Mailpit container (UI http://localhost:8025).
       PUBLIC_URL: ${PUBLIC_URL:-http://localhost:9000}

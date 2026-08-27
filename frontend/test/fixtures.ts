@@ -48,6 +48,7 @@ export function makeOffer(overrides: Partial<Offer> = {}): Offer {
   return {
     offer_id: id,
     pharmacy_id: 1,
+    provider: 'greenmedical',
     apotheke: 'Grüne Blüte',
     apotheke_plz: '04416',
     apotheke_stadt: 'Markkleeberg',

@@ -34,6 +34,8 @@ pub fn test_config(base_url: &str) -> Config {
         &database_url,
         "--scrape-base-url",
         base_url,
+        "--ansay-enabled",
+        "false",
         "--scrape-pharmacy-delay",
         "0ms",
         "--scrape-page-delay",
@@ -657,6 +659,7 @@ pub async fn seed_run(
         .iter()
         .map(|s| pharmacies::PharmacyInput {
             external_id: s.pharmacy.0.into(),
+            provider: greenmedical_backend::domain::Provider::Greenmedical,
             name: s.pharmacy.1.into(),
             plz: "10115".into(),
             city: "Berlin".into(),

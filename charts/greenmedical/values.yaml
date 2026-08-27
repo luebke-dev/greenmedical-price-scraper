@@ -130,6 +130,10 @@ backend:
     scrapeStaleRunAfter: "2h"
     # -- Advanced scraper knobs; empty = backend default (numeric 0 is a valid value and is passed through).
     scrapeBaseUrl: ""
+    # -- Import DrAnsay pharmacies that have shipping enabled.
+    ansayEnabled: true
+    ansayBaseUrl: ""
+    ansayConcurrency: 4
     scrapeUserAgent: ""
     scrapeRequestTimeout: ""
     scrapeRetryTotal: ""

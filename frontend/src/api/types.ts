@@ -2,6 +2,7 @@
 
 export type RunStatus = 'running' | 'success' | 'partial' | 'failed';
 export type RunTrigger = 'schedule' | 'manual' | 'bootstrap';
+export type Provider = 'greenmedical' | 'ansay';
 
 export interface Run {
   id: number;
@@ -30,6 +31,7 @@ export interface RunError {
 export interface Offer {
   offer_id: number;
   pharmacy_id: number;
+  provider: Provider;
   apotheke: string;
   apotheke_plz: string;
   apotheke_stadt: string;
@@ -243,6 +245,7 @@ export interface OfferHistoryPage {
 export interface Pharmacy {
   id: number;
   external_id: string;
+  provider: Provider;
   name: string;
   plz: string;
   city: string;

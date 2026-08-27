@@ -38,6 +38,9 @@ Backend (Rust), Frontend (Quasar) und Helm-Chart müssen sich exakt daran halten
 | `SCRAPE_BOOTSTRAP_MAX_AGE` | `2h` | |
 | `SCRAPE_STALE_RUN_AFTER` | `2h` | `running`-Runs älter → `failed` |
 | `SCRAPE_BASE_URL` | `https://greenmedical.health` | für Tests auf wiremock umbiegbar |
+| `ANSAY_BASE_URL` | `https://shop.dransay.com` | DrAnsay-Shop und JSON-Endpunkte |
+| `ANSAY_ENABLED` | `true` | DrAnsay-Quelle aktivieren |
+| `ANSAY_CONCURRENCY` | `4` | parallele Abrufe; `SCRAPE_PAGE_DELAY` taktet auch DrAnsay |
 | `SCRAPE_USER_AGENT` | Firefox-UA wie in `scraper.py` | |
 | `SCRAPE_REQUEST_TIMEOUT` | `30s` | |
 | `SCRAPE_RETRY_TOTAL` | `4` | |
@@ -83,6 +86,7 @@ export interface RunError { pharmacy_name: string; pharmacy_url: string; stage: 
 export interface Offer {
   offer_id: number;
   pharmacy_id: number;
+  provider: 'greenmedical' | 'ansay';
   apotheke: string;
   apotheke_plz: string;
   apotheke_stadt: string;
@@ -185,7 +189,7 @@ export interface History {
 }
 
 export interface Pharmacy {
-  id: number; external_id: string; name: string; plz: string; city: string; address: string; url: string;
+  id: number; external_id: string; provider: 'greenmedical' | 'ansay'; name: string; plz: string; city: string; address: string; url: string;
   first_seen_at: string; last_seen_at: string; offer_count_latest: number;
 }
 export interface RunsResponse { runs: Run[]; total: number; }
