@@ -1,0 +1,121 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    "docker:pinDigests",
+    "helpers:pinGitHubActionDigests",
+    ":semanticCommits",
+    ":dependencyDashboard"
+  ],
+  "timezone": "Europe/Berlin",
+  "schedule": ["before 6am on monday"],
+  "labels": ["dependencies"],
+  "rangeStrategy": "bump",
+  "minimumReleaseAge": "3 days",
+  "prConcurrentLimit": 8,
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 6am on the first day of the month"]
+  },
+  "kubernetes": {
+    "managerFilePatterns": ["/^charts/greenmedical/examples/.+\\.ya?ml$/"]
+  },
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "labels": ["security"],
+    "schedule": ["at any time"],
+    "minimumReleaseAge": null
+  },
+  "packageRules": [
+    {
+      "description": "Rust crates (backend/Cargo.toml)",
+      "matchManagers": ["cargo"],
+      "groupName": "Rust-Dependencies",
+      "groupSlug": "cargo",
+      "commitMessageTopic": "Rust-Dependencies"
+    },
+    {
+      "description": "npm packages (frontend/package.json)",
+      "matchManagers": ["npm"],
+      "groupName": "npm-Dependencies",
+      "groupSlug": "npm",
+      "commitMessageTopic": "npm-Dependencies"
+    },
+    {
+      "description": "Quasar framework and CLI move together",
+      "matchManagers": ["npm"],
+      "matchPackageNames": ["quasar", "@quasar/app-vite", "@quasar/extras"],
+      "groupName": "Quasar",
+      "groupSlug": "quasar"
+    },
+    {
+      "description": "GitHub Actions",
+      "matchManagers": ["github-actions"],
+      "groupName": "GitHub Actions",
+      "groupSlug": "actions"
+    },
+    {
+      "description": "Container base images and CI images (Dockerfiles, compose, workflows, Helm values)",
+      "matchManagers": ["dockerfile", "docker-compose", "helm-values", "kubernetes", "github-actions"],
+      "matchDatasources": ["docker"],
+      "groupName": "Container-Images",
+      "groupSlug": "images"
+    },
+    {
+      "description": "PostgreSQL major upgrades need a manual migration – never automate them",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["postgres", "docker.io/library/postgres", "library/postgres"],
+      "matchUpdateTypes": ["major"],
+      "enabled": false
+    },
+    {
+      "description": "Own application images inside the chart are released by release.yml, not by Renovate",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["ghcr.io/luebke-dev/greenmedical-backend", "ghcr.io/luebke-dev/greenmedical-frontend"],
+      "enabled": false
+    },
+    {
+      "description": "cargo-chef builder image: its tag carries the Rust version and is bumped by the regex manager below together with RUST_TOOLCHAIN; a pinned digest would silently keep the old image after such a tag bump",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["docker.io/lukemathwalker/cargo-chef", "lukemathwalker/cargo-chef"],
+      "pinDigests": false
+    },
+    {
+      "description": "Rust toolchain: minor releases are frequent and usually safe",
+      "matchDepNames": ["rust", "rust-lang/rust"],
+      "groupName": "Rust-Toolchain",
+      "groupSlug": "rust-toolchain",
+      "commitMessageTopic": "Rust-Toolchain"
+    }
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Rust toolchain version pinned in GitHub workflows (env RUST_TOOLCHAIN) and rust-toolchain.toml",
+      "managerFilePatterns": [
+        "/^\\.github/workflows/[^/]+\\.ya?ml$/",
+        "/(^|/)rust-toolchain\\.toml$/"
+      ],
+      "matchStrings": [
+        "RUST_TOOLCHAIN:\\s*[\"']?(?<currentValue>\\d+\\.\\d+(\\.\\d+)?)[\"']?",
+        "channel\\s*=\\s*[\"'](?<currentValue>\\d+\\.\\d+(\\.\\d+)?)[\"']"
+      ],
+      "depNameTemplate": "rust",
+      "packageNameTemplate": "rust-lang/rust",
+      "datasourceTemplate": "github-releases",
+      "versioningTemplate": "semver-coerced"
+    },
+    {
+      "customType": "regex",
+      "description": "Rust version baked into the cargo-chef builder image tag (backend/Dockerfile)",
+      "managerFilePatterns": ["/(^|/)backend/Dockerfile$/"],
+      "matchStrings": [
+        "cargo-chef:latest-rust-(?<currentValue>\\d+\\.\\d+(\\.\\d+)?)-"
+      ],
+      "depNameTemplate": "rust",
+      "packageNameTemplate": "rust-lang/rust",
+      "datasourceTemplate": "github-releases",
+      "versioningTemplate": "semver-coerced"
+    }
+  ]
+}

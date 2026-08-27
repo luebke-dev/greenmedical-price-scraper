@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE scrape_runs\n           SET finished_at = $9, status = $2, pharmacies_total = $3, pharmacies_scraped = $4,\n               pharmacies_failed = $5, offer_count = $6, http_requests = $7, error = $8\n           WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Text",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9ca295ffd71e48acef23a8fbf3e6ae47558791d3be8a7e0c95c5e4ab305bea1e"
+}

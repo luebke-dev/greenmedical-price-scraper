@@ -1,0 +1,4 @@
+dev/fixtures
+pnpm-lock.yaml
+.quasar
+dist

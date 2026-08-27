@@ -1,0 +1,35 @@
+{{- $svc := .Values.frontend.service -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "greenmedical.frontend.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "greenmedical.frontend.labels" . | nindent 4 }}
+    {{- with $svc.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- if or .Values.commonAnnotations $svc.annotations }}
+  annotations:
+    {{- with .Values.commonAnnotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- with $svc.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- end }}
+spec:
+  type: {{ $svc.type }}
+  {{- with $svc.clusterIP }}
+  clusterIP: {{ . }}
+  {{- end }}
+  selector:
+    {{- include "greenmedical.frontend.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ $svc.port }}
+      targetPort: http
+      protocol: TCP
+      {{- if and $svc.nodePort (or (eq $svc.type "NodePort") (eq $svc.type "LoadBalancer")) }}
+      nodePort: {{ $svc.nodePort }}
+      {{- end }}

@@ -1,0 +1,48 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT scraped_at, rating_value::float8 AS \"rating_value?: f64\", review_count\n           FROM (SELECT scraped_at, rating_value, review_count, id FROM strain_rating_snapshots\n                 WHERE strain_id = $1 ORDER BY scraped_at DESC, id DESC LIMIT $2) newest\n           ORDER BY scraped_at ASC, id ASC",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "scraped_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "strain_rating_snapshots",
+            "name": "scraped_at"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "rating_value?: f64",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "review_count",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "strain_rating_snapshots",
+            "name": "review_count"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      null,
+      false
+    ]
+  },
+  "hash": "cb4ee25e3a1309e7c0b05da353e0ddaff29aadd77406be7d5343be5c9c941500"
+}

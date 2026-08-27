@@ -1,0 +1,100 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT o.pharmacy_id, p.name, p.city, r.id AS run_id, r.started_at,\n                  MIN(o.price_eur)::float8 AS \"price?: f64\", MIN(o.price_per_thc_g)::float8 AS \"price_thc?: f64\",\n                  (ARRAY_AGG(o.availability ORDER BY o.price_eur ASC NULLS LAST, o.id))[1] AS \"availability!\"\n           FROM offers o JOIN scrape_runs r ON r.id = o.run_id JOIN pharmacies p ON p.id = o.pharmacy_id\n           WHERE o.strain_id = $1 AND r.started_at >= $2 AND r.started_at <= $3\n             AND (r.status = 'success' OR ($4::bool AND r.status = 'partial'))\n           GROUP BY o.pharmacy_id, p.name, p.city, r.id, r.started_at\n           ORDER BY p.name, o.pharmacy_id, r.started_at, r.id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "pharmacy_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "offers",
+            "name": "pharmacy_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "pharmacies",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "city",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "pharmacies",
+            "name": "city"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "run_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "scrape_runs",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "started_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "scrape_runs",
+            "name": "started_at"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "price?: f64",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "price_thc?: f64",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 7,
+        "name": "availability!",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Timestamptz",
+        "Timestamptz",
+        "Bool"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "bcf8fadbbdb7498238359908c472d975b03b03a10e6c0baded32d01397743565"
+}

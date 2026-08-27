@@ -1,0 +1,19 @@
+{{- $replicas := include "greenmedical.replicas" .Values.backend | int -}}
+{{- if and .Values.backend.podDisruptionBudget.enabled (gt $replicas 1) }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "greenmedical.backend.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "greenmedical.backend.labels" . | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- include "greenmedical.pdb.spec" .Values.backend | trim | nindent 2 }}
+  selector:
+    matchLabels:
+      {{- include "greenmedical.backend.selectorLabels" . | nindent 6 }}
+{{- end }}

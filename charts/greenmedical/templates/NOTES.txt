@@ -1,0 +1,58 @@
+{{- $cfg := .Values.backend.config -}}
+{{- $backendReplicas := include "greenmedical.replicas" .Values.backend | int -}}
+GreenMedical {{ .Chart.Version }} (App {{ .Values.backend.image.tag | default .Chart.AppVersion }}) wurde als Release "{{ .Release.Name }}"
+im Namespace "{{ .Release.Namespace }}" installiert.
+
+Zugriff auf die Oberfläche
+{{- if .Values.ingress.enabled }}
+{{- range .Values.ingress.hosts }}
+{{- $host := .host }}
+{{- range .paths | default (list (dict "path" "/" "pathType" "Prefix")) }}
+  {{ if $.Values.ingress.tls }}https{{ else }}http{{ end }}://{{ $host }}{{ .path }}
+{{- end }}
+{{- end }}
+{{- else }}
+  Kein Ingress aktiviert. Port-Forward auf das Frontend:
+    kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "greenmedical.frontend.fullname" . }} 8080:{{ .Values.frontend.service.port }}
+  danach http://localhost:8080 öffnen.
+{{- end }}
+
+API direkt (ohne nginx-Proxy)
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "greenmedical.backend.fullname" . }} 8080:{{ .Values.backend.service.port }}
+  curl http://localhost:8080/api/v1/metadata
+  Metriken: Port {{ .Values.backend.service.metricsPort }} (Pfad /metrics), bewusst nicht über den Ingress erreichbar.
+
+Datenbank
+{{- if .Values.database.existingSecret }}
+  Secret "{{ .Values.database.existingSecret }}", Key "{{ .Values.database.existingSecretKey }}".
+{{- else }}
+  Secret "{{ include "greenmedical.secret.name" . }}" (vom Chart aus database.url erzeugt).
+  ACHTUNG: database.url ist nur für Entwicklung gedacht. Im Produktivbetrieb database.existingSecret verwenden.
+{{- end }}
+  Migrationen: {{ if $cfg.migrateOnStartup }}werden beim Start automatisch ausgeführt{{ else }}deaktiviert (MIGRATE_ON_STARTUP=false) – manuell per "greenmedical-backend migrate"{{ end }}.
+
+Scraper
+{{- if $cfg.scrapeEnabled }}
+  aktiv – Cron "{{ $cfg.scrapeCron }}" in Zeitzone {{ $cfg.scrapeTimezone }}
+  Bootstrap beim Start: {{ if $cfg.scrapeBootstrap }}ja (wenn kein Lauf jünger als {{ $cfg.scrapeBootstrapMaxAge | default "8h" }} vorliegt){{ else }}nein{{ end }}
+{{- else }}
+  deaktiviert (SCRAPE_ENABLED=false). Läufe nur manuell über POST /api/v1/admin/scrape.
+{{- end }}
+  Replikas: {{ $backendReplicas }} – es scrapt immer nur eine Instanz gleichzeitig (PostgreSQL Advisory-Lock).
+{{- if eq (include "greenmedical.adminToken.enabled" .) "true" }}
+  Admin-Endpoint: aktiv. Manueller Lauf:
+    TOKEN=$(kubectl -n {{ .Release.Namespace }} get secret {{ include "greenmedical.adminToken.secretName" . }} -o jsonpath='{.data.{{ include "greenmedical.adminToken.secretKey" . }}}' | base64 -d)
+    curl -X POST -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/v1/admin/scrape
+{{- else }}
+  Admin-Endpoint: deaktiviert (kein ADMIN_TOKEN gesetzt → POST /api/v1/admin/scrape antwortet 404).
+{{- end }}
+
+{{- if .Values.tests.enabled }}
+
+Verbindungstest
+  helm test {{ .Release.Name }} -n {{ .Release.Namespace }}
+{{- end }}
+{{- if and .Values.metrics.serviceMonitor.enabled (not (.Capabilities.APIVersions.Has "monitoring.coreos.com/v1")) }}
+
+HINWEIS: metrics.serviceMonitor.enabled=true, aber die API monitoring.coreos.com/v1 ist im Cluster nicht bekannt.
+{{- end }}

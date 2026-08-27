@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE strains\n           SET product_uuid = COALESCE($2, product_uuid),\n               rating_value = NULLIF($3::float8, 'NaN'::float8),\n               review_count = $4,\n               reviews_scraped_at = now()\n           WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text",
+        "Float8",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c8a7a5dadffd024f7256ce11928b49e05df24851ece12819938ee56fbd29d1e9"
+}

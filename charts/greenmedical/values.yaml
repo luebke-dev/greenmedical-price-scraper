@@ -1,0 +1,426 @@
+# Default values for the greenmedical chart.
+#
+# The chart deploys two workloads:
+#   * backend  – Rust binary (REST API + in-process scraper scheduler), HTTP on 8080, Prometheus on 9090
+#   * frontend – nginx-unprivileged serving the Quasar SPA and proxying /api/ to the backend
+#
+# A PostgreSQL database is REQUIRED but never created by this chart. Point the chart at an
+# existing Secret holding the connection URL (database.existingSecret) or – for development
+# only – pass the URL directly (database.url).
+
+# -- Override the chart name used in resource names and labels.
+nameOverride: ""
+# -- Override the fully qualified release name.
+fullnameOverride: ""
+# -- Labels added to every resource created by the chart.
+commonLabels: {}
+# -- Annotations added to every resource created by the chart.
+commonAnnotations: {}
+# -- Image pull secrets applied to all pods, e.g. `[{name: ghcr-pull}]`.
+imagePullSecrets: []
+
+serviceAccount:
+  # -- Create a dedicated ServiceAccount for the workloads.
+  create: true
+  # -- Name of the ServiceAccount; defaults to the release fullname when `create` is true, else "default".
+  name: ""
+  # -- Annotations for the ServiceAccount (e.g. workload identity).
+  annotations: {}
+  # -- The application never talks to the Kubernetes API, so the token is not mounted.
+  automountServiceAccountToken: false
+
+# ---------------------------------------------------------------------------
+# Database (external, mandatory)
+# ---------------------------------------------------------------------------
+database:
+  # -- Name of an existing Secret containing the PostgreSQL connection URL. RECOMMENDED.
+  # CloudNativePG creates `<cluster>-app` with the key `uri`.
+  existingSecret: ""
+  # -- Key inside `existingSecret` holding the URL (`postgres://user:pw@host:5432/db`).
+  existingSecretKey: DATABASE_URL
+  # -- Plain connection URL. The chart stores it in a Secret it creates itself.
+  # Only for development; never commit real credentials to values files.
+  url: ""
+
+# ---------------------------------------------------------------------------
+# Admin token for POST /api/v1/admin/scrape (optional; endpoint answers 404 without it)
+# ---------------------------------------------------------------------------
+adminToken:
+  # -- Name of an existing Secret containing the admin token.
+  existingSecret: ""
+  # -- Key inside `existingSecret`.
+  existingSecretKey: ADMIN_TOKEN
+  # -- Plain token; stored in the chart-managed Secret. Prefer `existingSecret`.
+  value: ""
+
+# ---------------------------------------------------------------------------
+# Backend
+# ---------------------------------------------------------------------------
+backend:
+  # -- Number of replicas (ignored when autoscaling is enabled). Several replicas are safe:
+  # only one instance scrapes at a time (PostgreSQL advisory lock).
+  replicaCount: 1
+  image:
+    repository: ghcr.io/luebke-dev/greenmedical-backend
+    # -- Image tag; defaults to the chart's appVersion.
+    tag: ""
+    # -- Optional image digest (`sha256:…`); takes precedence over the tag.
+    digest: ""
+    pullPolicy: IfNotPresent
+  # -- Container arguments. The image's ENTRYPOINT is the binary; `serve` starts API + scheduler.
+  args: ["serve"]
+
+  # Runtime configuration rendered into a ConfigMap. Empty strings are omitted so the
+  # backend's built-in defaults apply (see docs/api-contract.md for all variables).
+  config:
+    # -- `json` | `pretty`
+    logFormat: json
+    # -- tracing filter
+    rustLog: "info,sqlx=warn"
+    # -- Run sqlx migrations at startup (replica-safe via advisory lock).
+    migrateOnStartup: true
+    # -- sqlx pool size (>= 4).
+    databaseMaxConnections: 10
+    # -- Server-side request timeout (humantime, e.g. `30s`).
+    httpRequestTimeout: "30s"
+    # -- How often the in-memory snapshot cache checks the database for a newer run written by
+    # another replica (humantime; `0s` = every request). Empty = backend default (`30s`).
+    snapshotRevalidateInterval: ""
+    # -- Comma-separated allowed origins; empty = no CORS headers (frontend proxies /api same-origin).
+    corsAllowedOrigins: ""
+    # -- Enable the in-process scrape scheduler. The API works without it.
+    scrapeEnabled: true
+    # -- Cron in `cron` crate format (sec min hour dom mon dow). Default: 04:00, 10:00, 16:00, 22:00.
+    scrapeCron: "0 0 4,10,16,22 * * *"
+    # -- IANA timezone for the cron expression.
+    scrapeTimezone: Europe/Berlin
+    # -- Scrape on startup if there is no usable run or it is older than `scrapeBootstrapMaxAge`.
+    scrapeBootstrap: true
+    scrapeBootstrapMaxAge: "8h"
+    # -- Runs still `running` after this duration are marked `failed`.
+    scrapeStaleRunAfter: "2h"
+    # -- Advanced scraper knobs; empty = backend default (numeric 0 is a valid value and is passed through).
+    scrapeBaseUrl: ""
+    scrapeUserAgent: ""
+    scrapeRequestTimeout: ""
+    scrapeRetryTotal: ""
+    scrapeBackoffFactor: ""
+    scrapePharmacyDelay: ""
+    scrapePageDelay: ""
+    scrapeMinSuccessRatio: ""
+    # -- Additional raw environment variables (name → value) added to the ConfigMap.
+    extra: {}
+
+  # -- Extra environment variables (list of EnvVar) for the backend container.
+  extraEnv: []
+  # -- Extra envFrom sources for the backend container.
+  extraEnvFrom: []
+
+  service:
+    type: ClusterIP
+    # -- Service port for the HTTP API.
+    port: 8080
+    # -- Service port for Prometheus metrics (never exposed via Ingress).
+    metricsPort: 9090
+    annotations: {}
+    labels: {}
+    # -- Only for LoadBalancer/NodePort services.
+    nodePort: ""
+    clusterIP: ""
+
+  podAnnotations: {}
+  podLabels: {}
+
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 65532
+    runAsGroup: 65532
+    fsGroup: 65532
+    seccompProfile:
+      type: RuntimeDefault
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    runAsNonRoot: true
+    runAsUser: 65532
+    capabilities:
+      drop: ["ALL"]
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+      ephemeral-storage: 64Mi
+    limits:
+      # No CPU limit on purpose (avoids throttling during scrapes); memory and disk are bounded.
+      memory: 256Mi
+      ephemeral-storage: 256Mi
+
+  # Startup waits for DB connectivity + migrations (up to 36 × 5 s = 3 min).
+  startupProbe:
+    enabled: true
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 36
+  livenessProbe:
+    enabled: true
+    initialDelaySeconds: 0
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+  readinessProbe:
+    enabled: true
+    initialDelaySeconds: 0
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+    successThreshold: 1
+
+  # -- Time for a running scrape to abort cleanly on SIGTERM (the run is marked failed/shutdown).
+  terminationGracePeriodSeconds: 60
+  revisionHistoryLimit: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+
+  # -- Size limit of the /tmp emptyDir.
+  tmpSizeLimit: 64Mi
+  extraVolumes: []
+  extraVolumeMounts: []
+
+  priorityClassName: ""
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  topologySpreadConstraints: []
+
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 3
+    # -- At least one of the two targets must be set when autoscaling is enabled.
+    targetCPUUtilizationPercentage: 80
+    # -- Set to a number to add a memory utilisation target.
+    targetMemoryUtilizationPercentage: ""
+    # -- Optional `behavior` block (autoscaling/v2).
+    behavior: {}
+
+  podDisruptionBudget:
+    # -- Rendered only when the effective replica count is > 1.
+    enabled: true
+    minAvailable: 1
+    # -- If set, used instead of `minAvailable`.
+    maxUnavailable: ""
+
+# ---------------------------------------------------------------------------
+# Frontend
+# ---------------------------------------------------------------------------
+frontend:
+  replicaCount: 1
+  image:
+    repository: ghcr.io/luebke-dev/greenmedical-frontend
+    tag: ""
+    digest: ""
+    pullPolicy: IfNotPresent
+
+  # -- Extra environment variables for the nginx container.
+  extraEnv: []
+
+  service:
+    type: ClusterIP
+    # -- Service port; the container listens on 8080.
+    port: 80
+    annotations: {}
+    labels: {}
+    nodePort: ""
+    clusterIP: ""
+
+  podAnnotations: {}
+  podLabels: {}
+
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 101
+    runAsGroup: 101
+    fsGroup: 101
+    seccompProfile:
+      type: RuntimeDefault
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    runAsNonRoot: true
+    runAsUser: 101
+    capabilities:
+      drop: ["ALL"]
+
+  resources:
+    requests:
+      cpu: 10m
+      memory: 16Mi
+      ephemeral-storage: 32Mi
+    limits:
+      memory: 64Mi
+      ephemeral-storage: 128Mi
+
+  # /healthz is a static nginx location; readiness fetches the SPA entry point so a broken
+  # build/config is noticed before traffic arrives.
+  startupProbe:
+    enabled: true
+    path: /healthz
+    periodSeconds: 2
+    timeoutSeconds: 2
+    failureThreshold: 15
+  livenessProbe:
+    enabled: true
+    path: /healthz
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+  readinessProbe:
+    enabled: true
+    path: /
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+    successThreshold: 1
+
+  terminationGracePeriodSeconds: 30
+  revisionHistoryLimit: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+
+  tmpSizeLimit: 32Mi
+  extraVolumes: []
+  extraVolumeMounts: []
+
+  priorityClassName: ""
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  topologySpreadConstraints: []
+
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 3
+    targetCPUUtilizationPercentage: 80
+    targetMemoryUtilizationPercentage: ""
+    behavior: {}
+
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+    maxUnavailable: ""
+
+# ---------------------------------------------------------------------------
+# Ingress (always points at the frontend; /api is proxied by nginx, /metrics is not reachable)
+# ---------------------------------------------------------------------------
+ingress:
+  enabled: false
+  className: ""
+  # -- e.g. `cert-manager.io/cluster-issuer: letsencrypt`
+  annotations: {}
+  hosts:
+    - host: greenmedical.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  # -- e.g. `[{secretName: greenmedical-tls, hosts: [greenmedical.example.com]}]`
+  tls: []
+
+# ---------------------------------------------------------------------------
+# Metrics (Prometheus Operator)
+# ---------------------------------------------------------------------------
+metrics:
+  serviceMonitor:
+    # -- Requires the monitoring.coreos.com CRDs.
+    enabled: false
+    # -- Namespace for the ServiceMonitor; defaults to the release namespace.
+    namespace: ""
+    interval: 30s
+    scrapeTimeout: 10s
+    # -- Labels the Prometheus instance selects on, e.g. `release: kube-prometheus-stack`.
+    labels: {}
+    annotations: {}
+    honorLabels: false
+    relabelings: []
+    metricRelabelings: []
+
+# ---------------------------------------------------------------------------
+# NetworkPolicy
+# ---------------------------------------------------------------------------
+networkPolicy:
+  enabled: false
+  # Where the ingress controller lives (may reach the frontend). Empty selectors = any namespace.
+  ingressController:
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: ingress-nginx
+    podSelector: {}
+  # Where Prometheus lives (may reach the backend metrics port).
+  monitoring:
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: monitoring
+    podSelector: {}
+  # Cluster DNS.
+  dns:
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: kube-system
+    podSelector:
+      matchLabels:
+        k8s-app: kube-dns
+  # Backend egress to greenmedical.health (HTTPS). Private ranges are excluded.
+  externalEgress:
+    enabled: true
+    cidr: 0.0.0.0/0
+    except:
+      - 10.0.0.0/8
+      - 172.16.0.0/12
+      - 192.168.0.0/16
+      - 169.254.0.0/16
+      - 100.64.0.0/10
+    port: 443
+  # Database egress: either CIDRs (external / managed DB) and/or a pod selector (in-cluster DB).
+  # At least one of them (or a rule in backend.extraEgress) is REQUIRED when enabled=true –
+  # without a route to PostgreSQL the backend never becomes ready and the rollout hangs.
+  dbPort: 5432
+  # -- e.g. `["10.20.0.0/16"]`
+  extraEgressCIDRs: []
+  # -- e.g. `{matchLabels: {cnpg.io/cluster: greenmedical-db}}`
+  dbPodSelector: {}
+  # -- Namespace of the DB pods; empty = same namespace as the release.
+  dbNamespaceSelector: {}
+  backend:
+    extraIngress: []
+    extraEgress: []
+  frontend:
+    extraIngress: []
+    extraEgress: []
+
+# ---------------------------------------------------------------------------
+# helm test
+# ---------------------------------------------------------------------------
+tests:
+  enabled: true
+  image:
+    repository: curlimages/curl
+    tag: "8.17.0"
+    pullPolicy: IfNotPresent
+  # -- Fail the test when /api/v1/metadata has no data yet (404). Off by default because a
+  # fresh install has no scrape run until the scheduler/bootstrap has completed.
+  requireData: false
+  resources:
+    requests:
+      cpu: 10m
+      memory: 16Mi
+      ephemeral-storage: 16Mi
+    limits:
+      memory: 32Mi
+      ephemeral-storage: 64Mi

@@ -1,0 +1,8 @@
+node_modules
+dist
+.quasar
+dev/fixtures
+.git
+*.log
+.env*
+coverage

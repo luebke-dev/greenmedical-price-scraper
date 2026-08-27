@@ -1,0 +1,96 @@
+# Local development environment (docker compose / podman-compose).
+#
+#   docker compose up -d                 # PostgreSQL only (backend via `cargo run`, frontend via `pnpm dev`)
+#   docker compose --profile app up -d --build   # additionally build + run backend and frontend containers
+#
+# Variables come from `.env` (copy `.env.example`). Host ports are bound to 127.0.0.1 only.
+# If another PostgreSQL already occupies 5432 on the host, set POSTGRES_PORT in `.env`
+# (and adjust DATABASE_URL there for `cargo run`).
+name: greenmedical
+
+services:
+  postgres:
+    image: docker.io/library/postgres:17-alpine
+    environment:
+      POSTGRES_USER: greenmedical
+      POSTGRES_PASSWORD: greenmedical
+      POSTGRES_DB: greenmedical
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U greenmedical -d greenmedical -h 127.0.0.1"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+    restart: unless-stopped
+
+  backend:
+    profiles: [app]
+    build:
+      context: ./backend
+    image: localhost/greenmedical-backend:dev
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Inside the compose network the database is reachable by service name.
+      DATABASE_URL: postgres://greenmedical:greenmedical@postgres:5432/greenmedical
+      DATABASE_MAX_CONNECTIONS: ${DATABASE_MAX_CONNECTIONS:-10}
+      HTTP_BIND: 0.0.0.0:8080
+      METRICS_BIND: 0.0.0.0:9090
+      LOG_FORMAT: ${LOG_FORMAT:-pretty}
+      RUST_LOG: ${RUST_LOG:-info,sqlx=warn}
+      MIGRATE_ON_STARTUP: ${MIGRATE_ON_STARTUP:-true}
+      # Scheduler off by default for local work; trigger runs via POST /api/v1/admin/scrape.
+      SCRAPE_ENABLED: ${SCRAPE_ENABLED:-false}
+      SCRAPE_BOOTSTRAP: ${SCRAPE_BOOTSTRAP:-false}
+      SCRAPE_CRON: ${SCRAPE_CRON:-0 0 4,10,16,22 * * *}
+      SCRAPE_TIMEZONE: ${SCRAPE_TIMEZONE:-Europe/Berlin}
+      ADMIN_TOKEN: ${ADMIN_TOKEN:-}
+      INSTANCE_NAME: compose-backend
+    ports:
+      - "127.0.0.1:${BACKEND_PORT:-8080}:8080"
+      - "127.0.0.1:${METRICS_PORT:-9090}:9090"
+    # distroless image: no shell, no curl → no container healthcheck; use GET /readyz from the host.
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    restart: unless-stopped
+
+  frontend:
+    profiles: [app]
+    build:
+      context: ./frontend
+    image: localhost/greenmedical-frontend:dev
+    depends_on:
+      - backend
+    environment:
+      BACKEND_URL: http://backend:8080
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT:-8081}:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/healthz >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    # nginx-unprivileged writes pid/temp files to /tmp and the envsubst'ed config to conf.d.
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777
+      - /etc/nginx/conf.d:mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    restart: unless-stopped
+
+volumes:
+  postgres-data:

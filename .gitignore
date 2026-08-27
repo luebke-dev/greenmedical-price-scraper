@@ -1,10 +1,46 @@
+# --- Rust (backend/) ---
+target/
+**/*.rs.bk
+# sqlx offline data (backend/.sqlx/) IS committed – do not ignore it.
+
+# --- Node / Quasar (frontend/) ---
+node_modules/
+dist/
+.quasar/
+**/quasar.config.*.temporary.compiled*
+.pnpm-store/
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+coverage/
+.vite/
+.eslintcache
+
+# --- Environment / secrets ---
+.env
+.env.*
+!.env.example
+
+# --- Helm ---
+charts/**/charts/
+charts/**/Chart.lock
+*.tgz
+
+# --- Python leftovers (legacy tooling) ---
 .venv/
 __pycache__/
 *.py[cod]
 *.egg-info/
 .pytest_cache/
 .ruff_cache/
-build/
 
-dist/
-/greenmedical_flowers.csv
+# --- Editors / OS ---
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+*.swp
+*~
+.DS_Store
+Thumbs.db
