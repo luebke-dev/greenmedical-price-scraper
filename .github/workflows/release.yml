@@ -193,6 +193,14 @@ jobs:
       - name: Log in to GHCR (helm)
         run: echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login "$REGISTRY" --username "${{ github.actor }}" --password-stdin
 
+      # cosign reads the Docker credential store, not Helm's registry config.
+      - name: Log in to GHCR (docker, for cosign)
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Push chart
         id: push
         run: |
