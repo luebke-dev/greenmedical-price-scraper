@@ -112,12 +112,13 @@
 
 <script setup lang="ts">
 import type { QTableProps } from 'quasar';
-import { computed, toRef } from 'vue';
+import { computed, toRef, watch } from 'vue';
 import type { OfferHistoryRow, OfferPhaseRow } from '@/api/types';
 import { useOfferHistory } from '@/composables/useOfferHistory';
 import { de } from '@/i18n/de';
 import { euro } from '@/lib/format';
 import { OFFER_HISTORY_SIZES, formatHistoryAt, type HistoryPreset } from '@/lib/history';
+import { useCatalogStore } from '@/stores/catalog';
 import EmptyState from './EmptyState.vue';
 import StatusBadge from './StatusBadge.vue';
 import TablePager from './TablePager.vue';
@@ -135,6 +136,13 @@ const { state, page, loading, error, reload, setMode, setPage, setSize } = useOf
   toRef(props, 'strainId'),
   toRef(props, 'preset'),
   props.now,
+);
+
+// New scrape run: the current page is refetched.
+const catalog = useCatalogStore();
+watch(
+  () => catalog.runChanged,
+  () => void reload(),
 );
 
 const rows = computed<Row[]>(() => page.value?.rows ?? []);

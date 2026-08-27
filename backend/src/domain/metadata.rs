@@ -138,6 +138,9 @@ pub fn build_metadata(
         highest_thc_cbd: highest(offers, combined_cannabinoids),
         best_rated: best_rated(strains),
         run,
+        next_run_at: None,
+        scrape_running: false,
+        schedule: None,
     }
 }
 
@@ -375,6 +378,9 @@ Apo D,4,E,Sorte Z,ABC,Indica,20%,1%,"6,00 €",neu"#,
             "highest_thc_cbd",
             "best_rated",
             "run",
+            "next_run_at",
+            "scrape_running",
+            "schedule",
         ]
         .into_iter()
         .map(String::from)

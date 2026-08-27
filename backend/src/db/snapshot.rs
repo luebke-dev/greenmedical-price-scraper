@@ -117,10 +117,10 @@ pub struct Snapshot {
     pub list_items: Vec<StrainListItemDto>,
     pub keys: Vec<StrainKeys>,
     pub facets: FacetsDto,
+    /// Snapshot part of `/metadata`; the live fields are filled per request.
     pub metadata: MetadataDto,
     /// `run-<id>[-r<ms>]`; the `/strains` ETag appends a hash of the query.
     pub etag_base: String,
-    pub metadata_json: Bytes,
     pub export_json: Bytes,
     pub csv: Bytes,
     /// Lazily built index vectors per (sort, dir), see `sorted_indices`.
@@ -163,7 +163,6 @@ impl Snapshot {
         let generated_at = run.finished_at.unwrap_or(run.started_at);
         let metadata = domain::build_metadata(&offers, &strains, generated_at, run.clone());
         let export_json = Bytes::from(serde_json::to_vec(&strains).expect("serialisable"));
-        let metadata_json = Bytes::from(serde_json::to_vec(&metadata).expect("serialisable"));
         let csv = Bytes::from(domain::export::to_csv(&offers));
 
         let list_items = strains.iter().map(StrainListItemDto::from).collect();
@@ -192,7 +191,6 @@ impl Snapshot {
             keys,
             facets,
             metadata,
-            metadata_json,
             export_json,
             csv,
             sorted: Default::default(),

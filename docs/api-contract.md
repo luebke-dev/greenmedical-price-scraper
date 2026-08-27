@@ -32,10 +32,10 @@ Backend (Rust), Frontend (Quasar) und Helm-Chart müssen sich exakt daran halten
 | `RUST_LOG` | `info,sqlx=warn` | |
 | `MIGRATE_ON_STARTUP` | `true` | |
 | `SCRAPE_ENABLED` | `true` | Scheduler an/aus (API läuft immer) |
-| `SCRAPE_CRON` | `0 0 4,10,16,22 * * *` | `cron`-Crate-Format: sec min hour dom mon dow |
+| `SCRAPE_CRON` | `0 0 * * * *` | `cron`-Crate-Format: sec min hour dom mon dow |
 | `SCRAPE_TIMEZONE` | `Europe/Berlin` | IANA |
 | `SCRAPE_BOOTSTRAP` | `true` | beim Start scrapen wenn kein usable Run oder älter als … |
-| `SCRAPE_BOOTSTRAP_MAX_AGE` | `8h` | |
+| `SCRAPE_BOOTSTRAP_MAX_AGE` | `2h` | |
 | `SCRAPE_STALE_RUN_AFTER` | `2h` | `running`-Runs älter → `failed` |
 | `SCRAPE_BASE_URL` | `https://greenmedical.health` | für Tests auf wiremock umbiegbar |
 | `SCRAPE_USER_AGENT` | Firefox-UA wie in `scraper.py` | |
@@ -470,3 +470,14 @@ Alle Subscription-Endpunkte antworten mit `Cache-Control: no-store`.
 - Sortenseite: Button „Preisalarm für diese Sorte" → `/abo?strain_id=<id>` (vorbelegt `strain_available` bzw. `strain_price_below`).
 - Dev: `docker-compose.yml` bekommt `mailpit` (`axllent/mailpit`, UI :8025, SMTP :1025), Backend im compose mit `EMAIL_ENABLED=true`, `SMTP_HOST=mailpit`, `SMTP_PORT=1025`, `SMTP_TLS=none`, `PUBLIC_URL=http://localhost:9000`.
 - Helm: `backend.config.publicUrl`, `email.enabled`, `email.from`, `email.smtp.{host,port,tls}`, `email.smtp.existingSecret` (Keys `SMTP_USERNAME`, `SMTP_PASSWORD`) bzw. `email.smtp.username/password` (Dev).
+
+## Erweiterung: stündliche Aktualisierung + Countdown-Banner
+
+- Neuer Default `SCRAPE_CRON=0 0 * * * *` (jede volle Stunde, Europe/Berlin), `SCRAPE_BOOTSTRAP_MAX_AGE=2h`. Reviews-Phase unverändert (je Sorte alle 24 h).
+- `Metadata` erhält:
+  - `next_run_at: string | null` – nächster geplanter Lauf (RFC 3339 UTC) laut Cron/Zeitzone; `null` wenn `SCRAPE_ENABLED=false`. Deterministisch aus Cron berechnet (jede Replika liefert denselben Wert).
+  - `scrape_running: boolean` – es existiert ein Lauf mit Status `running` (DB-Abfrage, replikaübergreifend).
+  - `schedule: { cron: string; timezone: string } | null` – aktive Konfiguration.
+- `GET /api/v1/metadata` wird dafür pro Request serialisiert (Snapshot-Teil + Live-Felder); `Cache-Control: public, max-age=60` (statt 300) für metadata.
+- Frontend: Banner oben in `MainLayout` (über dem Header, dezent, `role="status"`, `aria-live="polite"`):
+  „Nächste Aktualisierung in 37 Minuten" (unter 1 min: „in weniger als einer Minute"; Stunden: „in 1 Std. 5 Min."), während `scrape_running`: „Aktualisierung läuft …" mit Spinner; danach lädt das Frontend `metadata` alle 30 s, bis `run.id` sich ändert, und lädt dann die aktuelle Seite/Detailseite neu (Stand-Anzeige aktualisiert sich, Hinweis „Daten aktualisiert"). Countdown tickt jede Minute; `next_run_at` in der Vergangenheit ⇒ „Aktualisierung steht an …" und Polling. Banner ausgeblendet, wenn `next_run_at` null und nichts läuft.

@@ -117,6 +117,16 @@ export interface Metadata {
   highest_thc_cbd: Highlight | null; // max(thc*cbd), Tie-Break günstigster Preis
   best_rated: Highlight | null; // höchster rating_value bei review_count >= 5; price = min_price
   run: Run;
+  /** Nächster geplanter Lauf (RFC 3339 UTC); null wenn SCRAPE_ENABLED=false. */
+  next_run_at: string | null;
+  /** Es existiert ein Lauf mit Status `running` (replikaübergreifend). */
+  scrape_running: boolean;
+  schedule: ScrapeSchedule | null;
+}
+
+export interface ScrapeSchedule {
+  cron: string;
+  timezone: string;
 }
 
 /** List item of GET /strains: no offers (see GET /strains/{id}) and no search text. */

@@ -1,0 +1,21 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT EXISTS(SELECT 1 FROM scrape_runs WHERE status = 'running') AS \"running!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "running!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "fa5b6aef7f650958eb85e7650d630d4018fac63f83f03663aff7399bfaf75565"
+}

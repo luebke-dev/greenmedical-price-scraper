@@ -29,6 +29,8 @@ use crate::scrape::run::{StartError, execute_run, start_run};
 use crate::state::SharedState;
 
 const CACHE_CONTROL_STRAINS: &str = "public, max-age=300";
+/// `/metadata` carries live fields (`next_run_at`, `scrape_running`), hence the shorter TTL.
+const CACHE_CONTROL_METADATA: &str = "public, max-age=60";
 const MAX_HISTORY_DAYS: i64 = 730;
 const DEFAULT_HISTORY_DAYS: i64 = 90;
 
@@ -135,14 +137,32 @@ async fn snapshot(state: &SharedState) -> Result<std::sync::Arc<Snapshot>, ApiEr
 
 /// Kennzahlen des letzten usable Laufs
 ///
-/// Günstigste/stärkste Angebote, Zähler und der Lauf selbst; vorserialisiert aus dem Snapshot.
+/// Günstigste/stärkste Angebote, Zähler und der Lauf selbst aus dem Snapshot, ergänzt um die
+/// Live-Felder `next_run_at` (deterministisch aus Cron + Zeitzone, `null` bei `SCRAPE_ENABLED=false`),
+/// `scrape_running` (DB-Abfrage, replikaübergreifend) und `schedule`. Pro Request serialisiert;
+/// `Cache-Control: public, max-age=60`, kein `ETag` (die Antwort ändert sich mit der Zeit).
 #[utoipa::path(get, path = "/api/v1/metadata", tag = "strains",
     responses(
-        (status = 200, description = "Metadaten", body = MetadataDto),
+        (status = 200, description = "Metadaten", body = MetadataDto,
+            headers(("Cache-Control" = String, description = "`public, max-age=60`"))),
         (status = 404, description = "Noch kein usable Lauf (`no_data`)", body = crate::api::error::ErrorEnvelopeDto)))]
 pub async fn metadata(State(state): State<SharedState>) -> Result<Response, ApiError> {
     let snapshot = snapshot(&state).await?;
-    Ok(json_bytes(snapshot.metadata_json.clone()))
+    let scrape_running = runs::any_running(&state.pool).await?;
+    let now = Utc::now();
+    let metadata = MetadataDto {
+        next_run_at: state.config.next_scrape_at(now),
+        scrape_running,
+        schedule: state.config.schedule_dto(),
+        ..snapshot.metadata.clone()
+    };
+    let body = Bytes::from(serde_json::to_vec(&metadata).expect("serialisable"));
+    let mut response = json_bytes(body);
+    response.headers_mut().insert(
+        header::CACHE_CONTROL,
+        HeaderValue::from_static(CACHE_CONTROL_METADATA),
+    );
+    Ok(response)
 }
 
 fn etag_matches(headers: &HeaderMap, etag: &str) -> bool {

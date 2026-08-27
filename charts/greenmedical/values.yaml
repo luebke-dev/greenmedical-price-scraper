@@ -120,13 +120,13 @@ backend:
     subscriptionRateLimit: ""
     # -- Enable the in-process scrape scheduler. The API works without it.
     scrapeEnabled: true
-    # -- Cron in `cron` crate format (sec min hour dom mon dow). Default: 04:00, 10:00, 16:00, 22:00.
-    scrapeCron: "0 0 4,10,16,22 * * *"
+    # -- Cron in `cron` crate format (sec min hour dom mon dow). Default: every full hour.
+    scrapeCron: "0 0 * * * *"
     # -- IANA timezone for the cron expression.
     scrapeTimezone: Europe/Berlin
     # -- Scrape on startup if there is no usable run or it is older than `scrapeBootstrapMaxAge`.
     scrapeBootstrap: true
-    scrapeBootstrapMaxAge: "8h"
+    scrapeBootstrapMaxAge: "2h"
     # -- Runs still `running` after this duration are marked `failed`.
     scrapeStaleRunAfter: "2h"
     # -- Advanced scraper knobs; empty = backend default (numeric 0 is a valid value and is passed through).

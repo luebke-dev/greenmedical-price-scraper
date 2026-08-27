@@ -25,7 +25,7 @@ Verbindlich ist `docs/api-contract.md`; Kurzfassung der Lese-Endpoints:
 
 | Endpoint | Inhalt |
 |---|---|
-| `GET /api/v1/metadata` | Kennzahlen des letzten usable Runs (vorserialisiert) |
+| `GET /api/v1/metadata` | Kennzahlen des letzten usable Runs plus Live-Felder `next_run_at` (nächster Cron-Lauf, `null` bei `SCRAPE_ENABLED=false`), `scrape_running` (Lauf mit Status `running` in der DB) und `schedule` (`{cron, timezone}`); pro Request serialisiert, `Cache-Control: public, max-age=60`, kein ETag |
 | `GET /api/v1/strains` | **Serverseitig paginierte** Sortenliste (`StrainsPage`): `q`, `genetik` (kommagetrennt, case-insensitiv), `price_/thc_/cbd_min|max` (inklusive; Sorten ohne Wert nur ohne Grenzen), `rating_min`, `sort` (`price` \| `price_per_thc_gram` \| `thc` \| `cbd` \| `pharmacy_count` \| `rating` \| `name` \| `bezeichnung` \| `genetik`), `dir`, `limit` 1–500 (Default 50), `offset`. Einträge ohne `offers`/`search`; `facets` über alle Sorten des Laufs; ETag `"run-<id>[-r<ms>]-<fnv1a der normalisierten Query>"`, 304 bei `If-None-Match` |
 | `GET /api/v1/strains/{id}` | Detail inkl. `offers` und `search` |
 | `GET /api/v1/strains/{id}/history` | Preisverlauf (`bucket=run\|day`, optional `pharmacies=true`) |
@@ -59,9 +59,9 @@ ahmt `Intl.Collator('de', { numeric: true, sensitivity: 'base' })` nach
 | `LOG_FORMAT` / `RUST_LOG` | `json` / `info,sqlx=warn` | |
 | `MIGRATE_ON_STARTUP` | `true` | `sqlx::migrate!` beim Start (replikasicher via Advisory-Lock) |
 | `SCRAPE_ENABLED` | `true` | Scheduler an/aus, API läuft immer |
-| `SCRAPE_CRON` | `0 0 4,10,16,22 * * *` | `cron`-Crate-Format (sec min hour dom mon dow) |
+| `SCRAPE_CRON` | `0 0 * * * *` | `cron`-Crate-Format (sec min hour dom mon dow) |
 | `SCRAPE_TIMEZONE` | `Europe/Berlin` | Zeitzone für Cron und Tages-Buckets |
-| `SCRAPE_BOOTSTRAP` / `SCRAPE_BOOTSTRAP_MAX_AGE` | `true` / `8h` | Sofort scrapen, wenn kein/zu alter Lauf |
+| `SCRAPE_BOOTSTRAP` / `SCRAPE_BOOTSTRAP_MAX_AGE` | `true` / `2h` | Sofort scrapen, wenn kein/zu alter Lauf |
 | `SCRAPE_STALE_RUN_AFTER` | `2h` | ältere `running`-Läufe werden `failed` |
 | `SCRAPE_BASE_URL` | `https://greenmedical.health` | in Tests auf wiremock umgebogen |
 | `SCRAPE_USER_AGENT` | Firefox-UA | wie im alten Python-Scraper |
@@ -167,6 +167,11 @@ API-Änderungen und beim Scheduler-Tick).
 
 Die Read-Endpoints (`/metadata`, `/strains`, `/export.*`, `offer_count_latest` in
 `/pharmacies`) werden aus einem vorserialisierten Snapshot des letzten usable Runs bedient.
+Ausnahme `/metadata`: der Snapshot-Teil wird pro Request um die Live-Felder ergänzt –
+`next_run_at` rein aus Cron + Zeitzone berechnet (jedes Replikat liefert denselben Wert),
+`scrape_running` per `SELECT EXISTS … WHERE status = 'running'` über den Partial-Index
+`scrape_runs_running_idx`. Weil sich die Antwort mit der Zeit ändert, gibt es hier keinen
+ETag, nur `Cache-Control: public, max-age=60`.
 Das Replikat, das gescrapt hat, verwirft seinen Cache sofort; alle anderen prüfen höchstens
 alle `SNAPSHOT_REVALIDATE_INTERVAL` mit `SELECT id … ORDER BY started_at DESC LIMIT 1`
 (Partial-Index), ob ein neuerer Lauf existiert, und bauen den Snapshot dann neu. Die maximale

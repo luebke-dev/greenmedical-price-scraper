@@ -78,7 +78,7 @@ services:
       # Scheduler off by default for local work; trigger runs via POST /api/v1/admin/scrape.
       SCRAPE_ENABLED: ${SCRAPE_ENABLED:-false}
       SCRAPE_BOOTSTRAP: ${SCRAPE_BOOTSTRAP:-false}
-      SCRAPE_CRON: ${SCRAPE_CRON:-0 0 4,10,16,22 * * *}
+      SCRAPE_CRON: ${SCRAPE_CRON:-0 0 * * * *}
       SCRAPE_TIMEZONE: ${SCRAPE_TIMEZONE:-Europe/Berlin}
       ADMIN_TOKEN: ${ADMIN_TOKEN:-}
       # Price alerts: mails go to the Mailpit container (UI http://localhost:8025).

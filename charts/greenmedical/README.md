@@ -4,7 +4,7 @@ Deployt den **GreenMedical Livebestand** auf Kubernetes:
 
 | Komponente | Image | Ports | Aufgabe |
 |---|---|---|---|
-| `backend` | `ghcr.io/luebke-dev/greenmedical-backend` | `8080` (HTTP-API), `9090` (Prometheus) | Scraper-Scheduler (4×/Tag), REST-API `/api/v1`, Migrationen |
+| `backend` | `ghcr.io/luebke-dev/greenmedical-backend` | `8080` (HTTP-API), `9090` (Prometheus) | Scraper-Scheduler (stündlich), REST-API `/api/v1`, Migrationen |
 | `frontend` | `ghcr.io/luebke-dev/greenmedical-frontend` | `8080` (Container) → Service `80` | nginx mit Quasar-SPA, proxied `/api/` an das Backend |
 
 Das Chart legt **keine Datenbank** an. Eine PostgreSQL-Instanz (≥ 14, getestet mit 17) muss extern
@@ -172,9 +172,9 @@ Vollständige Liste mit Kommentaren: [`values.yaml`](values.yaml). Typen und Enu
 | `backend.replicaCount` | `1` | mehrere Replikas sind sicher – nur eine scrapt (Advisory-Lock) |
 | `backend.image.tag` / `digest` | `appVersion` / `""` | Image-Version |
 | `backend.config.scrapeEnabled` | `true` | Scheduler an/aus (API läuft immer) |
-| `backend.config.scrapeCron` | `0 0 4,10,16,22 * * *` | `cron`-Crate-Format (sec min hour dom mon dow) |
+| `backend.config.scrapeCron` | `0 0 * * * *` | `cron`-Crate-Format (sec min hour dom mon dow) |
 | `backend.config.scrapeTimezone` | `Europe/Berlin` | IANA-Zeitzone für den Cron |
-| `backend.config.scrapeBootstrap` | `true` | beim Start scrapen, wenn kein Lauf jünger als `scrapeBootstrapMaxAge` (8h) |
+| `backend.config.scrapeBootstrap` | `true` | beim Start scrapen, wenn kein Lauf jünger als `scrapeBootstrapMaxAge` (2h) |
 | `backend.config.migrateOnStartup` | `true` | sqlx-Migrationen beim Start (replikasicher) |
 | `backend.config.logFormat` | `json` | `json` \| `pretty` |
 | `backend.config.databaseMaxConnections` | `10` | Pool-Größe (≥ 4) |

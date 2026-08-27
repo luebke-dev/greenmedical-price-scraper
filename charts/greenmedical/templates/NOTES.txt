@@ -34,7 +34,7 @@ Datenbank
 Scraper
 {{- if $cfg.scrapeEnabled }}
   aktiv – Cron "{{ $cfg.scrapeCron }}" in Zeitzone {{ $cfg.scrapeTimezone }}
-  Bootstrap beim Start: {{ if $cfg.scrapeBootstrap }}ja (wenn kein Lauf jünger als {{ $cfg.scrapeBootstrapMaxAge | default "8h" }} vorliegt){{ else }}nein{{ end }}
+  Bootstrap beim Start: {{ if $cfg.scrapeBootstrap }}ja (wenn kein Lauf jünger als {{ $cfg.scrapeBootstrapMaxAge | default "2h" }} vorliegt){{ else }}nein{{ end }}
 {{- else }}
   deaktiviert (SCRAPE_ENABLED=false). Läufe nur manuell über POST /api/v1/admin/scrape.
 {{- end }}

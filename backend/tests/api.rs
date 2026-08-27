@@ -101,8 +101,15 @@ async fn metadata_equals_pure_function_output(pool: PgPool) {
 
     let stored = offers::for_run(&pool, run.id).await.unwrap();
     let strains = domain::group_by_strain(&stored);
-    let expected = domain::build_metadata(&stored, &strains, run.finished_at.unwrap(), run.clone());
+    let mut expected =
+        domain::build_metadata(&stored, &strains, run.finished_at.unwrap(), run.clone());
+    // Live fields are filled by the handler, not by the pure function.
+    expected.next_run_at = body["next_run_at"]
+        .as_str()
+        .map(|s| s.parse().expect("rfc3339"));
+    expected.schedule = state.config.schedule_dto();
     assert_eq!(body, serde_json::to_value(&expected).unwrap());
+    assert_eq!(body["scrape_running"], false);
     assert_eq!(body["total"], 4);
     assert_eq!(body["strain_count"], 3);
     assert_eq!(body["pharmacy_count"], 2);
@@ -116,6 +123,65 @@ async fn metadata_equals_pure_function_output(pool: PgPool) {
         body["generated_at"],
         serde_json::to_value(run.finished_at.unwrap()).unwrap()
     );
+}
+
+#[sqlx::test(migrations = "./migrations")]
+async fn metadata_reports_next_run_schedule_and_running_flag(pool: PgPool) {
+    let site = MockSite::start(default_site()).await;
+    let mut config = test_config(&site.base_url());
+    // The repo-root `.env` (loaded by sqlx::test) may disable the scheduler: pin it.
+    config.scrape_enabled = true;
+    config.scrape_cron = "0 0 * * * *".parse().unwrap();
+    config.scrape_timezone = chrono_tz::Europe::Berlin;
+    let state = test_state_with(pool.clone(), config);
+    scrape_now(&state, RunTrigger::Manual).await.unwrap();
+    let app = build_router(state.clone());
+
+    let before = Utc::now();
+    let (status, headers, body) = get(&app, "/api/v1/metadata").await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        headers.get(header::CACHE_CONTROL).unwrap(),
+        "public, max-age=60"
+    );
+    assert!(headers.get(header::ETAG).is_none(), "metadata has no ETag");
+    let body: Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(body["scrape_running"], false);
+    assert_eq!(
+        body["schedule"],
+        serde_json::json!({ "cron": "0 0 * * * *", "timezone": "Europe/Berlin" })
+    );
+    let next: chrono::DateTime<Utc> = body["next_run_at"].as_str().unwrap().parse().unwrap();
+    assert!(next > before);
+    assert!(next <= before + Duration::hours(1) + Duration::seconds(1));
+    assert_eq!(
+        (next.timestamp_subsec_nanos(), next.timestamp() % 3600),
+        (0, 0)
+    );
+    // Same instant the scheduler would compute.
+    assert_eq!(Some(next), state.config.next_scrape_at(before));
+
+    // A run in progress (started by any replica) flips the flag.
+    runs::insert_running(&pool, RunTrigger::Schedule, "other")
+        .await
+        .unwrap();
+    let (_, body) = get_json(&app, "/api/v1/metadata").await;
+    assert_eq!(body["scrape_running"], true);
+}
+
+#[sqlx::test(migrations = "./migrations")]
+async fn metadata_next_run_is_null_when_scheduler_disabled(pool: PgPool) {
+    let site = MockSite::start(default_site()).await;
+    let mut config = test_config(&site.base_url());
+    config.scrape_enabled = false;
+    let state = test_state_with(pool, config);
+    scrape_now(&state, RunTrigger::Manual).await.unwrap();
+    let app = build_router(state);
+    let (status, body) = get_json(&app, "/api/v1/metadata").await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["next_run_at"], Value::Null);
+    assert_eq!(body["schedule"], Value::Null);
+    assert_eq!(body["scrape_running"], false);
 }
 
 #[sqlx::test(migrations = "./migrations")]

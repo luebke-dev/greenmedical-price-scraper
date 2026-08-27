@@ -18,7 +18,7 @@ use crate::domain::{
     PharmacySeriesPointDto, RangeDto, RatingDistributionDto, RatingDto, RatingHistoryPointDto,
     ReviewDto, ReviewSummaryDto, ReviewsResponseDto, RuleDto, RuleInputDto, RuleKind,
     RulesUpdateDto, RunDetailDto, RunDto, RunErrorDto, RunStatus, RunTrigger, RunsResponseDto,
-    SortDto, StrainDetailDto, StrainDto, StrainListItemDto, StrainsPageDto,
+    ScheduleDto, SortDto, StrainDetailDto, StrainDto, StrainListItemDto, StrainsPageDto,
     SubscriptionAcceptedDto, SubscriptionCreateDto, SubscriptionDto, TrendDirection, TrendDto,
 };
 
@@ -86,7 +86,7 @@ impl Modify for Security {
         RunStatus, RunTrigger, RunDto, RunErrorDto, RunDetailDto, RunsResponseDto,
         OfferDto, SortDto, RatingDto, TrendDirection, TrendDto, StrainDto, StrainDetailDto,
         StrainListItemDto, GenetikFacetDto, RangeDto, FacetsDto, StrainsPageDto,
-        HighlightDto, MetadataDto,
+        HighlightDto, ScheduleDto, MetadataDto,
         HistoryBucket, HistoryPointDto, PharmacySeriesPointDto, PharmacySeriesDto, HistoryDto,
         OfferHistoryMode, OfferHistoryRowDto, OfferPhaseRowDto, OfferHistoryRows, OfferHistoryPageDto,
         ReviewDto, RatingDistributionDto, ReviewSummaryDto, RatingHistoryPointDto, ReviewsResponseDto,
@@ -211,6 +211,7 @@ mod tests {
             "StrainsPageDto",
             "StrainDetailDto",
             "MetadataDto",
+            "ScheduleDto",
             "HistoryDto",
             "OfferHistoryPageDto",
             "ReviewsResponseDto",
@@ -253,6 +254,12 @@ mod tests {
             "offset",
         ] {
             assert!(params.contains(&name), "strains lacks query param {name}");
+        }
+        for field in ["next_run_at", "scrape_running", "schedule"] {
+            assert!(
+                schemas["MetadataDto"]["properties"][field].is_object(),
+                "MetadataDto lacks {field}"
+            );
         }
         // Serde field names survive.
         assert!(schemas["RatingDistributionDto"]["properties"]["1"].is_object());

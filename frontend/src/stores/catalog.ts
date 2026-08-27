@@ -31,6 +31,9 @@ export const useCatalogStore = defineStore('catalog', () => {
   const loading = ref(false);
   const error = ref<string | null>(null);
   const details = shallowRef(new Map<number, StrainDetail>());
+  // Incremented when a new scrape run has landed (see useRefreshSchedule); pages watch it and
+  // reload their data for the new run.
+  const runChanged = ref(0);
 
   let metadataInflight: Promise<void> | null = null;
   let controller: AbortController | null = null;
@@ -113,6 +116,12 @@ export const useCatalogStore = defineStore('catalog', () => {
     details.value = new Map();
   }
 
+  /** A new run is live: drop the per-run detail cache and tell the pages to reload. */
+  function markRunChanged(): void {
+    invalidateDetails();
+    runChanged.value += 1;
+  }
+
   return {
     metadata,
     metadataError,
@@ -125,10 +134,13 @@ export const useCatalogStore = defineStore('catalog', () => {
     loading,
     error,
     latestAt,
+    runChanged,
     load,
+    loadMetadata,
     loadPage,
     refresh,
     loadDetail,
     invalidateDetails,
+    markRunChanged,
   };
 });

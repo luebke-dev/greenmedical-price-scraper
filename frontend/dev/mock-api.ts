@@ -65,6 +65,14 @@ interface Fixtures {
   reviews: Record<string, Review[]>;
 }
 
+/** Next full hour (UTC) as RFC 3339 – the mock's stand-in for the hourly schedule. */
+function nextFullHour(now: Date = new Date()): string {
+  const next = new Date(now);
+  next.setUTCMinutes(0, 0, 0);
+  next.setUTCHours(next.getUTCHours() + 1);
+  return next.toISOString();
+}
+
 const CSV_HEADER =
   'apotheke,apotheke_plz,apotheke_stadt,name,bezeichnung,genetik,thc,cbd,preis_pro_gramm,verfuegbarkeit,produkt_url';
 
@@ -123,6 +131,9 @@ function shiftTimestamps(fixtures: Fixtures): Fixtures {
       ...fixtures.metadata,
       generated_at: shift(fixtures.metadata.generated_at) ?? fixtures.metadata.generated_at,
       run: shiftRun(fixtures.metadata.run),
+      next_run_at: nextFullHour(),
+      scrape_running: false,
+      schedule: { cron: '0 0 * * * *', timezone: 'Europe/Berlin' },
     },
     strains: {
       run: shiftRun(fixtures.strains.run),
@@ -488,7 +499,15 @@ function handle(
     return error(405, 'bad_request', 'method not allowed');
   }
 
-  if (rest === '/metadata') return json(200, fixtures.metadata);
+  if (rest === '/metadata') {
+    // `?__running=1` simulates a scrape in progress (banner spinner + polling).
+    const running = url.searchParams.get('__running') === '1';
+    return json(200, {
+      ...fixtures.metadata,
+      next_run_at: nextFullHour(),
+      scrape_running: running,
+    });
+  }
 
   if (rest === '/strains') return strainsPage(fixtures, url, ifNoneMatch);
 

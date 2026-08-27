@@ -142,6 +142,7 @@ import {
   type HistoryPreset,
 } from '@/lib/history';
 import { strainErrorMessage, useCatalogStore } from '@/stores/catalog';
+import { useHistoryStore } from '@/stores/history';
 import { useNavigationStore } from '@/stores/navigation';
 
 defineOptions({ name: 'StrainPage' });
@@ -181,29 +182,29 @@ const latestAt = computed(
 
 let controller: AbortController | null = null;
 
-watch(
-  strainId,
-  async (id) => {
-    controller?.abort();
-    detail.value = null;
-    error.value = null;
-    if (id === null) {
-      error.value = de.strain.notFound;
-      return;
-    }
-    controller = new AbortController();
-    const signal = controller.signal;
-    try {
-      const result = await catalog.loadDetail(id, signal);
-      if (signal.aborted) return;
-      detail.value = result;
-    } catch (cause) {
-      if (signal.aborted) return;
-      error.value = strainErrorMessage(cause);
-    }
-  },
-  { immediate: true },
-);
+/** Loads the detail; `keepStale` leaves the old data visible while the new run is fetched. */
+async function loadDetail(keepStale = false): Promise<void> {
+  const id = strainId.value;
+  controller?.abort();
+  if (!keepStale) detail.value = null;
+  error.value = null;
+  if (id === null) {
+    error.value = de.strain.notFound;
+    return;
+  }
+  controller = new AbortController();
+  const signal = controller.signal;
+  try {
+    const result = await catalog.loadDetail(id, signal);
+    if (signal.aborted) return;
+    detail.value = result;
+  } catch (cause) {
+    if (signal.aborted) return;
+    error.value = strainErrorMessage(cause);
+  }
+}
+
+watch(strainId, () => void loadDetail(), { immediate: true });
 
 onBeforeUnmount(() => controller?.abort());
 
@@ -211,11 +212,24 @@ const preset = ref<HistoryPreset>(DEFAULT_PRESET);
 const thcMode = ref(false);
 const pharmacies = ref(false);
 
+const historyStore = useHistoryStore();
 const {
   history,
   loading: historyLoading,
   error: historyError,
+  reload: reloadHistory,
 } = useHistoryQuery(strainId, preset, pharmacies);
+
+// A new scrape run has landed: detail, history, offers (part of the detail) and reviews are
+// refetched; the offer-history table and the reviews section watch the counter themselves.
+watch(
+  () => catalog.runChanged,
+  () => {
+    void loadDetail(true);
+    historyStore.clear();
+    void reloadHistory();
+  },
+);
 
 const series = computed(() =>
   history.value

@@ -116,6 +116,7 @@ import {
   useReviewsStore,
   type ReviewsEntry,
 } from '@/stores/reviews';
+import { useCatalogStore } from '@/stores/catalog';
 import EmptyState from './EmptyState.vue';
 import RatingStars from './RatingStars.vue';
 import TablePager from './TablePager.vue';
@@ -125,6 +126,7 @@ const SORT_OPTIONS: readonly ReviewSort[] = ['newest', 'oldest', 'highest', 'low
 const props = defineProps<{ strainId: number }>();
 
 const store = useReviewsStore();
+const catalog = useCatalogStore();
 const sort = ref<ReviewSort>(DEFAULT_REVIEW_SORT);
 const pageNumber = ref(1);
 const size = ref(DEFAULT_REVIEW_PAGE_SIZE);
@@ -178,6 +180,14 @@ watch([() => props.strainId, sort], () => {
   pageNumber.value = 1;
 });
 watch([() => props.strainId, sort, pageNumber, size], load, { immediate: true });
+// New scrape run: cached pages belong to the old run.
+watch(
+  () => catalog.runChanged,
+  () => {
+    store.clear();
+    load();
+  },
+);
 onBeforeUnmount(() => {
   generation += 1;
   store.abortAll();

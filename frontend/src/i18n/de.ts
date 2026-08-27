@@ -12,6 +12,16 @@ export const de = {
     footer: 'Quelle: greenmedical.health. Preise und Verfügbarkeit können sich kurzfristig ändern.',
     home: 'Zur Startseite',
   },
+  refresh: {
+    lessThanMinute: 'Nächste Aktualisierung in weniger als einer Minute',
+    minute: 'Nächste Aktualisierung in 1 Minute',
+    minutes: 'Nächste Aktualisierung in {n} Minuten',
+    hours: 'Nächste Aktualisierung in {h} Std.',
+    hoursMinutes: 'Nächste Aktualisierung in {h} Std. {m} Min.',
+    running: 'Aktualisierung läuft …',
+    overdue: 'Aktualisierung steht an …',
+    updated: 'Daten aktualisiert',
+  },
   metrics: {
     heading: 'Kennzahlen',
     offers: 'Angebote',

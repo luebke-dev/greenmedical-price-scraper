@@ -242,7 +242,22 @@ pub struct HighlightDto {
     pub review_count: Option<i32>,
 }
 
+/// `Metadata.schedule`: the active scrape schedule.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+pub struct ScheduleDto {
+    /// `cron` crate expression (sec min hour dom mon dow).
+    #[schema(example = "0 0 * * * *")]
+    pub cron: String,
+    /// IANA timezone the expression is evaluated in.
+    #[schema(example = "Europe/Berlin")]
+    pub timezone: String,
+}
+
 /// `Metadata` in the contract.
+///
+/// `next_run_at`, `scrape_running` and `schedule` are live fields: the snapshot
+/// stores them as `None`/`false`/`None` and `GET /api/v1/metadata` fills them
+/// per request (see `api::handlers::metadata`).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
 pub struct MetadataDto {
     pub generated_at: DateTime<Utc>,
@@ -261,6 +276,15 @@ pub struct MetadataDto {
     /// [`BEST_RATED_MIN_REVIEWS`] reviews; ties go to the strain with more reviews.
     pub best_rated: Option<HighlightDto>,
     pub run: RunDto,
+    /// Next scheduled scrape (RFC 3339 UTC), `null` when the scheduler is disabled.
+    #[serde(default)]
+    pub next_run_at: Option<DateTime<Utc>>,
+    /// A run with status `running` exists (any replica).
+    #[serde(default)]
+    pub scrape_running: bool,
+    /// Active schedule, `null` when the scheduler is disabled.
+    #[serde(default)]
+    pub schedule: Option<ScheduleDto>,
 }
 
 /// Minimum `review_count` for a strain to qualify as `best_rated`.

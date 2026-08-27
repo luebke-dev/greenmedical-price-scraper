@@ -255,6 +255,9 @@ export function makeMetadata(overrides: Partial<Metadata> = {}): Metadata {
     highest_thc_cbd: { ...highlight, thc: '20%', cbd: '10%' },
     best_rated: { ...highlight, name: 'Bunatic', rating_value: 4.7, review_count: 13 },
     run: makeRun(),
+    next_run_at: '2026-08-27T21:00:00Z',
+    scrape_running: false,
+    schedule: { cron: '0 0 * * * *', timezone: 'Europe/Berlin' },
     ...overrides,
   };
 }

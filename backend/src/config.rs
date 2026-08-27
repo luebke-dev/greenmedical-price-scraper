@@ -150,7 +150,8 @@ pub struct Config {
     pub scrape_enabled: bool,
 
     /// `cron` crate format: sec min hour day-of-month month day-of-week.
-    #[arg(long, env = "SCRAPE_CRON", default_value = "0 0 4,10,16,22 * * *", value_parser = parse_cron)]
+    /// Default: every full hour (in `SCRAPE_TIMEZONE`).
+    #[arg(long, env = "SCRAPE_CRON", default_value = "0 0 * * * *", value_parser = parse_cron)]
     pub scrape_cron: cron::Schedule,
 
     #[arg(long, env = "SCRAPE_TIMEZONE", default_value = "Europe/Berlin", value_parser = parse_timezone)]
@@ -159,7 +160,7 @@ pub struct Config {
     #[arg(long, env = "SCRAPE_BOOTSTRAP", default_value = "true", value_parser = BoolishValueParser::new(), action = ArgAction::Set)]
     pub scrape_bootstrap: bool,
 
-    #[arg(long, env = "SCRAPE_BOOTSTRAP_MAX_AGE", default_value = "8h", value_parser = parse_duration)]
+    #[arg(long, env = "SCRAPE_BOOTSTRAP_MAX_AGE", default_value = "2h", value_parser = parse_duration)]
     pub scrape_bootstrap_max_age: Duration,
 
     #[arg(long, env = "SCRAPE_STALE_RUN_AFTER", default_value = "2h", value_parser = parse_duration)]
@@ -363,6 +364,27 @@ impl Config {
             .unwrap_or_else(|| "unknown".to_owned())
     }
 
+    /// Next scheduled scrape strictly after `now`, or `None` when the
+    /// scheduler is disabled. Pure function of the configuration, so every
+    /// replica reports the same value (`Metadata.next_run_at`).
+    pub fn next_scrape_at(
+        &self,
+        now: chrono::DateTime<chrono::Utc>,
+    ) -> Option<chrono::DateTime<chrono::Utc>> {
+        if !self.scrape_enabled {
+            return None;
+        }
+        crate::scheduler::next_fire(&self.scrape_cron, self.scrape_timezone, now)
+    }
+
+    /// `Metadata.schedule`: active cron + timezone, `None` when disabled.
+    pub fn schedule_dto(&self) -> Option<crate::domain::ScheduleDto> {
+        self.scrape_enabled.then(|| crate::domain::ScheduleDto {
+            cron: self.scrape_cron.source().to_owned(),
+            timezone: self.scrape_timezone.name().to_owned(),
+        })
+    }
+
     /// Origins list without empty entries.
     pub fn cors_origins(&self) -> Vec<String> {
         self.cors_allowed_origins
@@ -395,10 +417,10 @@ mod tests {
         assert_eq!(cfg.log_format, LogFormat::Json);
         assert!(cfg.migrate_on_startup);
         assert!(cfg.scrape_enabled);
-        assert_eq!(cfg.scrape_cron.source(), "0 0 4,10,16,22 * * *");
+        assert_eq!(cfg.scrape_cron.source(), "0 0 * * * *");
         assert_eq!(cfg.scrape_timezone, chrono_tz::Europe::Berlin);
         assert!(cfg.scrape_bootstrap);
-        assert_eq!(cfg.scrape_bootstrap_max_age, Duration::from_secs(8 * 3600));
+        assert_eq!(cfg.scrape_bootstrap_max_age, Duration::from_secs(2 * 3600));
         assert_eq!(cfg.scrape_stale_run_after, Duration::from_secs(2 * 3600));
         assert_eq!(cfg.scrape_base_url.as_str(), "https://greenmedical.health/");
         assert_eq!(cfg.scrape_user_agent, DEFAULT_USER_AGENT);
@@ -560,6 +582,26 @@ mod tests {
             cli.command,
             Some(Command::ScrapeOnce { reviews_only: true })
         );
+    }
+
+    #[test]
+    fn next_scrape_at_is_none_when_disabled() {
+        let now = chrono::DateTime::parse_from_rfc3339("2026-08-27T10:20:00Z")
+            .unwrap()
+            .with_timezone(&chrono::Utc);
+        let cfg = parse(&[]);
+        assert_eq!(
+            cfg.next_scrape_at(now).unwrap().to_rfc3339(),
+            "2026-08-27T11:00:00+00:00"
+        );
+        let schedule = cfg.schedule_dto().unwrap();
+        assert_eq!(
+            (schedule.cron.as_str(), schedule.timezone.as_str()),
+            ("0 0 * * * *", "Europe/Berlin")
+        );
+        let off = parse(&["--scrape-enabled", "false"]);
+        assert_eq!(off.next_scrape_at(now), None);
+        assert_eq!(off.schedule_dto(), None);
     }
 
     #[test]
