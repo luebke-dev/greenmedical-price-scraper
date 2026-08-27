@@ -55,7 +55,7 @@
         <p v-if="!detail.in_latest_run" class="notice" role="status">
           {{ de.strain.notInLatestRun }}
         </p>
-        <div class="facts-actions">
+        <div v-if="catalog.metadata?.email_enabled" class="facts-actions">
           <router-link
             class="back-link alert-button"
             :to="{ name: 'subscribe', query: { strain_id: String(detail.id) } }"

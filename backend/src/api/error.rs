@@ -97,6 +97,14 @@ impl ApiError {
         }
     }
 
+    pub fn service_unavailable(message: impl Into<String>) -> Self {
+        Self {
+            status: StatusCode::SERVICE_UNAVAILABLE,
+            code: "unavailable",
+            message: message.into(),
+        }
+    }
+
     /// `405` for a known path with an unsupported method. The contract's code
     /// enum has no dedicated value, so the closest client-error code is used.
     pub fn method_not_allowed() -> Self {

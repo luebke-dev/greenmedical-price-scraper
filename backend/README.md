@@ -74,7 +74,7 @@ ahmt `Intl.Collator('de', { numeric: true, sensitivity: 'base' })` nach
 | `ADMIN_TOKEN` | leer | leer ⇒ Admin-Endpoint antwortet 404 |
 | `INSTANCE_NAME` | `$HOSTNAME` | Label auf `scrape_runs.instance` |
 | `PUBLIC_URL` | `http://localhost:9000` | Basis der Links in Mails (`/sorte/{id}`, `/abo/bestaetigen?token=`, `/abo/verwalten?token=`) |
-| `EMAIL_ENABLED` | `false` | `false` ⇒ Mails werden nur geloggt (Empfänger, Betreff, Text auf INFO) |
+| `EMAIL_ENABLED` | `false` | `false` ⇒ Preisalarm-Erstellung und Mailversand sind deaktiviert |
 | `SMTP_HOST`, `SMTP_PORT` | –, `587` | SMTP-Relay (`lettre`, rustls – kein OpenSSL); `SMTP_HOST` ist Pflicht bei `EMAIL_ENABLED=true` |
 | `SMTP_USERNAME`, `SMTP_PASSWORD` | – | optional; PLAIN/LOGIN-Auth nur wenn beide gesetzt |
 | `SMTP_TLS` | `starttls` | `starttls` \| `tls` (implizit, Port 465) \| `none` (z. B. mailpit) |
@@ -155,7 +155,7 @@ Mails (`src/mail/templates.rs`, deutsch, Text + einfaches HTML): Bestätigung �
 deinen Preisalarm“ mit `PUBLIC_URL/abo/bestaetigen?token=…`; Digest „Preisalarm: N Ereignisse
 (TT.MM.JJJJ)“ (Datum in `SCRAPE_TIMEZONE`), je Regel eine Überschrift und Liste (Sorte, Preis
 bzw. „vorher“-Preis, THC, Apotheke des günstigsten Angebots, Link `PUBLIC_URL/sorte/{id}`), Fußzeile
-`PUBLIC_URL/abo/verwalten?token=…`. `EMAIL_ENABLED=false` ⇒ `LogMailer` (nur Log);
+`PUBLIC_URL/abo/verwalten?token=…`. `EMAIL_ENABLED=false` deaktiviert das Anlegen von Abos;
 `true` ⇒ `SmtpMailer` (lettre, rustls). Lokal: mailpit aus `docker-compose.yml`
 (`SMTP_HOST=mailpit`, `SMTP_PORT=1025`, `SMTP_TLS=none`).
 

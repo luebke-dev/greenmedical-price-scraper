@@ -437,7 +437,7 @@ Präzisierungen (Backend-Implementierung, verbindlich):
 | Variable | Default | Bedeutung |
 |---|---|---|
 | `PUBLIC_URL` | `http://localhost:9000` | Basis für Links in Mails (`/sorte/{id}`, `/abo/bestaetigen?token=`, `/abo/verwalten?token=`) |
-| `EMAIL_ENABLED` | `false` | `false` ⇒ Mails werden nur geloggt (Betreff + Empfänger + Text auf INFO) |
+| `EMAIL_ENABLED` | `false` | `false` ⇒ Preisalarm-Erstellung und Mailversand sind deaktiviert |
 | `SMTP_HOST`, `SMTP_PORT` (`587`), `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_TLS` (`starttls\|tls\|none`) | – | SMTP via `lettre` |
 | `EMAIL_FROM` | `GreenMedical Livebestand <noreply@localhost>` | Absender |
 | `SUBSCRIPTION_RATE_LIMIT` | `5/1h` | max. Anlegen/Bestätigungsmails pro IP (in-memory) |

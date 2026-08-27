@@ -130,7 +130,7 @@ adminToken:
 ## Preisalarm-E-Mails
 
 Das Backend verschickt Bestätigungs- und Preisalarm-Mails (siehe `docs/api-contract.md`, „Preisalarm-Abos“).
-Ohne `email.enabled=true` werden Mails nur geloggt – Abos lassen sich dann nicht bestätigen.
+Ohne `email.enabled=true` werden Preisalarm-Erstellung und Mailversand deaktiviert.
 
 ```yaml
 backend:

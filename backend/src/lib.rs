@@ -127,7 +127,7 @@ pub async fn serve(config: Config) -> anyhow::Result<()> {
             "e-mail delivery via SMTP"
         );
     } else {
-        info!("e-mail delivery disabled (EMAIL_ENABLED=false), mails are logged");
+        info!("e-mail delivery and subscription creation disabled (EMAIL_ENABLED=false)");
     }
     notify::refresh_gauge(&state).await;
 

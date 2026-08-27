@@ -218,7 +218,7 @@ pub struct Config {
     #[arg(long, env = "PUBLIC_URL", default_value = "http://localhost:9000")]
     pub public_url: Url,
 
-    /// `false` ⇒ e-mails are only logged (recipient, subject, text on INFO).
+    /// `false` disables subscription creation and outbound e-mail delivery.
     #[arg(long, env = "EMAIL_ENABLED", default_value = "false", value_parser = BoolishValueParser::new(), action = ArgAction::Set)]
     pub email_enabled: bool,
 

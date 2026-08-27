@@ -57,8 +57,7 @@ adminToken:
 # E-mail (price alert subscriptions)
 # ---------------------------------------------------------------------------
 email:
-  # -- Send mails via SMTP. When false the backend only logs them (subject, recipient, text on INFO);
-  # subscriptions can still be created but nobody can confirm them.
+  # -- Send mails via SMTP. When false subscription creation and delivery are disabled.
   enabled: false
   # -- Sender address (`Name <addr>` or plain address). Empty = backend default
   # (`GreenMedical Livebestand <noreply@localhost>`).

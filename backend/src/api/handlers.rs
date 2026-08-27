@@ -154,6 +154,7 @@ pub async fn metadata(State(state): State<SharedState>) -> Result<Response, ApiE
         next_run_at: state.config.next_scrape_at(now),
         scrape_running,
         schedule: state.config.schedule_dto(),
+        email_enabled: state.config.email_enabled,
         ..snapshot.metadata.clone()
     };
     let body = Bytes::from(serde_json::to_vec(&metadata).expect("serialisable"));

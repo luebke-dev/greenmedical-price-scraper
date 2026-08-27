@@ -141,6 +141,7 @@ pub fn build_metadata(
         next_run_at: None,
         scrape_running: false,
         schedule: None,
+        email_enabled: false,
     }
 }
 

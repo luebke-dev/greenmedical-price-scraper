@@ -16,7 +16,9 @@
       </div>
     </div>
     <nav class="links" :aria-label="de.app.nav">
-      <router-link :to="{ name: 'subscribe' }">{{ de.app.alerts }}</router-link>
+      <router-link v-if="metadata?.email_enabled" :to="{ name: 'subscribe' }">{{
+        de.app.alerts
+      }}</router-link>
       <a :href="API_DOCS_URL" target="_blank" rel="noopener" :aria-label="de.app.apiAria">{{
         de.app.api
       }}</a>

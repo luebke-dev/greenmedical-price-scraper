@@ -164,6 +164,7 @@ fn accepted() -> Response {
             headers(("Cache-Control" = String, description = "`no-store`"))),
         (status = 400, description = "Ungültige E-Mail oder Regeln", body = crate::api::error::ErrorEnvelopeDto),
         (status = 429, description = "Rate-Limit pro IP überschritten (`SUBSCRIPTION_RATE_LIMIT`)", body = crate::api::error::ErrorEnvelopeDto),
+        (status = 503, description = "E-Mail-Versand ist nicht konfiguriert", body = crate::api::error::ErrorEnvelopeDto),
     )
 )]
 pub async fn create(
@@ -171,6 +172,11 @@ pub async fn create(
     ClientIp(ip): ClientIp,
     ApiJson(body): ApiJson<SubscriptionCreateDto>,
 ) -> Result<Response, ApiError> {
+    if !state.config.email_enabled {
+        return Err(ApiError::service_unavailable(
+            "Preisalarme sind derzeit nicht verfügbar",
+        ));
+    }
     if body
         .website
         .as_deref()

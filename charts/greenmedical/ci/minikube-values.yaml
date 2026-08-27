@@ -32,7 +32,7 @@ frontend:
     tag: dev
     pullPolicy: Never
 
-# No mail server on minikube: mails are only logged. PUBLIC_URL is derived from the Ingress host.
+# No mail server on minikube: subscriptions and delivery are disabled. PUBLIC_URL comes from Ingress.
 email:
   enabled: false
 

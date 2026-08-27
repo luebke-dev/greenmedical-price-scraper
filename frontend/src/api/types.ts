@@ -122,6 +122,8 @@ export interface Metadata {
   /** Es existiert ein Lauf mit Status `running` (replikaübergreifend). */
   scrape_running: boolean;
   schedule: ScrapeSchedule | null;
+  /** Preisalarm-Erstellung und Mailversand sind serverseitig konfiguriert. */
+  email_enabled: boolean;
 }
 
 export interface ScrapeSchedule {

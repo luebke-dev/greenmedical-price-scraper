@@ -31,7 +31,7 @@ pub struct AppState {
     /// closing the pool, so a run cancelled by SIGTERM can still be marked failed.
     pub tasks: TaskTracker,
     pub instance: String,
-    /// Outbound e-mail (log-only unless `EMAIL_ENABLED=true`).
+    /// Outbound e-mail (`EMAIL_ENABLED=false` disables subscription creation).
     pub mailer: Arc<dyn Mailer>,
     /// Per-IP limit of `POST /api/v1/subscriptions`.
     pub rate_limiter: RateLimiter,

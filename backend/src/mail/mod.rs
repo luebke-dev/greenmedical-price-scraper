@@ -34,19 +34,17 @@ pub trait Mailer: Send + Sync {
     fn send(&self, email: Email) -> SendFuture<'_>;
 }
 
-/// `EMAIL_ENABLED=false`: logs recipient, subject and text on INFO, sends nothing.
+/// `EMAIL_ENABLED=false`: records only that delivery was skipped and sends nothing.
+///
+/// Recipient addresses and message bodies can contain personal data and bearer tokens, so
+/// they must never be written to production logs.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct LogMailer;
 
 impl Mailer for LogMailer {
-    fn send(&self, email: Email) -> SendFuture<'_> {
+    fn send(&self, _email: Email) -> SendFuture<'_> {
         Box::pin(async move {
-            info!(
-                to = %email.to,
-                subject = %email.subject,
-                text = %email.text,
-                "e-mail not sent (EMAIL_ENABLED=false)"
-            );
+            info!("e-mail not sent (EMAIL_ENABLED=false)");
             Ok(())
         })
     }

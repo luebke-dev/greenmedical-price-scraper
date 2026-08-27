@@ -258,6 +258,7 @@ export function makeMetadata(overrides: Partial<Metadata> = {}): Metadata {
     next_run_at: '2026-08-27T21:00:00Z',
     scrape_running: false,
     schedule: { cron: '0 0 * * * *', timezone: 'Europe/Berlin' },
+    email_enabled: true,
     ...overrides,
   };
 }

@@ -285,6 +285,9 @@ pub struct MetadataDto {
     /// Active schedule, `null` when the scheduler is disabled.
     #[serde(default)]
     pub schedule: Option<ScheduleDto>,
+    /// Whether subscription creation and outbound alert e-mail are available.
+    #[serde(default)]
+    pub email_enabled: bool,
 }
 
 /// Minimum `review_count` for a strain to qualify as `best_rated`.
